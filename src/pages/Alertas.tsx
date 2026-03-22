@@ -1,8 +1,8 @@
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { alerts, getUserById, projects } from "@/data/mockData";
-import { AlertTriangle, Clock, TrendingDown, Users } from "lucide-react";
+import { alerts } from "@/data/mockData";
+import { AlertTriangle, Clock, TrendingDown, Users, ListChecks, CalendarX } from "lucide-react";
 
 const severityColors = {
   high: "bg-destructive text-destructive-foreground",
@@ -16,11 +16,14 @@ const severityLabels = {
   low: "Info",
 };
 
-const typeIcons = {
+const typeIcons: Record<string, typeof AlertTriangle> = {
   atrasado: AlertTriangle,
   prazo_proximo: Clock,
   sobrecarga: Users,
   prejuizo: TrendingDown,
+  tarefa_atrasada: ListChecks,
+  tarefa_prazo_proximo: CalendarX,
+  tarefa_nao_iniciada: CalendarX,
 };
 
 export default function Alertas() {
@@ -39,7 +42,7 @@ export default function Alertas() {
 
         <div className="space-y-3">
           {sorted.map((alert, i) => {
-            const Icon = typeIcons[alert.type];
+            const Icon = typeIcons[alert.type] || AlertTriangle;
             return (
               <Card
                 key={alert.id}
@@ -52,6 +55,9 @@ export default function Alertas() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">{alert.message}</p>
+                    {alert.taskId && (
+                      <p className="text-xs text-muted-foreground mt-0.5">Tarefa</p>
+                    )}
                   </div>
                   <Badge variant="secondary" className={severityColors[alert.severity]}>
                     {severityLabels[alert.severity]}

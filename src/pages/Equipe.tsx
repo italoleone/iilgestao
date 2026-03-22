@@ -2,7 +2,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { users, projects, getUserAllocatedHours } from "@/data/mockData";
+import { users, projects, tasks, getUserAllocatedHours, getUserWorkedHours } from "@/data/mockData";
 import { ROLE_LABELS, DISCIPLINE_SHORT } from "@/types";
 
 export default function Equipe() {
@@ -17,10 +17,11 @@ export default function Equipe() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {users.map((user, i) => {
             const allocatedHours = getUserAllocatedHours(user.id);
+            const workedHours = getUserWorkedHours(user.id);
             const capacityPct = Math.round((allocatedHours / user.monthlyCapacityHours) * 100);
             const overloaded = capacityPct > 100;
-            const userProjects = projects.filter(
-              (p) => p.team.includes(user.id) && p.status !== "concluido"
+            const userTasks = tasks.filter(
+              (t) => t.responsible === user.id && t.status !== "concluida"
             );
 
             return (
@@ -61,8 +62,13 @@ export default function Equipe() {
                   </div>
 
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Horas alocadas</span>
+                    <span className="text-muted-foreground">Horas alocadas (tarefas)</span>
                     <span className="tabular-nums">{allocatedHours}h / {user.monthlyCapacityHours}h</span>
+                  </div>
+
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Horas realizadas</span>
+                    <span className="tabular-nums">{workedHours}h</span>
                   </div>
 
                   <div className="flex justify-between text-sm">
@@ -71,15 +77,15 @@ export default function Equipe() {
                   </div>
 
                   <div>
-                    <p className="text-xs text-muted-foreground mb-1.5">Projetos ativos ({userProjects.length})</p>
+                    <p className="text-xs text-muted-foreground mb-1.5">Tarefas ativas ({userTasks.length})</p>
                     <div className="flex flex-wrap gap-1">
-                      {userProjects.slice(0, 3).map((p) => (
-                        <Badge key={p.id} variant="secondary" className="text-xs">
-                          {p.name.length > 18 ? p.name.slice(0, 18) + "…" : p.name}
+                      {userTasks.slice(0, 3).map((t) => (
+                        <Badge key={t.id} variant="secondary" className="text-xs">
+                          {t.name.length > 20 ? t.name.slice(0, 20) + "…" : t.name}
                         </Badge>
                       ))}
-                      {userProjects.length > 3 && (
-                        <Badge variant="secondary" className="text-xs">+{userProjects.length - 3}</Badge>
+                      {userTasks.length > 3 && (
+                        <Badge variant="secondary" className="text-xs">+{userTasks.length - 3}</Badge>
                       )}
                     </div>
                   </div>
