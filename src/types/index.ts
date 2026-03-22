@@ -2,6 +2,7 @@ export type Discipline = 'estrutural' | 'hidraulica' | 'eletrica';
 export type UserRole = 'admin' | 'gerente' | 'coordenador' | 'projetista';
 export type ProjectStatus = 'em_andamento' | 'concluido' | 'atrasado' | 'pausado';
 export type StageStatus = 'pendente' | 'em_andamento' | 'concluido' | 'revisao';
+export type TaskStatus = 'nao_iniciada' | 'em_andamento' | 'concluida';
 
 export interface User {
   id: string;
@@ -31,6 +32,30 @@ export interface Revision {
   description: string;
 }
 
+export interface Task {
+  id: string;
+  name: string;
+  projectId: string;
+  discipline: Discipline;
+  stageName: string;
+  responsible: string;
+  startDate: string;
+  endDate: string;
+  estimatedHours: number;
+  hoursWorked: number;
+  status: TaskStatus;
+  attachments: TaskAttachment[];
+}
+
+export interface TaskAttachment {
+  id: string;
+  name: string;
+  url: string;
+  type: string;
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -51,6 +76,7 @@ export interface TimeEntry {
   id: string;
   userId: string;
   projectId: string;
+  taskId: string;
   stageId: string;
   startTime: string;
   endTime?: string;
@@ -59,11 +85,12 @@ export interface TimeEntry {
 
 export interface Alert {
   id: string;
-  type: 'atrasado' | 'prazo_proximo' | 'sobrecarga' | 'prejuizo';
+  type: 'atrasado' | 'prazo_proximo' | 'sobrecarga' | 'prejuizo' | 'tarefa_atrasada' | 'tarefa_prazo_proximo' | 'tarefa_nao_iniciada';
   message: string;
   severity: 'high' | 'medium' | 'low';
   projectId?: string;
   userId?: string;
+  taskId?: string;
 }
 
 export const DISCIPLINE_LABELS: Record<Discipline, string> = {
@@ -83,6 +110,12 @@ export const STATUS_LABELS: Record<ProjectStatus, string> = {
   concluido: 'Concluído',
   atrasado: 'Atrasado',
   pausado: 'Pausado',
+};
+
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  nao_iniciada: 'Não iniciada',
+  em_andamento: 'Em andamento',
+  concluida: 'Concluída',
 };
 
 export const STAGE_NAMES = [

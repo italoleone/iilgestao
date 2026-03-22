@@ -1,31 +1,35 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { projects, currentUser, getUserById } from "@/data/mockData";
+import { projects, currentUser, tasks, getUserById } from "@/data/mockData";
+import { TASK_STATUS_LABELS } from "@/types";
 import { Play, Square, Clock } from "lucide-react";
 
 interface ActiveTimer {
+  taskId: string;
   projectId: string;
-  stageId: string;
   startTime: Date;
 }
 
 export default function Horas() {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
   const [elapsed, setElapsed] = useState(0);
-  const [selectedProject, setSelectedProject] = useState("");
-  const [selectedStage, setSelectedStage] = useState("");
+  const [selectedTask, setSelectedTask] = useState("");
 
-  const userProjects = projects.filter(
-    (p) => p.team.includes(currentUser.id) && p.status !== "concluido"
+  // Tasks assigned to the current user in active projects
+  const userTasks = tasks.filter(
+    (t) =>
+      t.responsible === currentUser.id &&
+      t.status !== "concluida" &&
+      projects.find((p) => p.id === t.projectId)?.status !== "concluido"
   );
 
-  const selectedProjectData = projects.find((p) => p.id === selectedProject);
-  const availableStages = selectedProjectData?.stages.filter(
-    (s) => s.status !== "concluido"
-  ) || [];
+  const selectedTaskData = tasks.find((t) => t.id === selectedTask);
+  const selectedProjectData = selectedTaskData
+    ? projects.find((p) => p.id === selectedTaskData.projectId)
+    : null;
 
   useEffect(() => {
     if (!activeTimer) return;
@@ -43,10 +47,10 @@ export default function Horas() {
   };
 
   const startTimer = () => {
-    if (!selectedProject || !selectedStage) return;
+    if (!selectedTaskData) return;
     setActiveTimer({
-      projectId: selectedProject,
-      stageId: selectedStage,
+      taskId: selectedTaskData.id,
+      projectId: selectedTaskData.projectId,
       startTime: new Date(),
     });
     setElapsed(0);
@@ -57,13 +61,13 @@ export default function Horas() {
     setElapsed(0);
   };
 
-  // Mock recent entries
+  // Group recent entries by task
   const recentEntries = [
-    { project: "Edifício Panorama Tower", stage: "Executivo", duration: "2h 34min", date: "22/03/2026" },
-    { project: "Galpão Industrial Progresso", stage: "Estudo Preliminar", duration: "4h 12min", date: "21/03/2026" },
-    { project: "Edifício Panorama Tower", stage: "Executivo", duration: "3h 48min", date: "21/03/2026" },
-    { project: "Galpão Industrial Progresso", stage: "Estudo Preliminar", duration: "1h 55min", date: "20/03/2026" },
-    { project: "Edifício Panorama Tower", stage: "Pré-executivo", duration: "5h 20min", date: "20/03/2026" },
+    { task: "Armação de Lajes do Térreo", project: "Edifício Panorama Tower", stage: "Executivo", duration: "2h 34min", date: "22/03/2026" },
+    { task: "Dimensionamento da Rede de Esgoto", project: "Residencial Villa Serena", stage: "Pré-executivo", duration: "4h 12min", date: "21/03/2026" },
+    { task: "Armação de Lajes do Térreo", project: "Edifício Panorama Tower", stage: "Executivo", duration: "3h 48min", date: "21/03/2026" },
+    { task: "Levantamento de Cargas", project: "Galpão Industrial Progresso", stage: "Estudo Preliminar", duration: "1h 55min", date: "20/03/2026" },
+    { task: "Armação de Vigas V1 a V12", project: "Edifício Panorama Tower", stage: "Executivo", duration: "5h 20min", date: "20/03/2026" },
   ];
 
   return (
@@ -71,7 +75,7 @@ export default function Horas() {
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="animate-reveal-up" style={{ animationFillMode: "backwards" }}>
           <h1 className="text-2xl font-bold">Controle de Horas</h1>
-          <p className="text-muted-foreground mt-1">Registre suas atividades</p>
+          <p className="text-muted-foreground mt-1">Registre suas atividades por tarefa</p>
         </div>
 
         {/* Timer */}
@@ -84,35 +88,35 @@ export default function Horas() {
           <CardContent className="space-y-4">
             {!activeTimer ? (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
                   <select
-                    value={selectedProject}
-                    onChange={(e) => {
-                      setSelectedProject(e.target.value);
-                      setSelectedStage("");
-                    }}
+                    value={selectedTask}
+                    onChange={(e) => setSelectedTask(e.target.value)}
                     className="h-10 rounded-md border bg-card px-3 text-sm w-full"
                   >
-                    <option value="">Selecione o projeto</option>
-                    {userProjects.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={selectedStage}
-                    onChange={(e) => setSelectedStage(e.target.value)}
-                    className="h-10 rounded-md border bg-card px-3 text-sm w-full"
-                    disabled={!selectedProject}
-                  >
-                    <option value="">Selecione a etapa</option>
-                    {availableStages.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
+                    <option value="">Selecione a tarefa</option>
+                    {userTasks.map((t) => {
+                      const p = projects.find((pr) => pr.id === t.projectId);
+                      return (
+                        <option key={t.id} value={t.id}>
+                          {t.name} — {p?.name} ({t.stageName})
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
+
+                {selectedTaskData && (
+                  <div className="text-xs text-muted-foreground flex flex-wrap gap-3 bg-muted/50 rounded-lg p-3">
+                    <span>Projeto: <strong>{selectedProjectData?.name}</strong></span>
+                    <span>Etapa: <strong>{selectedTaskData.stageName}</strong></span>
+                    <span>Horas: <strong>{selectedTaskData.hoursWorked}/{selectedTaskData.estimatedHours}h</strong></span>
+                  </div>
+                )}
+
                 <Button
                   onClick={startTimer}
-                  disabled={!selectedProject || !selectedStage}
+                  disabled={!selectedTask}
                   className="w-full sm:w-auto gap-2"
                 >
                   <Play className="h-4 w-4" /> Iniciar Atividade
@@ -125,8 +129,10 @@ export default function Horas() {
                     {formatTime(elapsed)}
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {projects.find((p) => p.id === activeTimer.projectId)?.name} ·{" "}
-                    {selectedProjectData?.stages.find((s) => s.id === activeTimer.stageId)?.name}
+                    {selectedTaskData?.name} · {selectedProjectData?.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedTaskData?.stageName}
                   </p>
                 </div>
                 <Button variant="destructive" onClick={stopTimer} className="gap-2">
@@ -150,8 +156,10 @@ export default function Horas() {
                   className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/30 transition-colors"
                 >
                   <div>
-                    <p className="text-sm font-medium">{entry.project}</p>
-                    <p className="text-xs text-muted-foreground">{entry.stage}</p>
+                    <p className="text-sm font-medium">{entry.task}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {entry.project} · {entry.stage}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium tabular-nums">{entry.duration}</p>

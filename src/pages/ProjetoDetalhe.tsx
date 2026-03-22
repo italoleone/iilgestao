@@ -3,9 +3,9 @@ import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { projects, getUserById, getProjectCost, currentUser } from "@/data/mockData";
-import { DISCIPLINE_SHORT, STATUS_LABELS, type ProjectStatus, type Discipline } from "@/types";
-import { ArrowLeft, Clock, DollarSign, Users, FileText } from "lucide-react";
+import { projects, getUserById, getProjectCost, getTasksByProject, getProjectTaskHours, currentUser } from "@/data/mockData";
+import { DISCIPLINE_SHORT, STATUS_LABELS, TASK_STATUS_LABELS, type ProjectStatus, type TaskStatus } from "@/types";
+import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks } from "lucide-react";
 
 const statusColors: Record<ProjectStatus, string> = {
   em_andamento: "bg-info text-info-foreground",
@@ -26,6 +26,12 @@ const stageStatusLabels: Record<string, string> = {
   em_andamento: "Em andamento",
   concluido: "Concluído",
   revisao: "Em revisão",
+};
+
+const taskStatusColors: Record<TaskStatus, string> = {
+  nao_iniciada: "bg-muted text-muted-foreground",
+  em_andamento: "bg-info text-info-foreground",
+  concluida: "bg-success text-success-foreground",
 };
 
 export default function ProjetoDetalhe() {
@@ -53,6 +59,8 @@ export default function ProjetoDetalhe() {
   const revenue = project.hoursSold * 130;
   const profit = revenue - cost;
   const canSeeFinancial = currentUser.role === "admin" || currentUser.role === "gerente";
+  const projectTasks = getTasksByProject(project.id);
+  const taskHours = getProjectTaskHours(project.id);
 
   return (
     <AppLayout>
@@ -98,11 +106,10 @@ export default function ProjetoDetalhe() {
           </Card>
           <Card className="shadow-sm">
             <CardContent className="pt-4">
-              <p className="text-xs text-muted-foreground mb-1">Progresso</p>
-              <div className="flex items-center gap-2">
-                <Progress value={progress} className="h-1.5 flex-1" />
-                <span className="text-sm font-medium tabular-nums">{progress}%</span>
-              </div>
+              <p className="text-xs text-muted-foreground mb-1">Tarefas</p>
+              <p className="font-medium tabular-nums">
+                {projectTasks.filter((t) => t.status === "concluida").length}/{projectTasks.length}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -121,12 +128,16 @@ export default function ProjetoDetalhe() {
                 <span className="font-medium tabular-nums">{project.hoursSold}h</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Horas realizadas</span>
-                <span className="font-medium tabular-nums">{project.hoursWorked}h</span>
+                <span className="text-muted-foreground">Horas estimadas (tarefas)</span>
+                <span className="font-medium tabular-nums">{taskHours.estimated}h</span>
               </div>
-              <Progress value={(project.hoursWorked / project.hoursSold) * 100} className="h-2" />
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Horas realizadas (tarefas)</span>
+                <span className="font-medium tabular-nums">{taskHours.worked}h</span>
+              </div>
+              <Progress value={project.hoursSold > 0 ? (taskHours.worked / project.hoursSold) * 100 : 0} className="h-2" />
               <p className="text-xs text-muted-foreground">
-                {Math.round((project.hoursWorked / project.hoursSold) * 100)}% das horas consumidas
+                {project.hoursSold > 0 ? Math.round((taskHours.worked / project.hoursSold) * 100) : 0}% das horas vendidas consumidas
               </p>
             </CardContent>
           </Card>
@@ -141,29 +152,65 @@ export default function ProjetoDetalhe() {
               <CardContent className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Receita estimada</span>
-                  <span className="font-medium tabular-nums">
-                    R$ {revenue.toLocaleString("pt-BR")}
-                  </span>
+                  <span className="font-medium tabular-nums">R$ {revenue.toLocaleString("pt-BR")}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Custo realizado</span>
-                  <span className="font-medium tabular-nums">
-                    R$ {cost.toLocaleString("pt-BR")}
-                  </span>
+                  <span className="font-medium tabular-nums">R$ {cost.toLocaleString("pt-BR")}</span>
                 </div>
                 <div className={`flex justify-between text-sm font-semibold ${profit >= 0 ? "text-success" : "text-destructive"}`}>
                   <span>Resultado</span>
-                  <span className="tabular-nums">
-                    {profit >= 0 ? "+" : ""}R$ {profit.toLocaleString("pt-BR")}
-                  </span>
+                  <span className="tabular-nums">{profit >= 0 ? "+" : ""}R$ {profit.toLocaleString("pt-BR")}</span>
                 </div>
               </CardContent>
             </Card>
           )}
         </div>
 
-        {/* Stages */}
+        {/* Tasks */}
         <Card className="shadow-sm animate-reveal-up delay-4" style={{ animationFillMode: "backwards" }}>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ListChecks className="h-4 w-4" /> Tarefas ({projectTasks.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {projectTasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma tarefa cadastrada.</p>
+            ) : (
+              <div className="space-y-2">
+                {projectTasks.map((task) => {
+                  const taskResp = getUserById(task.responsible);
+                  const hp = task.estimatedHours > 0 ? Math.round((task.hoursWorked / task.estimatedHours) * 100) : 0;
+                  const isOverdue = new Date(task.endDate) < new Date() && task.status !== "concluida";
+                  return (
+                    <div key={task.id} className={`flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/30 transition-colors ${isOverdue ? "border-destructive/40" : ""}`}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{task.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {task.stageName} · {taskResp?.name}
+                        </p>
+                      </div>
+                      <div className="hidden sm:flex items-center gap-2 w-24">
+                        <Progress value={Math.min(hp, 100)} className={`h-1.5 flex-1 ${hp > 100 ? "[&>div]:bg-destructive" : ""}`} />
+                        <span className="text-xs tabular-nums text-muted-foreground">{task.hoursWorked}/{task.estimatedHours}h</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground tabular-nums hidden sm:block">
+                        {new Date(task.endDate).toLocaleDateString("pt-BR")}
+                      </div>
+                      <Badge variant="secondary" className={taskStatusColors[task.status]}>
+                        {TASK_STATUS_LABELS[task.status]}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Stages */}
+        <Card className="shadow-sm animate-reveal-up delay-5" style={{ animationFillMode: "backwards" }}>
           <CardHeader>
             <CardTitle className="text-base">Etapas do Projeto</CardTitle>
           </CardHeader>
@@ -197,7 +244,7 @@ export default function ProjetoDetalhe() {
         </Card>
 
         {/* Team */}
-        <Card className="shadow-sm animate-reveal-up delay-5" style={{ animationFillMode: "backwards" }}>
+        <Card className="shadow-sm animate-reveal-up delay-6" style={{ animationFillMode: "backwards" }}>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Users className="h-4 w-4" /> Equipe
@@ -226,7 +273,7 @@ export default function ProjetoDetalhe() {
 
         {/* Revisions */}
         {project.revisions.length > 0 && (
-          <Card className="shadow-sm animate-reveal-up delay-6" style={{ animationFillMode: "backwards" }}>
+          <Card className="shadow-sm animate-reveal-up" style={{ animationDelay: "420ms", animationFillMode: "backwards" }}>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <FileText className="h-4 w-4" /> Revisões
