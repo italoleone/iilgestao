@@ -29,6 +29,7 @@ import { ROLE_LABELS } from "@/types";
 const mainNav = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Projetos", url: "/projetos", icon: FolderKanban },
+  { title: "Tarefas", url: "/tarefas", icon: ListChecks },
   { title: "Equipe", url: "/equipe", icon: Users },
   { title: "Controle de Horas", url: "/horas", icon: Clock },
   { title: "Financeiro", url: "/financeiro", icon: BarChart3 },

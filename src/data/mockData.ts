@@ -1,4 +1,4 @@
-import { User, Project, TimeEntry, Alert } from '@/types';
+import { User, Project, TimeEntry, Alert, Task } from '@/types';
 
 export const currentUser: User = {
   id: 'u1',
@@ -142,6 +142,42 @@ export const projects: Project[] = [
   },
 ];
 
+export const tasks: Task[] = [
+  // Edifício Panorama Tower (p1) — Executivo stage
+  { id: 't1', name: 'Armação de Lajes do Térreo', projectId: 'p1', discipline: 'estrutural', stageName: 'Executivo', responsible: 'u9', startDate: '2026-03-15', endDate: '2026-03-28', estimatedHours: 24, hoursWorked: 18, status: 'em_andamento', attachments: [] },
+  { id: 't2', name: 'Armação de Vigas V1 a V12', projectId: 'p1', discipline: 'estrutural', stageName: 'Executivo', responsible: 'u9', startDate: '2026-03-28', endDate: '2026-04-05', estimatedHours: 20, hoursWorked: 6, status: 'em_andamento', attachments: [] },
+  { id: 't3', name: 'Detalhamento de Pilares P1 a P8', projectId: 'p1', discipline: 'estrutural', stageName: 'Executivo', responsible: 'u6', startDate: '2026-03-20', endDate: '2026-04-02', estimatedHours: 16, hoursWorked: 12, status: 'em_andamento', attachments: [] },
+  { id: 't4', name: 'Planta de Formas do 1º Pavimento', projectId: 'p1', discipline: 'estrutural', stageName: 'Executivo', responsible: 'u6', startDate: '2026-04-02', endDate: '2026-04-10', estimatedHours: 18, hoursWorked: 0, status: 'nao_iniciada', attachments: [] },
+
+  // Residencial Villa Serena (p2) — Pré-executivo
+  { id: 't5', name: 'Dimensionamento da Rede de Esgoto', projectId: 'p2', discipline: 'hidraulica', stageName: 'Pré-executivo', responsible: 'u7', startDate: '2026-03-10', endDate: '2026-03-25', estimatedHours: 20, hoursWorked: 14, status: 'em_andamento', attachments: [] },
+  { id: 't6', name: 'Rede de Água Fria — Prumadas', projectId: 'p2', discipline: 'hidraulica', stageName: 'Pré-executivo', responsible: 'u7', startDate: '2026-03-15', endDate: '2026-03-30', estimatedHours: 16, hoursWorked: 8, status: 'em_andamento', attachments: [] },
+  { id: 't7', name: 'Memorial de Cálculo Hidráulico', projectId: 'p2', discipline: 'hidraulica', stageName: 'Pré-executivo', responsible: 'u10', startDate: '2026-03-20', endDate: '2026-04-05', estimatedHours: 12, hoursWorked: 0, status: 'nao_iniciada', attachments: [] },
+
+  // Centro Comercial Atlântica (p3) — Executivo (atrasado)
+  { id: 't8', name: 'Quadro de Distribuição — Bloco A', projectId: 'p3', discipline: 'eletrica', stageName: 'Executivo', responsible: 'u8', startDate: '2026-02-01', endDate: '2026-02-20', estimatedHours: 32, hoursWorked: 38, status: 'em_andamento', attachments: [] },
+  { id: 't9', name: 'Diagrama Unifilar Geral', projectId: 'p3', discipline: 'eletrica', stageName: 'Executivo', responsible: 'u5', startDate: '2026-02-15', endDate: '2026-03-05', estimatedHours: 28, hoursWorked: 30, status: 'em_andamento', attachments: [] },
+  { id: 't10', name: 'Projeto de SPDA', projectId: 'p3', discipline: 'eletrica', stageName: 'Executivo', responsible: 'u8', startDate: '2026-02-20', endDate: '2026-03-10', estimatedHours: 24, hoursWorked: 26, status: 'em_andamento', attachments: [] },
+
+  // Galpão Industrial Progresso (p4) — Estudo Preliminar
+  { id: 't11', name: 'Levantamento de Cargas', projectId: 'p4', discipline: 'estrutural', stageName: 'Estudo Preliminar', responsible: 'u3', startDate: '2026-03-01', endDate: '2026-03-12', estimatedHours: 16, hoursWorked: 14, status: 'em_andamento', attachments: [] },
+  { id: 't12', name: 'Pré-dimensionamento da Cobertura', projectId: 'p4', discipline: 'estrutural', stageName: 'Estudo Preliminar', responsible: 'u6', startDate: '2026-03-10', endDate: '2026-03-20', estimatedHours: 12, hoursWorked: 4, status: 'em_andamento', attachments: [] },
+  { id: 't13', name: 'Concepção Estrutural — Fundações', projectId: 'p4', discipline: 'estrutural', stageName: 'Estudo Preliminar', responsible: 'u3', startDate: '2026-03-15', endDate: '2026-03-25', estimatedHours: 14, hoursWorked: 0, status: 'nao_iniciada', attachments: [] },
+
+  // Hospital Regional Norte (p5) — Anteprojeto
+  { id: 't14', name: 'Rede de Água Quente — Central', projectId: 'p5', discipline: 'hidraulica', stageName: 'Anteprojeto', responsible: 'u7', startDate: '2026-02-20', endDate: '2026-03-15', estimatedHours: 28, hoursWorked: 22, status: 'em_andamento', attachments: [] },
+  { id: 't15', name: 'Sistema de Combate a Incêndio', projectId: 'p5', discipline: 'hidraulica', stageName: 'Anteprojeto', responsible: 'u7', startDate: '2026-03-01', endDate: '2026-03-20', estimatedHours: 24, hoursWorked: 16, status: 'em_andamento', attachments: [] },
+  { id: 't16', name: 'Rede de Gases Medicinais', projectId: 'p5', discipline: 'hidraulica', stageName: 'Anteprojeto', responsible: 'u4', startDate: '2026-03-05', endDate: '2026-03-25', estimatedHours: 20, hoursWorked: 8, status: 'em_andamento', attachments: [] },
+
+  // Escola Técnica Municipal (p6) — Executivo
+  { id: 't17', name: 'Iluminação das Salas de Aula', projectId: 'p6', discipline: 'eletrica', stageName: 'Executivo', responsible: 'u8', startDate: '2026-03-25', endDate: '2026-04-05', estimatedHours: 16, hoursWorked: 10, status: 'em_andamento', attachments: [] },
+  { id: 't18', name: 'Projeto de Tomadas e Circuitos', projectId: 'p6', discipline: 'eletrica', stageName: 'Executivo', responsible: 'u5', startDate: '2026-03-28', endDate: '2026-04-08', estimatedHours: 14, hoursWorked: 6, status: 'em_andamento', attachments: [] },
+
+  // Completed project tasks (p7)
+  { id: 't19', name: 'Armação de Fundações', projectId: 'p7', discipline: 'estrutural', stageName: 'Executivo', responsible: 'u9', startDate: '2026-01-05', endDate: '2026-01-20', estimatedHours: 32, hoursWorked: 34, status: 'concluida', attachments: [] },
+  { id: 't20', name: 'Planta de Formas — Térreo', projectId: 'p7', discipline: 'estrutural', stageName: 'Executivo', responsible: 'u3', startDate: '2026-01-10', endDate: '2026-01-30', estimatedHours: 40, hoursWorked: 42, status: 'concluida', attachments: [] },
+];
+
 export const alerts: Alert[] = [
   { id: 'a1', type: 'atrasado', message: 'Centro Comercial Atlântica está 7 dias atrasado', severity: 'high', projectId: 'p3' },
   { id: 'a2', type: 'prejuizo', message: 'Centro Comercial Atlântica ultrapassou as horas vendidas em 5%', severity: 'high', projectId: 'p3' },
@@ -149,6 +185,9 @@ export const alerts: Alert[] = [
   { id: 'a4', type: 'sobrecarga', message: 'Rafael Mendes está com 142% da capacidade alocada', severity: 'high', userId: 'u3' },
   { id: 'a5', type: 'sobrecarga', message: 'Mariana Silva está com 118% da capacidade alocada', severity: 'medium', userId: 'u8' },
   { id: 'a6', type: 'prazo_proximo', message: 'Edifício Panorama Tower — etapa Executivo vence em 19 dias', severity: 'low', projectId: 'p1' },
+  { id: 'a7', type: 'tarefa_atrasada', message: 'Tarefa "Quadro de Distribuição — Bloco A" está 30 dias atrasada', severity: 'high', taskId: 't8', projectId: 'p3' },
+  { id: 'a8', type: 'tarefa_prazo_proximo', message: 'Tarefa "Armação de Lajes do Térreo" vence em 6 dias', severity: 'medium', taskId: 't1', projectId: 'p1' },
+  { id: 'a9', type: 'tarefa_nao_iniciada', message: 'Tarefa "Memorial de Cálculo Hidráulico" não foi iniciada e já passou da data prevista', severity: 'medium', taskId: 't7', projectId: 'p2' },
 ];
 
 export function getUserById(id: string): User | undefined {
@@ -163,28 +202,43 @@ export function getActiveProjects(): Project[] {
   return projects.filter(p => p.status === 'em_andamento' || p.status === 'atrasado');
 }
 
+export function getTasksByProject(projectId: string): Task[] {
+  return tasks.filter(t => t.projectId === projectId);
+}
+
+export function getTasksByUser(userId: string): Task[] {
+  return tasks.filter(t => t.responsible === userId);
+}
+
+export function getProjectTaskHours(projectId: string): { estimated: number; worked: number } {
+  const projectTasks = getTasksByProject(projectId);
+  return {
+    estimated: projectTasks.reduce((s, t) => s + t.estimatedHours, 0),
+    worked: projectTasks.reduce((s, t) => s + t.hoursWorked, 0),
+  };
+}
+
 export function getUserAllocatedHours(userId: string): number {
-  return projects
-    .filter(p => p.status !== 'concluido' && p.team.includes(userId))
-    .reduce((sum, p) => {
-      const userStages = p.stages.filter(s => s.responsible === userId);
-      const remainingHours = userStages.reduce((h, s) => h + (s.status !== 'concluido' ? 24 : 0), 0);
-      return sum + remainingHours + userStages.reduce((h, s) => h + s.hoursSpent, 0);
-    }, 0);
+  return tasks
+    .filter(t => t.responsible === userId && t.status !== 'concluida')
+    .reduce((sum, t) => sum + t.estimatedHours, 0);
+}
+
+export function getUserWorkedHours(userId: string): number {
+  return tasks
+    .filter(t => t.responsible === userId)
+    .reduce((sum, t) => sum + t.hoursWorked, 0);
 }
 
 export function getProjectCost(project: Project): number {
-  return project.team.reduce((cost, userId) => {
-    const user = getUserById(userId);
+  const projectTasks = getTasksByProject(project.id);
+  return projectTasks.reduce((cost, task) => {
+    const user = getUserById(task.responsible);
     if (!user) return cost;
-    const userHours = project.stages
-      .filter(s => s.responsible === userId)
-      .reduce((h, s) => h + s.hoursSpent, 0);
-    return cost + (userHours * user.costPerHour);
+    return cost + (task.hoursWorked * user.costPerHour);
   }, 0);
 }
 
 export function getProjectRevenue(project: Project): number {
-  // Simplified: revenue = hoursSold * avg cost
-  return project.hoursSold * 130; // avg billing rate
+  return project.hoursSold * 130;
 }
