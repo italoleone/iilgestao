@@ -3,7 +3,8 @@ import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { projects, currentUser, tasks, getUserById } from "@/data/mockData";
+import { projects, tasks, getUserById, users } from "@/data/mockData";
+import { useAuth } from "@/contexts/AuthContext";
 import { TASK_STATUS_LABELS } from "@/types";
 import { Play, Square, Clock } from "lucide-react";
 
