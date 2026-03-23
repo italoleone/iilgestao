@@ -3,7 +3,8 @@ import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { projects, currentUser, tasks, getUserById } from "@/data/mockData";
+import { projects, tasks, getUserById, users } from "@/data/mockData";
+import { useAuth } from "@/contexts/AuthContext";
 import { TASK_STATUS_LABELS } from "@/types";
 import { Play, Square, Clock } from "lucide-react";
 
@@ -17,11 +18,11 @@ export default function Horas() {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [selectedTask, setSelectedTask] = useState("");
+  const { profile } = useAuth();
 
-  // Tasks assigned to the current user in active projects
+  // Show all tasks from active projects (user selects which to track)
   const userTasks = tasks.filter(
     (t) =>
-      t.responsible === currentUser.id &&
       t.status !== "concluida" &&
       projects.find((p) => p.id === t.projectId)?.status !== "concluido"
   );

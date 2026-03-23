@@ -3,7 +3,8 @@ import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { projects, getUserById, getProjectCost, getTasksByProject, getProjectTaskHours, currentUser } from "@/data/mockData";
+import { projects, getUserById, getProjectCost, getTasksByProject, getProjectTaskHours } from "@/data/mockData";
+import { useAuth } from "@/contexts/AuthContext";
 import { DISCIPLINE_SHORT, STATUS_LABELS, TASK_STATUS_LABELS, type ProjectStatus, type TaskStatus } from "@/types";
 import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks } from "lucide-react";
 
@@ -58,7 +59,7 @@ export default function ProjetoDetalhe() {
   const cost = getProjectCost(project);
   const revenue = project.hoursSold * 130;
   const profit = revenue - cost;
-  const canSeeFinancial = currentUser.role === "admin" || currentUser.role === "gerente";
+  const { canAccessFinanceiro: canSeeFinancial } = useAuth();
   const projectTasks = getTasksByProject(project.id);
   const taskHours = getProjectTaskHours(project.id);
 

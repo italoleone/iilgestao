@@ -7,6 +7,8 @@ import {
   Bell,
   Building2,
   ListChecks,
+  UserCircle,
+  LogOut,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -23,8 +25,15 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { currentUser } from "@/data/mockData";
-import { ROLE_LABELS } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+
+const ROLE_LABELS: Record<string, string> = {
+  admin_geral: "Admin Geral",
+  admin: "Administrador",
+  planejamento: "Planejamento",
+  projetista: "Projetista",
+};
 
 const mainNav = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -40,6 +49,8 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const { profile, signOut, canAccessFinanceiro } = useAuth();
+
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
 
@@ -65,11 +76,8 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNav.map((item) => {
-                // Hide financeiro for coordenador/projetista
-                if (
-                  item.url === "/financeiro" &&
-                  (currentUser.role === "coordenador" || currentUser.role === "projetista")
-                ) {
+                // Hide financeiro for non-admin users
+                if (item.url === "/financeiro" && !canAccessFinanceiro) {
                   return null;
                 }
 
@@ -93,18 +101,28 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
-        <div className="flex items-center gap-3">
+      <SidebarFooter className="p-4 space-y-2">
+        <NavLink to="/perfil" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
-            {currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+            {profile?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
           </div>
           {!collapsed && (
             <div className="animate-fade-in min-w-0">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">{currentUser.name}</p>
-              <p className="text-xs text-sidebar-foreground/60">{ROLE_LABELS[currentUser.role]}</p>
+              <p className="text-sm font-medium text-sidebar-foreground truncate">{profile?.name || "Usuário"}</p>
+              <p className="text-xs text-sidebar-foreground/60">{ROLE_LABELS[profile?.role || ""] || ""}</p>
             </div>
           )}
-        </div>
+        </NavLink>
+        {!collapsed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground gap-2"
+            onClick={signOut}
+          >
+            <LogOut className="h-3.5 w-3.5" /> Sair
+          </Button>
+        )}
       </SidebarFooter>
     </Sidebar>
   );

@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
@@ -8,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { projects as initialProjects, getUserById, users } from "@/data/mockData";
+import { useAuth } from "@/contexts/AuthContext";
 import { DISCIPLINE_SHORT, STATUS_LABELS, STAGE_NAMES, type Discipline, type ProjectStatus, type Project } from "@/types";
-import { Search, Filter, Plus } from "lucide-react";
+import { Search, Plus, ArrowUpDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -26,15 +26,19 @@ const disciplineColors: Record<Discipline, string> = {
   eletrica: "#E8A317",
 };
 
+type SortField = "name" | "client" | "discipline" | "deadline" | "status" | "progress";
+
 export default function Projetos() {
   const navigate = useNavigate();
+  const { isProjetista } = useAuth();
   const [search, setSearch] = useState("");
   const [filterDiscipline, setFilterDiscipline] = useState<Discipline | "all">("all");
   const [filterStatus, setFilterStatus] = useState<ProjectStatus | "all">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [allProjects, setAllProjects] = useState<Project[]>(initialProjects);
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortAsc, setSortAsc] = useState(true);
 
-  // New project form state
   const [form, setForm] = useState({
     name: "",
     client: "",
@@ -45,14 +49,45 @@ export default function Projetos() {
     hoursSold: "",
   });
 
-  const filtered = allProjects.filter((p) => {
-    const matchSearch =
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.client.toLowerCase().includes(search.toLowerCase());
-    const matchDiscipline = filterDiscipline === "all" || p.discipline === filterDiscipline;
-    const matchStatus = filterStatus === "all" || p.status === filterStatus;
-    return matchSearch && matchDiscipline && matchStatus;
-  });
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortField(field);
+      setSortAsc(true);
+    }
+  };
+
+  const filtered = useMemo(() => {
+    let result = allProjects.filter((p) => {
+      const matchSearch =
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.client.toLowerCase().includes(search.toLowerCase());
+      const matchDiscipline = filterDiscipline === "all" || p.discipline === filterDiscipline;
+      const matchStatus = filterStatus === "all" || p.status === filterStatus;
+      return matchSearch && matchDiscipline && matchStatus;
+    });
+
+    result.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "name": cmp = a.name.localeCompare(b.name); break;
+        case "client": cmp = a.client.localeCompare(b.client); break;
+        case "discipline": cmp = a.discipline.localeCompare(b.discipline); break;
+        case "deadline": cmp = new Date(a.deadline).getTime() - new Date(b.deadline).getTime(); break;
+        case "status": cmp = a.status.localeCompare(b.status); break;
+        case "progress": {
+          const pa = a.stages.filter(s => s.status === "concluido").length / a.stages.length;
+          const pb = b.stages.filter(s => s.status === "concluido").length / b.stages.length;
+          cmp = pa - pb;
+          break;
+        }
+      }
+      return sortAsc ? cmp : -cmp;
+    });
+
+    return result;
+  }, [allProjects, search, filterDiscipline, filterStatus, sortField, sortAsc]);
 
   const handleCreate = () => {
     if (!form.name || !form.client || !form.startDate || !form.deadline || !form.responsible) {
@@ -93,6 +128,18 @@ export default function Projetos() {
     (u) => u.discipline === form.discipline && (u.role === "coordenador" || u.role === "projetista")
   );
 
+  const SortHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
+    <th
+      className="text-left py-3 px-3 font-medium text-muted-foreground cursor-pointer hover:text-foreground select-none"
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        <ArrowUpDown className={`h-3 w-3 ${sortField === field ? "text-foreground" : "opacity-40"}`} />
+      </div>
+    </th>
+  );
+
   return (
     <AppLayout>
       <div className="max-w-7xl mx-auto space-y-6">
@@ -101,9 +148,11 @@ export default function Projetos() {
             <h1 className="text-2xl font-bold">Projetos</h1>
             <p className="text-muted-foreground mt-1">{allProjects.length} projetos cadastrados</p>
           </div>
-          <Button onClick={() => setDialogOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> Novo Projeto
-          </Button>
+          {!isProjetista && (
+            <Button onClick={() => setDialogOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" /> Novo Projeto
+            </Button>
+          )}
         </div>
 
         {/* Filters */}
@@ -127,60 +176,67 @@ export default function Projetos() {
           </select>
         </div>
 
-        {/* Project cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((p, i) => {
-            const completedStages = p.stages.filter((s) => s.status === "concluido").length;
-            const progress = Math.round((completedStages / p.stages.length) * 100);
-            const responsible = getUserById(p.responsible);
+        {/* Project table */}
+        <div className="overflow-x-auto animate-reveal-up delay-2 rounded-lg border bg-card" style={{ animationFillMode: "backwards" }}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <SortHeader field="name">Projeto</SortHeader>
+                <SortHeader field="client">Cliente</SortHeader>
+                <SortHeader field="discipline">Disciplina</SortHeader>
+                <th className="text-left py-3 px-3 font-medium text-muted-foreground">Responsável</th>
+                <SortHeader field="deadline">Prazo</SortHeader>
+                <SortHeader field="progress">Progresso</SortHeader>
+                <SortHeader field="status">Status</SortHeader>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p) => {
+                const completedStages = p.stages.filter((s) => s.status === "concluido").length;
+                const progress = Math.round((completedStages / p.stages.length) * 100);
+                const responsible = getUserById(p.responsible);
 
-            return (
-              <Card
-                key={p.id}
-                className="shadow-sm hover:shadow-md transition-all cursor-pointer group animate-reveal-up active:scale-[0.98]"
-                style={{ animationDelay: `${(i + 2) * 60}ms`, animationFillMode: "backwards" }}
-                onClick={() => navigate(`/projetos/${p.id}`)}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1 min-w-0">
-                      <CardTitle className="text-base leading-snug group-hover:text-primary transition-colors">{p.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{p.client}</p>
-                    </div>
-                    <Badge variant="secondary" className={`shrink-0 ml-2 ${statusColors[p.status]}`}>{STATUS_LABELS[p.status]}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: disciplineColors[p.discipline] }} />
-                    <span className="text-muted-foreground">{DISCIPLINE_SHORT[p.discipline]}</span>
-                    <span className="text-muted-foreground/40 mx-1">·</span>
-                    <span className="text-muted-foreground">{responsible?.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Progress value={progress} className="h-1.5 flex-1" />
-                    <span className="text-xs tabular-nums text-muted-foreground">{progress}%</span>
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Início: {new Date(p.startDate).toLocaleDateString("pt-BR")}</span>
-                    <span>Prazo: {new Date(p.deadline).toLocaleDateString("pt-BR")}</span>
-                  </div>
-                  <div className="flex justify-between text-xs tabular-nums">
-                    <span className="text-muted-foreground">{p.hoursWorked}h / {p.hoursSold}h</span>
-                    <span className="text-muted-foreground">{completedStages}/{p.stages.length} etapas</span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                return (
+                  <tr
+                    key={p.id}
+                    className="border-b last:border-0 hover:bg-muted/50 cursor-pointer transition-colors"
+                    onClick={() => navigate(`/projetos/${p.id}`)}
+                  >
+                    <td className="py-3 px-3 font-medium">{p.name}</td>
+                    <td className="py-3 px-3 text-muted-foreground">{p.client}</td>
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: disciplineColors[p.discipline] }} />
+                        {DISCIPLINE_SHORT[p.discipline]}
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 text-muted-foreground">{responsible?.name}</td>
+                    <td className="py-3 px-3 tabular-nums text-muted-foreground">
+                      {new Date(p.deadline).toLocaleDateString("pt-BR")}
+                    </td>
+                    <td className="py-3 px-3 w-32">
+                      <div className="flex items-center gap-2">
+                        <Progress value={progress} className="h-1.5 flex-1" />
+                        <span className="text-xs tabular-nums text-muted-foreground">{progress}%</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <Badge variant="secondary" className={statusColors[p.status]}>
+                        {STATUS_LABELS[p.status]}
+                      </Badge>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {filtered.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>Nenhum projeto encontrado com os filtros atuais.</p>
+            </div>
+          )}
         </div>
-
-        {filtered.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">
-            <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Nenhum projeto encontrado com os filtros atuais.</p>
-          </div>
-        )}
       </div>
 
       {/* New Project Dialog */}
