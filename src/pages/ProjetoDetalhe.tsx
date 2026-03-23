@@ -3,7 +3,8 @@ import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { projects, getUserById, getProjectCost, getTasksByProject, getProjectTaskHours, currentUser } from "@/data/mockData";
+import { projects, getUserById, getProjectCost, getTasksByProject, getProjectTaskHours } from "@/data/mockData";
+import { useAuth } from "@/contexts/AuthContext";
 import { DISCIPLINE_SHORT, STATUS_LABELS, TASK_STATUS_LABELS, type ProjectStatus, type TaskStatus } from "@/types";
 import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks } from "lucide-react";
 
