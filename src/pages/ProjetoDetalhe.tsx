@@ -59,7 +59,7 @@ export default function ProjetoDetalhe() {
   const cost = getProjectCost(project);
   const revenue = project.hoursSold * 130;
   const profit = revenue - cost;
-  const canSeeFinancial = currentUser.role === "admin" || currentUser.role === "gerente";
+  const { canAccessFinanceiro: canSeeFinancial } = useAuth();
   const projectTasks = getTasksByProject(project.id);
   const taskHours = getProjectTaskHours(project.id);
 

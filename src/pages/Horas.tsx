@@ -18,11 +18,11 @@ export default function Horas() {
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [selectedTask, setSelectedTask] = useState("");
+  const { profile } = useAuth();
 
-  // Tasks assigned to the current user in active projects
+  // Show all tasks from active projects (user selects which to track)
   const userTasks = tasks.filter(
     (t) =>
-      t.responsible === currentUser.id &&
       t.status !== "concluida" &&
       projects.find((p) => p.id === t.projectId)?.status !== "concluido"
   );
