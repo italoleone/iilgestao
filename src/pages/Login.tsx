@@ -109,6 +109,11 @@ export default function Login() {
             </CardContent>
           </Card>
 
+          <p className="text-sm text-center text-muted-foreground">
+            Não tem conta?{" "}
+            <Link to="/cadastro" className="text-accent hover:underline font-medium">Cadastrar-se</Link>
+          </p>
+
           <p className="text-xs text-center text-muted-foreground">
             Leone Engenharia © {new Date().getFullYear()}
           </p>
