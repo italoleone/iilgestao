@@ -325,6 +325,49 @@ export default function TarefaDetalhe() {
   const responsible = getProfileById(profiles, task.responsible);
   const isOverdue = new Date(task.end_date) < new Date() && !["concluida", "aprovada"].includes(task.status);
   const canDelete = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
+  const canEdit = !isProjetista && task.status !== "aprovada";
+
+  const openEditDialog = () => {
+    setEditData({
+      name: task.name,
+      project_id: task.project_id,
+      discipline: task.discipline,
+      responsible: task.responsible,
+      start_date: task.start_date,
+      end_date: task.end_date,
+      stage_name: task.stage_name,
+      estimated_hours: task.estimated_hours,
+    });
+    setEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editData.name?.trim()) { toast.error("Nome da tarefa é obrigatório."); return; }
+    setSaving(true);
+    const { error } = await supabase.from("tasks").update({
+      name: editData.name,
+      project_id: editData.project_id,
+      discipline: editData.discipline,
+      responsible: editData.responsible,
+      start_date: editData.start_date,
+      end_date: editData.end_date,
+      stage_name: editData.stage_name,
+      estimated_hours: editData.estimated_hours,
+    }).eq("id", task.id);
+    setSaving(false);
+    if (error) {
+      toast.error("Erro ao salvar: " + error.message);
+    } else {
+      setTask(prev => prev ? { ...prev, ...editData } as DbTask : prev);
+      // Refresh project info if project changed
+      if (editData.project_id && editData.project_id !== task.project_id) {
+        const { data: proj } = await supabase.from("projects").select("id, name, client, discipline, responsible").eq("id", editData.project_id).maybeSingle();
+        if (proj) setProject(proj as unknown as DbProject);
+      }
+      setEditOpen(false);
+      toast.success("Tarefa atualizada com sucesso!");
+    }
+  };
 
   const handleDeleteTask = async () => {
     setDeleting(true);
