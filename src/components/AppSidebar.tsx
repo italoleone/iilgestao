@@ -95,6 +95,7 @@ export function AppSidebar() {
     if (userRole === "projetista") {
       return mod.children.filter((c) => c.url === "/tarefas");
     }
+    // Coordenador sees all planning children
     return mod.children;
   };
 
