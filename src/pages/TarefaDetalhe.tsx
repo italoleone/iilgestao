@@ -61,7 +61,6 @@ export default function TarefaDetalhe() {
 
   const [task, setTask] = useState<DbTask | null>(null);
   const [project, setProject] = useState<DbProject | null>(null);
-  const [parentTask, setParentTask] = useState<DbTask | null>(null);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [timerStart, setTimerStart] = useState<Date | null>(null);
@@ -84,28 +83,20 @@ export default function TarefaDetalhe() {
       setTask(t);
       const { data: proj } = await supabase.from("projects").select("id, name, client, discipline, responsible").eq("id", t.project_id).maybeSingle();
       if (proj) setProject(proj as unknown as DbProject);
-      // Fetch parent task if this is a validation task
-      if (t.parent_task_id) {
-        const { data: parent } = await supabase.from("tasks").select("*").eq("id", t.parent_task_id).maybeSingle();
-        if (parent) setParentTask(parent as unknown as DbTask);
-      }
     }
     setLoading(false);
   };
 
-  const fetchAttachments = async (parentTaskId?: string | null) => {
+  const fetchAttachments = async () => {
     if (!id) return;
-    // Fetch attachments for this task and parent task (if validation task)
-    const taskIds = [id];
-    if (parentTaskId) taskIds.push(parentTaskId);
-    const { data } = await supabase.from("task_attachments").select("*").in("task_id", taskIds).order("created_at", { ascending: false });
+    const { data } = await supabase.from("task_attachments").select("*").eq("task_id", id).order("created_at", { ascending: false });
     if (data) setAttachments(data as unknown as TaskAttachment[]);
   };
 
   useEffect(() => { fetchTask(); }, [id]);
   useEffect(() => {
-    if (task) fetchAttachments(task.parent_task_id);
-  }, [task?.id, task?.parent_task_id]);
+    if (task) fetchAttachments();
+  }, [task?.id]);
 
   useEffect(() => {
     if (!timerStart) return;
