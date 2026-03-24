@@ -89,14 +89,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
       await supabase.from("clients").insert({ name: clientValue });
     }
 
-    const stages = STAGE_NAMES.map((stageName, i) => ({
-      id: `s_${Date.now()}_${i}`,
-      name: stageName,
-      responsible,
-      deadline,
-      status: "pendente",
-      hoursSpent: 0,
-    }));
+    // stages are now created inline per discipline in projectRows
 
     const projectRows = selectedDisciplines.map((disc) => {
       const suffix = selectedDisciplines.length > 1 ? ` - ${DISCIPLINE_SHORT[disc]}` : "";
