@@ -78,7 +78,7 @@ export const projects: Project[] = [
   {
     id: 'p4', name: 'Galpão Industrial Progresso', client: 'Indústrias Progresso', discipline: 'estrutural',
     startDate: '2026-03-01', deadline: '2026-06-30', status: 'em_andamento', responsible: 'u3',
-    team: ['u3', 'u6'], hoursSold: 560, hoursWorked: 48,
+    team: ['u3', 'u6'], hoursSold: 560, saleValue: 72800, hoursWorked: 48,
     stages: [
       { id: 's19', name: 'Estudo Preliminar', responsible: 'u3', deadline: '2026-03-20', status: 'em_andamento', hoursSpent: 32 },
       { id: 's20', name: 'Anteprojeto', responsible: 'u6', deadline: '2026-04-15', status: 'pendente', hoursSpent: 0 },
