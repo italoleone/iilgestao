@@ -30,6 +30,8 @@ import {
   ListChecks,
   List,
   Calendar,
+  Play,
+  Square,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,6 +44,67 @@ const taskStatusColors: Record<TaskStatus, string> = {
 export default function Tarefas() {
   const { isProjetista, profile } = useAuth();
   const [allTasks, setAllTasks] = useState<Task[]>(initialTasks);
+  const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
+  const [timerStart, setTimerStart] = useState<Date | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+
+  // Timer tick
+  useState(() => {
+    const interval = setInterval(() => {
+      if (timerStart) {
+        setElapsed(Math.floor((Date.now() - timerStart.getTime()) / 1000));
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  });
+
+  const formatTimer = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const toggleTimer = (taskId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (activeTimerTaskId === taskId) {
+      // Stop timer
+      const hoursWorked = elapsed / 3600;
+      setAllTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId
+            ? { ...t, hoursWorked: Math.round((t.hoursWorked + hoursWorked) * 100) / 100, status: "em_andamento" as TaskStatus }
+            : t
+        )
+      );
+      setActiveTimerTaskId(null);
+      setTimerStart(null);
+      setElapsed(0);
+      toast.success("Atividade registrada!");
+    } else {
+      // Start timer (stop any existing)
+      if (activeTimerTaskId) {
+        const hoursWorked = elapsed / 3600;
+        setAllTasks((prev) =>
+          prev.map((t) =>
+            t.id === activeTimerTaskId
+              ? { ...t, hoursWorked: Math.round((t.hoursWorked + hoursWorked) * 100) / 100 }
+              : t
+          )
+        );
+      }
+      setActiveTimerTaskId(taskId);
+      setTimerStart(new Date());
+      setElapsed(0);
+      setAllTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId && t.status === "nao_iniciada"
+            ? { ...t, status: "em_andamento" as TaskStatus }
+            : t
+        )
+      );
+    }
+  };
   const [search, setSearch] = useState("");
   const [filterProject, setFilterProject] = useState<string>("all");
   const [filterDiscipline, setFilterDiscipline] = useState<Discipline | "all">("all");
@@ -271,11 +334,31 @@ export default function Tarefas() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-4 shrink-0">
+                        <div className="flex items-center gap-3 shrink-0">
                           <div className="hidden sm:flex items-center gap-2 w-28">
                             <Progress value={Math.min(hoursProgress, 100)} className={`h-1.5 flex-1 ${hoursProgress > 100 ? "[&>div]:bg-destructive" : ""}`} />
                             <span className="text-xs tabular-nums text-muted-foreground">{task.hoursWorked}/{task.estimatedHours}h</span>
                           </div>
+                          {activeTimerTaskId === task.id && (
+                            <span className="text-xs font-mono font-medium text-primary tabular-nums">
+                              {formatTimer(elapsed)}
+                            </span>
+                          )}
+                          {task.status !== "concluida" && (
+                            <Button
+                              variant={activeTimerTaskId === task.id ? "destructive" : "outline"}
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={(e) => toggleTimer(task.id, e)}
+                              title={activeTimerTaskId === task.id ? "Parar atividade" : "Iniciar atividade"}
+                            >
+                              {activeTimerTaskId === task.id ? (
+                                <Square className="h-3.5 w-3.5" />
+                              ) : (
+                                <Play className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                          )}
                           <div className="hidden sm:block text-xs text-muted-foreground tabular-nums w-20 text-right">
                             {new Date(task.endDate).toLocaleDateString("pt-BR")}
                           </div>
@@ -306,7 +389,6 @@ export default function Tarefas() {
                   month={calMonth}
                   year={calYear}
                   onMonthChange={(m, y) => { setCalMonth(m); setCalYear(y); }}
-                  onTaskClick={handleTaskClick}
                 />
               </CardContent>
             </Card>

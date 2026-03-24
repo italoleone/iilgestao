@@ -1,25 +1,18 @@
 import { useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
-import { getUserById, projects } from "@/data/mockData";
-import { TASK_STATUS_LABELS, type Task, type TaskStatus } from "@/types";
+import { getUserById } from "@/data/mockData";
+import { type Task } from "@/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const taskStatusColors: Record<TaskStatus, string> = {
-  nao_iniciada: "bg-muted text-muted-foreground",
-  em_andamento: "bg-info text-info-foreground",
-  concluida: "bg-success text-success-foreground",
-};
 
 interface TaskCalendarProps {
   tasks: Task[];
   month: number; // 0-indexed
   year: number;
   onMonthChange: (month: number, year: number) => void;
-  onTaskClick: (task: Task) => void;
 }
 
-export function TaskCalendar({ tasks, month, year, onMonthChange, onTaskClick }: TaskCalendarProps) {
+export function TaskCalendar({ tasks, month, year, onMonthChange }: TaskCalendarProps) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sunday
 
@@ -103,23 +96,33 @@ export function TaskCalendar({ tasks, month, year, onMonthChange, onTaskClick }:
                 <div className="space-y-0.5 overflow-y-auto max-h-[80px]">
                   {tasksByDay[day]?.slice(0, 3).map((task) => {
                     const responsible = getUserById(task.responsible);
+                    const isOverdue = new Date(task.endDate) < new Date() && task.status !== "concluida";
+                    const statusBorder = task.status === "concluida"
+                      ? "border-l-2 border-l-success"
+                      : task.status === "em_andamento"
+                        ? "border-l-2 border-l-info"
+                        : isOverdue
+                          ? "border-l-2 border-l-destructive"
+                          : "border-l-2 border-l-muted-foreground/30";
+                    const statusBg = task.status === "concluida"
+                      ? "bg-success/5"
+                      : task.status === "em_andamento"
+                        ? "bg-info/5"
+                        : isOverdue
+                          ? "bg-destructive/5"
+                          : "bg-card";
                     return (
                       <div
                         key={task.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onTaskClick(task);
-                        }}
-                        className="text-[10px] leading-tight p-1 rounded cursor-pointer hover:opacity-80 transition-opacity bg-card border truncate"
-                        title={`${task.name} — ${responsible?.name}`}
+                        className={`text-[10px] leading-tight p-1 rounded ${statusBorder} ${statusBg} truncate`}
+                        title={`${task.name} — ${responsible?.name} — ${
+                          isOverdue ? "ATRASADA" : task.status === "concluida" ? "Concluída" : task.status === "em_andamento" ? "Em andamento" : "Não iniciada"
+                        }`}
                       >
                         <span className="font-medium">{task.name.length > 18 ? task.name.slice(0, 18) + "…" : task.name}</span>
                         <div className="flex items-center gap-1 mt-0.5">
                           <span className="text-muted-foreground">{responsible?.name?.split(" ")[0]}</span>
-                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${
-                            task.status === "concluida" ? "bg-green-500" :
-                            task.status === "em_andamento" ? "bg-blue-500" : "bg-gray-400"
-                          }`} />
+                          {isOverdue && <span className="text-destructive font-medium">!</span>}
                         </div>
                       </div>
                     );
