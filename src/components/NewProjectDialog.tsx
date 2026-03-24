@@ -59,7 +59,6 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
 
   const isNewClient = clientValue && !clients.some((c) => c.toLowerCase() === clientValue.toLowerCase());
 
-
   const resetForm = () => {
     setName("");
     setClientValue("");
@@ -169,7 +168,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
                             setClientPopoverOpen(false);
                           }}
                         >
-                          Criar novo: <strong>"{clientSearch}"</strong>
+                          Criar novo: <strong>&quot;{clientSearch}&quot;</strong>
                         </button>
                       ) : (
                         "Nenhum cliente encontrado."
@@ -196,11 +195,11 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
               </PopoverContent>
             </Popover>
             {isNewClient && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">Novo cliente será cadastrado automaticamente.</p>
+              <p className="text-xs text-warning">Novo cliente será cadastrado automaticamente.</p>
             )}
           </div>
 
-          {/* Disciplinas - Checkboxes */}
+          {/* Disciplinas com Valores inline */}
           <div className="space-y-2">
             <Label>Disciplinas e Valores *</Label>
             <div className="flex flex-col gap-3">
@@ -234,6 +233,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
               <p className="text-xs text-muted-foreground">
                 Serão criados {selectedDisciplines.length} projetos separados, um para cada disciplina.
               </p>
+            )}
           </div>
 
           {/* Datas */}
