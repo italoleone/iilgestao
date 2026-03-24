@@ -49,14 +49,13 @@ export default function Tarefas() {
   const [elapsed, setElapsed] = useState(0);
 
   // Timer tick
-  useState(() => {
+  useEffect(() => {
+    if (!timerStart) return;
     const interval = setInterval(() => {
-      if (timerStart) {
-        setElapsed(Math.floor((Date.now() - timerStart.getTime()) / 1000));
-      }
+      setElapsed(Math.floor((Date.now() - timerStart.getTime()) / 1000));
     }, 1000);
     return () => clearInterval(interval);
-  });
+  }, [timerStart]);
 
   const formatTimer = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
