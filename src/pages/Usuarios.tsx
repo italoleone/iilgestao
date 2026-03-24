@@ -80,10 +80,10 @@ export default function Usuarios() {
     }
 
     // Insert role
-    const { error: roleError } = await supabase.from("user_roles").insert({
+    const { error: roleError } = await supabase.from("user_roles").upsert({
       user_id: approveDialog.id,
       role: selectedRole as AppRole,
-    });
+    }, { onConflict: "user_id,role" });
 
     if (roleError) {
       toast.error("Erro ao definir função: " + roleError.message);
