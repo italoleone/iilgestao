@@ -196,7 +196,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
               </PopoverContent>
             </Popover>
             {isNewClient && (
-              <p className="text-xs text-amber-600">Novo cliente será cadastrado automaticamente.</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">Novo cliente será cadastrado automaticamente.</p>
             )}
           </div>
 
