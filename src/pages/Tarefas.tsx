@@ -25,6 +25,9 @@ const taskStatusColors: Record<TaskStatus, string> = {
   nao_iniciada: "bg-muted text-muted-foreground",
   em_andamento: "bg-info text-info-foreground",
   concluida: "bg-success text-success-foreground",
+  aguardando_validacao: "bg-warning text-warning-foreground",
+  aprovada: "bg-success text-success-foreground",
+  reprovada: "bg-destructive text-destructive-foreground",
 };
 
 export default function Tarefas() {
@@ -157,7 +160,7 @@ export default function Tarefas() {
     if (filterResponsible !== "all") filtered = filtered.filter(t => t.responsible === filterResponsible);
     if (filterStage !== "all") filtered = filtered.filter(t => t.stageName === filterStage);
 
-    const statusOrder: Record<string, number> = { em_andamento: 0, nao_iniciada: 1, concluida: 2 };
+    const statusOrder: Record<string, number> = { em_andamento: 0, nao_iniciada: 1, aguardando_validacao: 2, reprovada: 3, concluida: 4, aprovada: 5 };
     return filtered.sort((a, b) => {
       const so = (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1);
       if (so !== 0) return so;
@@ -269,6 +272,9 @@ export default function Tarefas() {
             <option value="nao_iniciada">Não iniciada</option>
             <option value="em_andamento">Em andamento</option>
             <option value="concluida">Concluída</option>
+            <option value="aguardando_validacao">Aguardando Validação</option>
+            <option value="aprovada">Aprovada</option>
+            <option value="reprovada">Reprovada</option>
           </select>
           <select value={filterStage} onChange={(e) => setFilterStage(e.target.value)} className="h-10 rounded-md border bg-card px-3 text-sm">
             <option value="all">Todas etapas</option>
@@ -291,7 +297,7 @@ export default function Tarefas() {
                 const project = projects.find(p => p.id === task.projectId);
                 const responsible = getProfileById(profiles, task.responsible);
                 const hoursProgress = task.estimatedHours > 0 ? Math.round((task.hoursWorked / task.estimatedHours) * 100) : 0;
-                const isOverdue = new Date(task.endDate) < new Date() && task.status !== "concluida";
+                const isOverdue = new Date(task.endDate) < new Date() && !["concluida", "aprovada"].includes(task.status);
                 return (
                   <Card key={task.id} className={`shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${isOverdue ? "border-destructive/40" : ""}`} onClick={() => handleTaskClick(task)}>
                     <CardContent className="py-3 px-4">
@@ -314,7 +320,7 @@ export default function Tarefas() {
                           {activeTimerTaskId === task.id && (
                             <span className="text-xs font-mono font-medium text-primary tabular-nums">{formatTimer(elapsed)}</span>
                           )}
-                          {task.status !== "concluida" && (
+                          {!["concluida", "aguardando_validacao", "aprovada"].includes(task.status) && (
                             <Button variant={activeTimerTaskId === task.id ? "destructive" : "outline"} size="icon" className="h-8 w-8 shrink-0" onClick={(e) => toggleTimer(task.id, e)}>
                               {activeTimerTaskId === task.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                             </Button>

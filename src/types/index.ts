@@ -2,7 +2,7 @@ export type Discipline = 'estrutural' | 'hidraulica' | 'eletrica';
 export type UserRole = 'admin' | 'gerente' | 'coordenador' | 'projetista';
 export type ProjectStatus = 'em_andamento' | 'concluido' | 'atrasado' | 'pausado';
 export type StageStatus = 'pendente' | 'em_andamento' | 'concluido' | 'revisao';
-export type TaskStatus = 'nao_iniciada' | 'em_andamento' | 'concluida';
+export type TaskStatus = 'nao_iniciada' | 'em_andamento' | 'concluida' | 'aguardando_validacao' | 'aprovada' | 'reprovada';
 
 export interface User {
   id: string;
@@ -127,6 +127,9 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   nao_iniciada: 'Não iniciada',
   em_andamento: 'Em andamento',
   concluida: 'Concluída',
+  aguardando_validacao: 'Aguardando Validação',
+  aprovada: 'Aprovada',
+  reprovada: 'Reprovada',
 };
 
 export const STAGE_NAMES = [
