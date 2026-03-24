@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Badge } from "@/components/ui/badge";
@@ -263,10 +264,14 @@ export default function Tarefas() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Buscar tarefa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
-          <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)} className="h-10 rounded-md border bg-card px-3 text-sm">
-            <option value="all">Todos projetos</option>
-            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          <ProjectCombobox
+            projects={projects}
+            value={filterProject}
+            onValueChange={setFilterProject}
+            includeAll
+            allLabel="Todos projetos"
+            triggerClassName="h-10 text-sm w-[200px]"
+          />
           <select value={filterDiscipline} onChange={(e) => setFilterDiscipline(e.target.value as Discipline | "all")} className="h-10 rounded-md border bg-card px-3 text-sm">
             <option value="all">Todas disciplinas</option>
             <option value="estrutural">Estrutural</option>
@@ -381,10 +386,12 @@ export default function Tarefas() {
             </div>
             <div className="space-y-2">
               <Label>Projeto *</Label>
-              <select value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value, responsible: "" })} className="h-10 w-full rounded-md border bg-card px-3 text-sm">
-                <option value="">Selecione...</option>
-                {projects.filter(p => p.status !== "concluido").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <ProjectCombobox
+                projects={projects.filter(p => p.status !== "concluido")}
+                value={form.projectId}
+                onValueChange={(v) => setForm({ ...form, projectId: v, responsible: "" })}
+                placeholder="Selecione..."
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">

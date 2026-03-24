@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useProjects, useTasks, useActiveProfiles, useTimeEntries, getProfileById } from "@/hooks/useSupabaseData";
 import { useActiveTimers, getTimerForTask } from "@/hooks/useActiveTimers";
 import { useAuth } from "@/contexts/AuthContext";
@@ -240,17 +241,14 @@ export default function DashboardPlanejamento() {
                 </SelectContent>
               </Select>
             </div>
-            <Select value={filterProject} onValueChange={setFilterProject}>
-              <SelectTrigger className="w-[200px] h-9 text-sm">
-                <SelectValue placeholder="Projeto" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os projetos</SelectItem>
-                {projects.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ProjectCombobox
+              projects={projects}
+              value={filterProject}
+              onValueChange={setFilterProject}
+              includeAll
+              placeholder="Projeto"
+              triggerClassName="w-[200px] h-9 text-sm"
+            />
           </div>
         </div>
 

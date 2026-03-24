@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
+import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -782,14 +783,12 @@ export default function TarefaDetalhe() {
             </div>
             <div className="space-y-2">
               <Label>Projeto</Label>
-              <Select value={editData.project_id || ""} onValueChange={(v) => setEditData(prev => ({ ...prev, project_id: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {allProjects.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ProjectCombobox
+                projects={allProjects}
+                value={editData.project_id || ""}
+                onValueChange={(v) => setEditData(prev => ({ ...prev, project_id: v }))}
+                placeholder="Selecionar projeto..."
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
