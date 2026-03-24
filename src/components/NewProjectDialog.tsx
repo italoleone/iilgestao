@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
-import { STAGE_NAMES, DISCIPLINE_SHORT, type Discipline, type Project } from "@/types";
+import { STAGE_NAMES, DISCIPLINE_SHORT, type Discipline } from "@/types";
 import { toast } from "sonner";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 interface NewProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onProjectsCreated: (projects: Project[]) => void;
+  onProjectsCreated: () => void;
 }
 
 export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewProjectDialogProps) {
@@ -26,18 +26,15 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
   const [clients, setClients] = useState<string[]>([]);
   const [activeUsers, setActiveUsers] = useState<{ id: string; name: string }[]>([]);
   const [disciplines, setDisciplines] = useState<Record<Discipline, boolean>>({
-    estrutural: false,
-    hidraulica: false,
-    eletrica: false,
+    estrutural: false, hidraulica: false, eletrica: false,
   });
   const [startDate, setStartDate] = useState("");
   const [deadline, setDeadline] = useState("");
   const [responsible, setResponsible] = useState("");
   const [saleValues, setSaleValues] = useState<Record<Discipline, string>>({
-    estrutural: "",
-    hidraulica: "",
-    eletrica: "",
+    estrutural: "", hidraulica: "", eletrica: "",
   });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -60,13 +57,9 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
   const isNewClient = clientValue && !clients.some((c) => c.toLowerCase() === clientValue.toLowerCase());
 
   const resetForm = () => {
-    setName("");
-    setClientValue("");
-    setClientSearch("");
+    setName(""); setClientValue(""); setClientSearch("");
     setDisciplines({ estrutural: false, hidraulica: false, eletrica: false });
-    setStartDate("");
-    setDeadline("");
-    setResponsible("");
+    setStartDate(""); setDeadline(""); setResponsible("");
     setSaleValues({ estrutural: "", hidraulica: "", eletrica: "" });
   };
 
@@ -75,7 +68,6 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
-
     for (const d of selectedDisciplines) {
       if (!saleValues[d] || Number(saleValues[d]) <= 0) {
         toast.error(`Informe o valor de venda para ${DISCIPLINE_SHORT[d]}.`);
@@ -83,44 +75,56 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
       }
     }
 
+    setSaving(true);
+
     // Save new client if needed
     if (isNewClient) {
       await supabase.from("clients").insert({ name: clientValue });
     }
 
-    const newProjects: Project[] = selectedDisciplines.map((disc, idx) => {
+    const stages = STAGE_NAMES.map((stageName, i) => ({
+      id: `s_${Date.now()}_${i}`,
+      name: stageName,
+      responsible,
+      deadline,
+      status: "pendente",
+      hoursSpent: 0,
+    }));
+
+    const projectRows = selectedDisciplines.map((disc) => {
       const suffix = selectedDisciplines.length > 1 ? ` - ${DISCIPLINE_SHORT[disc]}` : "";
       return {
-        id: `p${Date.now()}_${idx}`,
         name: `${name}${suffix}`,
         client: clientValue,
         discipline: disc,
-        startDate,
+        start_date: startDate,
         deadline,
-        status: "em_andamento" as const,
+        status: "em_andamento",
         responsible,
         team: [responsible],
-        hoursSold: 0,
-        saleValue: Number(saleValues[disc]) || 0,
-        hoursWorked: 0,
-        stages: STAGE_NAMES.map((stageName, i) => ({
-          id: `ns${Date.now()}_${idx}_${i}`,
-          name: stageName,
-          responsible,
-          deadline,
-          status: "pendente" as const,
-          hoursSpent: 0,
-        })),
+        hours_sold: 0,
+        sale_value: Number(saleValues[disc]) || 0,
+        hours_worked: 0,
+        stages,
         revisions: [],
       };
     });
 
-    onProjectsCreated(newProjects);
+    const { error } = await supabase.from("projects").insert(projectRows);
+
+    setSaving(false);
+
+    if (error) {
+      toast.error("Erro ao criar projeto: " + error.message);
+      return;
+    }
+
+    onProjectsCreated();
     onOpenChange(false);
     resetForm();
     toast.success(
-      newProjects.length > 1
-        ? `${newProjects.length} projetos criados com sucesso!`
+      projectRows.length > 1
+        ? `${projectRows.length} projetos criados com sucesso!`
         : "Projeto criado com sucesso!"
     );
   };
@@ -132,13 +136,11 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
           <DialogTitle>Novo Projeto</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
-          {/* Nome */}
           <div className="space-y-2">
             <Label htmlFor="proj-name">Nome do Projeto *</Label>
             <Input id="proj-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Edifício Central Park" />
           </div>
 
-          {/* Cliente Autocomplete */}
           <div className="space-y-2">
             <Label>Cliente *</Label>
             <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
@@ -150,41 +152,18 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
               </PopoverTrigger>
               <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                 <Command>
-                  <CommandInput
-                    placeholder="Buscar cliente..."
-                    value={clientSearch}
-                    onValueChange={(v) => {
-                      setClientSearch(v);
-                      setClientValue(v);
-                    }}
-                  />
+                  <CommandInput placeholder="Buscar cliente..." value={clientSearch} onValueChange={(v) => { setClientSearch(v); setClientValue(v); }} />
                   <CommandList>
                     <CommandEmpty>
                       {clientSearch ? (
-                        <button
-                          className="w-full px-2 py-2 text-sm text-left hover:bg-accent rounded"
-                          onClick={() => {
-                            setClientValue(clientSearch);
-                            setClientPopoverOpen(false);
-                          }}
-                        >
+                        <button className="w-full px-2 py-2 text-sm text-left hover:bg-accent rounded" onClick={() => { setClientValue(clientSearch); setClientPopoverOpen(false); }}>
                           Criar novo: <strong>&quot;{clientSearch}&quot;</strong>
                         </button>
-                      ) : (
-                        "Nenhum cliente encontrado."
-                      )}
+                      ) : "Nenhum cliente encontrado."}
                     </CommandEmpty>
                     <CommandGroup>
                       {filteredClients.map((c) => (
-                        <CommandItem
-                          key={c}
-                          value={c}
-                          onSelect={() => {
-                            setClientValue(c);
-                            setClientSearch("");
-                            setClientPopoverOpen(false);
-                          }}
-                        >
+                        <CommandItem key={c} value={c} onSelect={() => { setClientValue(c); setClientSearch(""); setClientPopoverOpen(false); }}>
                           <Check className={cn("mr-2 h-4 w-4", clientValue === c ? "opacity-100" : "opacity-0")} />
                           {c}
                         </CommandItem>
@@ -194,49 +173,32 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
                 </Command>
               </PopoverContent>
             </Popover>
-            {isNewClient && (
-              <p className="text-xs text-warning">Novo cliente será cadastrado automaticamente.</p>
-            )}
+            {isNewClient && <p className="text-xs text-warning">Novo cliente será cadastrado automaticamente.</p>}
           </div>
 
-          {/* Disciplinas com Valores inline */}
           <div className="space-y-2">
             <Label>Disciplinas e Valores *</Label>
             <div className="flex flex-col gap-3">
               {(["estrutural", "hidraulica", "eletrica"] as Discipline[]).map((d) => (
                 <div key={d} className="flex items-center gap-3">
                   <label className="flex items-center gap-2 cursor-pointer min-w-[120px]">
-                    <Checkbox
-                      checked={disciplines[d]}
-                      onCheckedChange={(checked) =>
-                        setDisciplines((prev) => ({ ...prev, [d]: !!checked }))
-                      }
-                    />
+                    <Checkbox checked={disciplines[d]} onCheckedChange={(checked) => setDisciplines((prev) => ({ ...prev, [d]: !!checked }))} />
                     <span className="text-sm">{DISCIPLINE_SHORT[d]}</span>
                   </label>
                   {disciplines[d] && (
                     <div className="relative flex-1">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
-                      <Input
-                        type="number"
-                        value={saleValues[d]}
-                        onChange={(e) => setSaleValues((prev) => ({ ...prev, [d]: e.target.value }))}
-                        placeholder="Valor do projeto"
-                        className="pl-10"
-                      />
+                      <Input type="number" value={saleValues[d]} onChange={(e) => setSaleValues((prev) => ({ ...prev, [d]: e.target.value }))} placeholder="Valor do projeto" className="pl-10" />
                     </div>
                   )}
                 </div>
               ))}
             </div>
             {selectedDisciplines.length > 1 && (
-              <p className="text-xs text-muted-foreground">
-                Serão criados {selectedDisciplines.length} projetos separados, um para cada disciplina.
-              </p>
+              <p className="text-xs text-muted-foreground">Serão criados {selectedDisciplines.length} projetos separados.</p>
             )}
           </div>
 
-          {/* Datas */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="proj-start">Data de Início *</Label>
@@ -248,14 +210,9 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
             </div>
           </div>
 
-          {/* Responsável */}
           <div className="space-y-2">
             <Label>Responsável *</Label>
-            <select
-              value={responsible}
-              onChange={(e) => setResponsible(e.target.value)}
-              className="h-10 w-full rounded-md border bg-card px-3 text-sm"
-            >
+            <select value={responsible} onChange={(e) => setResponsible(e.target.value)} className="h-10 w-full rounded-md border bg-card px-3 text-sm">
               <option value="">Selecione...</option>
               {activeUsers.map((u) => (
                 <option key={u.id} value={u.id}>{u.name}</option>
@@ -265,8 +222,8 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { onOpenChange(false); resetForm(); }}>Cancelar</Button>
-          <Button onClick={handleCreate}>
-            {selectedDisciplines.length > 1 ? `Criar ${selectedDisciplines.length} Projetos` : "Criar Projeto"}
+          <Button onClick={handleCreate} disabled={saving}>
+            {saving ? "Salvando..." : selectedDisciplines.length > 1 ? `Criar ${selectedDisciplines.length} Projetos` : "Criar Projeto"}
           </Button>
         </DialogFooter>
       </DialogContent>
