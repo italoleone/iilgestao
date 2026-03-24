@@ -92,7 +92,7 @@ export const projects: Project[] = [
   {
     id: 'p5', name: 'Hospital Regional Norte', client: 'Governo do Estado', discipline: 'hidraulica',
     startDate: '2026-01-10', deadline: '2026-07-30', status: 'em_andamento', responsible: 'u4',
-    team: ['u4', 'u7'], hoursSold: 720, hoursWorked: 198,
+    team: ['u4', 'u7'], hoursSold: 720, saleValue: 93600, hoursWorked: 198,
     stages: [
       { id: 's25', name: 'Estudo Preliminar', responsible: 'u4', deadline: '2026-02-10', status: 'concluido', hoursSpent: 56 },
       { id: 's26', name: 'Anteprojeto', responsible: 'u7', deadline: '2026-03-20', status: 'em_andamento', hoursSpent: 88 },
