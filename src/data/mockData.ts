@@ -125,7 +125,7 @@ export const projects: Project[] = [
   {
     id: 'p7', name: 'Condomínio Parque das Águas', client: 'Construtora Onda', discipline: 'estrutural',
     startDate: '2025-10-01', deadline: '2026-02-28', status: 'concluido', responsible: 'u3',
-    team: ['u3', 'u9'], hoursSold: 380, hoursWorked: 352,
+    team: ['u3', 'u9'], hoursSold: 380, saleValue: 49400, hoursWorked: 352,
     stages: [
       { id: 's37', name: 'Estudo Preliminar', responsible: 'u3', deadline: '2025-10-20', status: 'concluido', hoursSpent: 36 },
       { id: 's38', name: 'Anteprojeto', responsible: 'u9', deadline: '2025-11-15', status: 'concluido', hoursSpent: 64 },
