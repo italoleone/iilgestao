@@ -521,6 +521,14 @@ export default function TarefaDetalhe() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
+                        {att.file_name.toLowerCase().endsWith(".pdf") && (
+                          <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => {
+                            const { data } = supabase.storage.from("task-attachments").getPublicUrl(att.file_path);
+                            setPdfViewer({ url: data.publicUrl, attachmentId: att.id, fileName: att.file_name, sheetTitle: att.sheet_title });
+                          }}>
+                            <Eye className="h-4 w-4" /> Visualizar
+                          </Button>
+                        )}
                         <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => handleDownload(att)}>
                           <Download className="h-4 w-4" /> Baixar
                         </Button>
