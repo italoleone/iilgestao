@@ -1,18 +1,20 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveProfiles, getProfileById, useTimeEntries, type DbTimeEntry } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DISCIPLINE_SHORT, TASK_STATUS_LABELS, type TaskStatus, type Discipline,
 } from "@/types";
-import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign, Trash2 } from "lucide-react";
+import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign, Trash2, CheckCircle2, Send, ThumbsUp, ThumbsDown, Upload, Download, FileText, AlertTriangle } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 const taskStatusColors: Record<TaskStatus, string> = {
@@ -38,40 +40,66 @@ function formatCurrency(value: number) {
 interface DbTask {
   id: string; name: string; project_id: string; discipline: string; stage_name: string;
   responsible: string; start_date: string; end_date: string; estimated_hours: number;
-  hours_worked: number; status: string;
+  hours_worked: number; status: string; parent_task_id: string | null; rejection_reason: string | null;
 }
 
 interface DbProject {
-  id: string; name: string; client: string; discipline: string;
+  id: string; name: string; client: string; discipline: string; responsible: string;
+}
+
+interface TaskAttachment {
+  id: string; task_id: string; file_name: string; file_path: string; file_size: number; uploaded_by: string; created_at: string;
 }
 
 export default function TarefaDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile, canAccessFinanceiro } = useAuth();
+  const { profile, canAccessFinanceiro, isProjetista } = useAuth();
   const { profiles } = useActiveProfiles();
   const { entries: timeEntries, refetch: refetchEntries } = useTimeEntries(id);
 
   const [task, setTask] = useState<DbTask | null>(null);
   const [project, setProject] = useState<DbProject | null>(null);
+  const [parentTask, setParentTask] = useState<DbTask | null>(null);
+  const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [timerStart, setTimerStart] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [deleting, setDeleting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  const fetchTask = async () => {
     if (!id) return;
     setLoading(true);
-    supabase.from("tasks").select("*").eq("id", id).maybeSingle().then(async ({ data }) => {
-      if (data) {
-        const t = data as unknown as DbTask;
-        setTask(t);
-        const { data: proj } = await supabase.from("projects").select("id, name, client, discipline").eq("id", t.project_id).maybeSingle();
-        if (proj) setProject(proj as unknown as DbProject);
+    const { data } = await supabase.from("tasks").select("*").eq("id", id).maybeSingle();
+    if (data) {
+      const t = data as unknown as DbTask;
+      setTask(t);
+      const { data: proj } = await supabase.from("projects").select("id, name, client, discipline, responsible").eq("id", t.project_id).maybeSingle();
+      if (proj) setProject(proj as unknown as DbProject);
+      // Fetch parent task if this is a validation task
+      if (t.parent_task_id) {
+        const { data: parent } = await supabase.from("tasks").select("*").eq("id", t.parent_task_id).maybeSingle();
+        if (parent) setParentTask(parent as unknown as DbTask);
       }
-      setLoading(false);
-    });
-  }, [id]);
+    }
+    setLoading(false);
+  };
+
+  const fetchAttachments = async () => {
+    if (!id) return;
+    // Fetch attachments for this task and parent task
+    const taskIds = [id];
+    if (task?.parent_task_id) taskIds.push(task.parent_task_id);
+    const { data } = await supabase.from("task_attachments").select("*").in("task_id", taskIds).order("created_at", { ascending: false });
+    if (data) setAttachments(data as unknown as TaskAttachment[]);
+  };
+
+  useEffect(() => { fetchTask(); }, [id]);
+  useEffect(() => { if (task) fetchAttachments(); }, [task?.id, task?.parent_task_id]);
 
   useEffect(() => {
     if (!timerStart) return;
@@ -90,7 +118,6 @@ export default function TarefaDetalhe() {
 
   const totalHistoryMinutes = useMemo(() => timeEntries.reduce((sum, r) => sum + r.duration_minutes, 0), [timeEntries]);
 
-  // Calculate cost per entry using user's cost_per_hour
   const entriesWithCost = useMemo(() => {
     return timeEntries.map((entry) => {
       const userProfile = getProfileById(profiles, entry.user_id);
@@ -104,6 +131,11 @@ export default function TarefaDetalhe() {
 
   const hoursProgress = task && Number(task.estimated_hours) > 0
     ? Math.round((Number(task.hours_worked) / Number(task.estimated_hours)) * 100) : 0;
+
+  const isValidationTask = !!task?.parent_task_id;
+  const isCoordinator = project && profile && project.responsible === profile.id;
+  const isTaskResponsible = task && profile && task.responsible === profile.id;
+  const canExecuteTimer = task && (task.status === "nao_iniciada" || task.status === "em_andamento" || task.status === "reprovada");
 
   const toggleTimer = async () => {
     if (!task || !profile) return;
@@ -125,9 +157,10 @@ export default function TarefaDetalhe() {
       });
 
       const newHours = Math.round((Number(task.hours_worked) + hoursWorked) * 100) / 100;
-      await supabase.from("tasks").update({ hours_worked: newHours, status: "em_andamento" }).eq("id", task.id);
+      const newStatus = task.status === "reprovada" ? "em_andamento" : (task.status === "nao_iniciada" ? "em_andamento" : task.status);
+      await supabase.from("tasks").update({ hours_worked: newHours, status: newStatus }).eq("id", task.id);
 
-      setTask(prev => prev ? { ...prev, hours_worked: newHours } : prev);
+      setTask(prev => prev ? { ...prev, hours_worked: newHours, status: newStatus } : prev);
       setTimerStart(null);
       setElapsed(0);
       refetchEntries();
@@ -135,11 +168,109 @@ export default function TarefaDetalhe() {
     } else {
       setTimerStart(new Date());
       setElapsed(0);
-      if (task.status === "nao_iniciada") {
+      if (task.status === "nao_iniciada" || task.status === "reprovada") {
         await supabase.from("tasks").update({ status: "em_andamento" }).eq("id", task.id);
         setTask(prev => prev ? { ...prev, status: "em_andamento" } : prev);
       }
     }
+  };
+
+  const handleMarkComplete = async () => {
+    if (!task) return;
+    await supabase.from("tasks").update({ status: "concluida" }).eq("id", task.id);
+    setTask(prev => prev ? { ...prev, status: "concluida" } : prev);
+    toast.success("Tarefa marcada como concluída!");
+  };
+
+  const handleSendForValidation = async () => {
+    if (!task || !project || !profile) return;
+    if (attachments.filter(a => a.task_id === task.id).length === 0) {
+      toast.error("Anexe pelo menos 1 arquivo antes de enviar para validação.");
+      return;
+    }
+
+    // Update current task status
+    await supabase.from("tasks").update({ status: "aguardando_validacao" }).eq("id", task.id);
+
+    // Create validation task for coordinator
+    const { error } = await supabase.from("tasks").insert({
+      name: `Validação – ${task.name}`,
+      project_id: task.project_id,
+      discipline: task.discipline,
+      stage_name: task.stage_name,
+      responsible: project.responsible,
+      start_date: new Date().toISOString().slice(0, 10),
+      end_date: task.end_date,
+      estimated_hours: 0,
+      hours_worked: 0,
+      status: "nao_iniciada",
+      parent_task_id: task.id,
+    });
+
+    if (error) {
+      toast.error("Erro ao criar tarefa de validação: " + error.message);
+      return;
+    }
+
+    setTask(prev => prev ? { ...prev, status: "aguardando_validacao" } : prev);
+    toast.success("Tarefa enviada para validação do coordenador!");
+  };
+
+  const handleApprove = async () => {
+    if (!task || !task.parent_task_id) return;
+    // Approve parent task
+    await supabase.from("tasks").update({ status: "aprovada" }).eq("id", task.parent_task_id);
+    // Mark validation task as done
+    await supabase.from("tasks").update({ status: "aprovada" }).eq("id", task.id);
+    setTask(prev => prev ? { ...prev, status: "aprovada" } : prev);
+    toast.success("Tarefa aprovada com sucesso!");
+  };
+
+  const handleReject = async () => {
+    if (!task || !task.parent_task_id || !rejectReason.trim()) {
+      toast.error("Informe o motivo da reprovação.");
+      return;
+    }
+    // Reject parent task back to em_andamento
+    await supabase.from("tasks").update({ status: "reprovada", rejection_reason: rejectReason.trim() }).eq("id", task.parent_task_id);
+    // Mark validation task as done
+    await supabase.from("tasks").update({ status: "reprovada", rejection_reason: rejectReason.trim() }).eq("id", task.id);
+    setTask(prev => prev ? { ...prev, status: "reprovada" } : prev);
+    setRejectOpen(false);
+    setRejectReason("");
+    toast.success("Tarefa reprovada. O projetista foi notificado.");
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !task || !profile) return;
+    setUploading(true);
+
+    for (const file of Array.from(files)) {
+      const filePath = `${task.id}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("task-attachments").upload(filePath, file);
+      if (uploadError) {
+        toast.error(`Erro ao enviar ${file.name}: ${uploadError.message}`);
+        continue;
+      }
+      await supabase.from("task_attachments").insert({
+        task_id: task.id,
+        file_name: file.name,
+        file_path: filePath,
+        file_size: file.size,
+        uploaded_by: profile.id,
+      });
+    }
+
+    setUploading(false);
+    fetchAttachments();
+    toast.success("Arquivo(s) anexado(s) com sucesso!");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDownload = (att: TaskAttachment) => {
+    const { data } = supabase.storage.from("task-attachments").getPublicUrl(att.file_path);
+    window.open(data.publicUrl, "_blank");
   };
 
   if (loading) {
@@ -162,7 +293,7 @@ export default function TarefaDetalhe() {
   }
 
   const responsible = getProfileById(profiles, task.responsible);
-  const isOverdue = new Date(task.end_date) < new Date() && task.status !== "concluida";
+  const isOverdue = new Date(task.end_date) < new Date() && !["concluida", "aprovada"].includes(task.status);
   const canDelete = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
 
   const handleDeleteTask = async () => {
@@ -176,6 +307,11 @@ export default function TarefaDetalhe() {
       navigate("/tarefas");
     }
   };
+
+  const showTimer = canExecuteTimer && !isValidationTask;
+  const showCompleteButton = isTaskResponsible && task.status === "em_andamento" && !isValidationTask;
+  const showSendValidation = isTaskResponsible && task.status === "concluida" && !isValidationTask;
+  const showValidationActions = isValidationTask && (isCoordinator || !isProjetista) && task.status === "nao_iniciada";
 
   return (
     <AppLayout>
@@ -219,13 +355,47 @@ export default function TarefaDetalhe() {
             <div className="flex items-center gap-2">
               {isOverdue && <Badge variant="destructive">Atrasada</Badge>}
               <Badge variant="secondary" className={taskStatusColors[task.status as TaskStatus]}>
-                {TASK_STATUS_LABELS[task.status as TaskStatus]}
+                {TASK_STATUS_LABELS[task.status as TaskStatus] || task.status}
               </Badge>
             </div>
           </div>
         </div>
 
-        {task.status !== "concluida" && (
+        {/* Rejection reason alert */}
+        {task.rejection_reason && (task.status === "reprovada") && (
+          <Card className="border-destructive/50 bg-destructive/5 shadow-sm animate-reveal-up" style={{ animationFillMode: "backwards" }}>
+            <CardContent className="py-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-destructive">Tarefa Reprovada</p>
+                  <p className="text-sm text-muted-foreground mt-1">{task.rejection_reason}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Validation task: show parent task info */}
+        {isValidationTask && parentTask && (
+          <Card className="border-primary/30 bg-primary/5 shadow-sm animate-reveal-up" style={{ animationFillMode: "backwards" }}>
+            <CardContent className="py-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold">Tarefa de Validação</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Tarefa original: <strong>{parentTask.name}</strong><br />
+                    Projetista: <strong>{getProfileById(profiles, parentTask.responsible)?.name || "—"}</strong>
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Timer control */}
+        {showTimer && (
           <Card className="shadow-sm animate-reveal-up delay-1" style={{ animationFillMode: "backwards" }}>
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
@@ -245,6 +415,32 @@ export default function TarefaDetalhe() {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Action buttons */}
+        {(showCompleteButton || showSendValidation || showValidationActions) && (
+          <div className="flex flex-wrap gap-3 animate-reveal-up delay-1" style={{ animationFillMode: "backwards" }}>
+            {showCompleteButton && (
+              <Button className="gap-2" onClick={handleMarkComplete}>
+                <CheckCircle2 className="h-4 w-4" /> Marcar como Concluído
+              </Button>
+            )}
+            {showSendValidation && (
+              <Button className="gap-2 bg-primary" onClick={handleSendForValidation}>
+                <Send className="h-4 w-4" /> Enviar para Validação do Coordenador
+              </Button>
+            )}
+            {showValidationActions && (
+              <>
+                <Button className="gap-2 bg-success text-success-foreground hover:bg-success/90" onClick={handleApprove}>
+                  <ThumbsUp className="h-4 w-4" /> Aprovar
+                </Button>
+                <Button variant="destructive" className="gap-2" onClick={() => setRejectOpen(true)}>
+                  <ThumbsDown className="h-4 w-4" /> Reprovar
+                </Button>
+              </>
+            )}
+          </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-reveal-up delay-2" style={{ animationFillMode: "backwards" }}>
@@ -280,7 +476,60 @@ export default function TarefaDetalhe() {
           </Card>
         </div>
 
+        {/* Attachments */}
         <Card className="shadow-sm animate-reveal-up delay-3" style={{ animationFillMode: "backwards" }}>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Paperclip className="h-4 w-4" /> Arquivos Anexos
+              <Badge variant="secondary" className="ml-auto text-xs">{attachments.length} arquivo(s)</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {attachments.length > 0 ? (
+              <div className="space-y-2 mb-4">
+                {attachments.map((att) => {
+                  const uploader = getProfileById(profiles, att.uploaded_by);
+                  return (
+                    <div key={att.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/30 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium">{att.file_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {uploader?.name || "—"} · {new Date(att.created_at).toLocaleDateString("pt-BR")}
+                            {att.file_size > 0 && ` · ${(att.file_size / 1024).toFixed(0)} KB`}
+                          </p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => handleDownload(att)}>
+                        <Download className="h-4 w-4" /> Baixar
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4 mb-4">Nenhum arquivo anexado.</p>
+            )}
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.dwg,.dxf,.xlsx,.xls,.png,.jpg,.jpeg"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                {uploading ? "Enviando..." : "Anexar arquivo"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Activity history */}
+        <Card className="shadow-sm animate-reveal-up delay-4" style={{ animationFillMode: "backwards" }}>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <History className="h-4 w-4" /> Histórico de Atividades
@@ -319,17 +568,27 @@ export default function TarefaDetalhe() {
             )}
           </CardContent>
         </Card>
-
-        <Card className="shadow-sm animate-reveal-up delay-4" style={{ animationFillMode: "backwards" }}>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2"><Paperclip className="h-4 w-4" /> Arquivos Anexos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground text-center py-4">Nenhum arquivo anexado.</p>
-            <Button variant="outline" size="sm" className="mt-3 gap-1"><Paperclip className="h-3 w-3" /> Anexar arquivo</Button>
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Reject dialog */}
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Reprovar Tarefa</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">Informe o motivo da reprovação. O projetista será notificado.</p>
+            <Textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Descreva o motivo da reprovação..."
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleReject} disabled={!rejectReason.trim()}>Confirmar Reprovação</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
