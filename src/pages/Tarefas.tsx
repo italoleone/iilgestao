@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -49,14 +49,13 @@ export default function Tarefas() {
   const [elapsed, setElapsed] = useState(0);
 
   // Timer tick
-  useState(() => {
+  useEffect(() => {
+    if (!timerStart) return;
     const interval = setInterval(() => {
-      if (timerStart) {
-        setElapsed(Math.floor((Date.now() - timerStart.getTime()) / 1000));
-      }
+      setElapsed(Math.floor((Date.now() - timerStart.getTime()) / 1000));
     }, 1000);
     return () => clearInterval(interval);
-  });
+  }, [timerStart]);
 
   const formatTimer = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
