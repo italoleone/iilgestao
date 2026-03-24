@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { Badge } from "@/components/ui/badge";
-import { getUserById, projects } from "@/data/mockData";
-import { TASK_STATUS_LABELS, type Task, type TaskStatus } from "@/types";
+import { getUserById } from "@/data/mockData";
+import { type Task, type TaskStatus } from "@/types";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
