@@ -13,23 +13,21 @@ export function LeoneLogo({ className = "", variant = "light", showSubtext = tru
       <svg viewBox="0 0 200 50" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto">
         {/* L */}
         <rect x="0" y="4" width="4" height="30" fill={mainColor} />
-        <rect x="0" y="30" width="20" height="4" fill={mainColor} />
-        {/* E (with horizontal lines) */}
-        <rect x="26" y="4" width="4" height="30" fill={mainColor} />
-        <rect x="26" y="4" width="18" height="4" fill={mainColor} />
-        <rect x="26" y="16" width="14" height="4" fill={accentColor} />
-        <rect x="26" y="30" width="18" height="4" fill={mainColor} />
+        <rect x="0" y="30" width="18" height="4" fill={mainColor} />
+        {/* E — three horizontal bars only (no vertical) */}
+        <rect x="24" y="4" width="18" height="4" fill={mainColor} />
+        <rect x="24" y="16" width="14" height="4" fill={accentColor} />
+        <rect x="24" y="30" width="18" height="4" fill={mainColor} />
         {/* O */}
-        <ellipse cx="66" cy="19" rx="13" ry="15" stroke={mainColor} strokeWidth="4" fill="none" />
+        <ellipse cx="62" cy="19" rx="12" ry="15" stroke={mainColor} strokeWidth="4" fill="none" />
         {/* N */}
-        <rect x="84" y="4" width="4" height="30" fill={mainColor} />
-        <rect x="108" y="4" width="4" height="30" fill={mainColor} />
-        <line x1="88" y1="4" x2="108" y2="34" stroke={mainColor} strokeWidth="4" />
-        {/* E (with horizontal lines) */}
-        <rect x="118" y="4" width="4" height="30" fill={mainColor} />
-        <rect x="118" y="4" width="18" height="4" fill={mainColor} />
-        <rect x="118" y="16" width="14" height="4" fill={accentColor} />
-        <rect x="118" y="30" width="18" height="4" fill={mainColor} />
+        <rect x="80" y="4" width="4" height="30" fill={mainColor} />
+        <rect x="104" y="4" width="4" height="30" fill={mainColor} />
+        <line x1="84" y1="4" x2="104" y2="34" stroke={mainColor} strokeWidth="4" />
+        {/* E — three horizontal bars only (no vertical) */}
+        <rect x="114" y="4" width="18" height="4" fill={mainColor} />
+        <rect x="114" y="16" width="14" height="4" fill={accentColor} />
+        <rect x="114" y="30" width="18" height="4" fill={mainColor} />
       </svg>
       {showSubtext && (
         <p
