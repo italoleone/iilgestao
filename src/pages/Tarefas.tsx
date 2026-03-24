@@ -17,9 +17,10 @@ import {
   type Discipline, type TaskStatus, type Task,
 } from "@/types";
 import {
-  Search, Plus, Clock, User, ChevronRight, ListChecks, List, Calendar, Play, Square, Loader2,
+  Search, Plus, Clock, User, ChevronRight, ListChecks, List, Calendar, Play, Square, Loader2, Radio,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useActiveTimers, startActiveTimer, stopActiveTimer, getTimerForTask } from "@/hooks/useActiveTimers";
 
 const taskStatusColors: Record<TaskStatus, string> = {
   nao_iniciada: "bg-muted text-muted-foreground",
@@ -36,6 +37,7 @@ export default function Tarefas() {
   const { projects } = useProjects();
   const { tasks: allTasks, loading, refetch: refetchTasks } = useTasks();
   const { profiles } = useActiveProfiles();
+  const { activeTimers } = useActiveTimers();
   const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
   const [timerStart, setTimerStart] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState(0);
