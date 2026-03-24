@@ -250,7 +250,7 @@ export default function TarefaDetalhe() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setPendingFiles(Array.from(files));
-    setSheetTitle("");
+    setSheetTitles({});
     setUploadDialogOpen(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -262,18 +262,21 @@ export default function TarefaDetalhe() {
       .replace(/_+/g, "_");
   };
 
+  const allTitlesFilled = pendingFiles.length > 0 && pendingFiles.every((_, i) => sheetTitles[i]?.trim());
+
   const handleConfirmUpload = async () => {
-    if (!sheetTitle.trim()) {
-      toast.error("Preencha o Título da Folha.");
+    if (!allTitlesFilled) {
+      toast.error("Preencha a descrição de todos os arquivos.");
       return;
     }
     if (!task || !profile || pendingFiles.length === 0) return;
     setUploading(true);
     setUploadDialogOpen(false);
 
-    for (const file of pendingFiles) {
+    for (let i = 0; i < pendingFiles.length; i++) {
+      const file = pendingFiles[i];
       const safeName = sanitizeFileName(file.name);
-      const filePath = `${task.id}/${Date.now()}_${safeName}`;
+      const filePath = `${task.id}/${Date.now()}_${i}_${safeName}`;
       const { error: uploadError } = await supabase.storage.from("task-attachments").upload(filePath, file);
       if (uploadError) {
         toast.error(`Erro ao enviar ${file.name}: ${uploadError.message}`);
@@ -285,13 +288,13 @@ export default function TarefaDetalhe() {
         file_path: filePath,
         file_size: file.size,
         uploaded_by: profile.id,
-        sheet_title: sheetTitle.trim(),
+        sheet_title: sheetTitles[i].trim(),
       });
     }
 
     setUploading(false);
     setPendingFiles([]);
-    setSheetTitle("");
+    setSheetTitles({});
     fetchAttachments();
     toast.success("Arquivo(s) anexado(s) com sucesso!");
   };
