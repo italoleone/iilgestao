@@ -9,7 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useActiveProfiles, getProfileById, useTasks } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { DISCIPLINE_SHORT, STATUS_LABELS, TASK_STATUS_LABELS, type ProjectStatus, type TaskStatus, type Discipline, type Project, type Stage } from "@/types";
-import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks, Loader2 } from "lucide-react";
+import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks, Loader2, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import { formatBRL } from "@/lib/utils";
 import { useTimeEntries } from "@/hooks/useSupabaseData";
 
@@ -42,11 +44,12 @@ export default function ProjetoDetalhe() {
   const navigate = useNavigate();
   const { profiles } = useActiveProfiles();
   const { tasks: allTasks } = useTasks();
-  const { canAccessFinanceiro: canSeeFinancial } = useAuth();
+  const { canAccessFinanceiro: canSeeFinancial, canAccessAllProjects } = useAuth();
   const { entries: projectTimeEntries } = useTimeEntries(undefined, id);
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -99,13 +102,52 @@ export default function ProjetoDetalhe() {
   const revenue = project.saleValue;
   const profit = revenue - cost;
 
+  const handleDeleteProject = async () => {
+    setDeleting(true);
+    const { error } = await supabase.from("projects").delete().eq("id", project.id);
+    setDeleting(false);
+    if (error) {
+      toast.error("Erro ao excluir projeto: " + error.message);
+    } else {
+      toast.success("Projeto excluído com sucesso.");
+      navigate("/projetos");
+    }
+  };
+
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="animate-reveal-up" style={{ animationFillMode: "backwards" }}>
-          <Button variant="ghost" size="sm" className="gap-1.5 mb-3 -ml-2" onClick={() => navigate("/projetos")}>
-            <ArrowLeft className="h-4 w-4" /> Voltar
-          </Button>
+          <div className="flex items-center justify-between mb-3">
+            <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => navigate("/projetos")}>
+              <ArrowLeft className="h-4 w-4" /> Voltar
+            </Button>
+            {canAccessAllProjects && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" className="gap-1.5" disabled={deleting}>
+                    <Trash2 className="h-4 w-4" /> Excluir Projeto
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir projeto?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tem certeza que deseja excluir o projeto <strong>{project.name}</strong>?
+                      <br /><br />
+                      ⚠️ Todas as tarefas vinculadas e registros de horas também serão excluídos permanentemente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteProject} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Excluir permanentemente
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div><h1 className="text-2xl font-bold">{project.name}</h1><p className="text-muted-foreground mt-1">{project.client}</p></div>
             <Badge variant="secondary" className={statusColors[project.status]}>{STATUS_LABELS[project.status]}</Badge>
