@@ -202,18 +202,32 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
 
           {/* Disciplinas - Checkboxes */}
           <div className="space-y-2">
-            <Label>Disciplinas *</Label>
-            <div className="flex flex-col gap-2">
+            <Label>Disciplinas e Valores *</Label>
+            <div className="flex flex-col gap-3">
               {(["estrutural", "hidraulica", "eletrica"] as Discipline[]).map((d) => (
-                <label key={d} className="flex items-center gap-2 cursor-pointer">
-                  <Checkbox
-                    checked={disciplines[d]}
-                    onCheckedChange={(checked) =>
-                      setDisciplines((prev) => ({ ...prev, [d]: !!checked }))
-                    }
-                  />
-                  <span className="text-sm">{DISCIPLINE_SHORT[d]}</span>
-                </label>
+                <div key={d} className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer min-w-[120px]">
+                    <Checkbox
+                      checked={disciplines[d]}
+                      onCheckedChange={(checked) =>
+                        setDisciplines((prev) => ({ ...prev, [d]: !!checked }))
+                      }
+                    />
+                    <span className="text-sm">{DISCIPLINE_SHORT[d]}</span>
+                  </label>
+                  {disciplines[d] && (
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                      <Input
+                        type="number"
+                        value={saleValues[d]}
+                        onChange={(e) => setSaleValues((prev) => ({ ...prev, [d]: e.target.value }))}
+                        placeholder="Valor do projeto"
+                        className="pl-10"
+                      />
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
             {selectedDisciplines.length > 1 && (
@@ -221,56 +235,6 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
                 Serão criados {selectedDisciplines.length} projetos separados, um para cada disciplina.
               </p>
             )}
-          </div>
-
-          {/* Datas */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="proj-start">Data de Início *</Label>
-              <Input id="proj-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="proj-deadline">Data Final *</Label>
-              <Input id="proj-deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
-            </div>
-          </div>
-
-          {/* Responsável */}
-          <div className="space-y-2">
-            <Label>Responsável *</Label>
-            <select
-              value={responsible}
-              onChange={(e) => setResponsible(e.target.value)}
-              className="h-10 w-full rounded-md border bg-card px-3 text-sm"
-            >
-              <option value="">Selecione...</option>
-              {disciplineUsers.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Valores de Venda por Disciplina */}
-          {selectedDisciplines.length > 0 && (
-            <div className="space-y-3">
-              <Label>Valores de Venda *</Label>
-              {selectedDisciplines.map((d) => (
-                <div key={d} className="flex items-center gap-2">
-                  <span className="text-sm w-24 text-muted-foreground">{DISCIPLINE_SHORT[d]}:</span>
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
-                    <Input
-                      type="number"
-                      value={saleValues[d]}
-                      onChange={(e) => setSaleValues((prev) => ({ ...prev, [d]: e.target.value }))}
-                      placeholder="0,00"
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { onOpenChange(false); resetForm(); }}>Cancelar</Button>
