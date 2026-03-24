@@ -394,31 +394,38 @@ export default function TarefaDetalhe() {
             <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => navigate("/tarefas")}>
               <ArrowLeft className="h-4 w-4" /> Voltar
             </Button>
-            {canDelete && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm" className="gap-1.5" disabled={deleting}>
-                    <Trash2 className="h-4 w-4" /> Excluir Tarefa
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir tarefa?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Tem certeza que deseja excluir a tarefa <strong>{task.name}</strong>?
-                      <br /><br />
-                      ⚠️ Todos os registros de horas vinculados também serão excluídos permanentemente.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteTask} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      Excluir permanentemente
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
+            <div className="flex items-center gap-2">
+              {canEdit && (
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={openEditDialog}>
+                  <Pencil className="h-4 w-4" /> Editar Tarefa
+                </Button>
+              )}
+              {canDelete && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" className="gap-1.5" disabled={deleting}>
+                      <Trash2 className="h-4 w-4" /> Excluir Tarefa
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Excluir tarefa?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja excluir a tarefa <strong>{task.name}</strong>?
+                        <br /><br />
+                        ⚠️ Todos os registros de horas vinculados também serão excluídos permanentemente.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteTask} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Excluir permanentemente
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           </div>
           <div className="flex items-start justify-between gap-4">
             <div>
