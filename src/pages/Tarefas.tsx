@@ -44,6 +44,7 @@ const taskStatusColors: Record<TaskStatus, string> = {
 
 export default function Tarefas() {
   const { isProjetista, profile } = useAuth();
+  const navigate = useNavigate();
   const [allTasks, setAllTasks] = useState<Task[]>(initialTasks);
   const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
   const [timerStart, setTimerStart] = useState<Date | null>(null);
