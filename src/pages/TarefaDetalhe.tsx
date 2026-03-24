@@ -80,6 +80,9 @@ export default function TarefaDetalhe() {
   const [sheetTitles, setSheetTitles] = useState<Record<number, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pdfViewer, setPdfViewer] = useState<{ url: string; attachmentId: string; fileName: string; sheetTitle: string } | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editData, setEditData] = useState<Partial<DbTask>>({});
+  const [saving, setSaving] = useState(false);
 
   const fetchTask = async () => {
     if (!id) return;
