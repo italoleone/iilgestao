@@ -1,0 +1,1 @@
+ALTER TABLE public.task_attachments ADD COLUMN IF NOT EXISTS sheet_title text NOT NULL DEFAULT '';
