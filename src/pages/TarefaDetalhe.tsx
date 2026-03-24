@@ -60,6 +60,7 @@ export default function TarefaDetalhe() {
   const { profile, canAccessFinanceiro, isProjetista } = useAuth();
   const { profiles } = useActiveProfiles();
   const { entries: timeEntries, refetch: refetchEntries } = useTimeEntries(id);
+  const { activeTimers } = useActiveTimers();
 
   const [task, setTask] = useState<DbTask | null>(null);
   const [project, setProject] = useState<DbProject | null>(null);
