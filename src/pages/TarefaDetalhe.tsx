@@ -71,8 +71,8 @@ export default function TarefaDetalhe() {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [sheetTitle, setSheetTitle] = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [sheetTitles, setSheetTitles] = useState<Record<number, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchTask = async () => {
@@ -250,7 +250,7 @@ export default function TarefaDetalhe() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setPendingFiles(Array.from(files));
-    setSheetTitle("");
+    setSheetTitles({});
     setUploadDialogOpen(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -262,18 +262,21 @@ export default function TarefaDetalhe() {
       .replace(/_+/g, "_");
   };
 
+  const allTitlesFilled = pendingFiles.length > 0 && pendingFiles.every((_, i) => sheetTitles[i]?.trim());
+
   const handleConfirmUpload = async () => {
-    if (!sheetTitle.trim()) {
-      toast.error("Preencha o Título da Folha.");
+    if (!allTitlesFilled) {
+      toast.error("Preencha a descrição de todos os arquivos.");
       return;
     }
     if (!task || !profile || pendingFiles.length === 0) return;
     setUploading(true);
     setUploadDialogOpen(false);
 
-    for (const file of pendingFiles) {
+    for (let i = 0; i < pendingFiles.length; i++) {
+      const file = pendingFiles[i];
       const safeName = sanitizeFileName(file.name);
-      const filePath = `${task.id}/${Date.now()}_${safeName}`;
+      const filePath = `${task.id}/${Date.now()}_${i}_${safeName}`;
       const { error: uploadError } = await supabase.storage.from("task-attachments").upload(filePath, file);
       if (uploadError) {
         toast.error(`Erro ao enviar ${file.name}: ${uploadError.message}`);
@@ -285,13 +288,13 @@ export default function TarefaDetalhe() {
         file_path: filePath,
         file_size: file.size,
         uploaded_by: profile.id,
-        sheet_title: sheetTitle.trim(),
+        sheet_title: sheetTitles[i].trim(),
       });
     }
 
     setUploading(false);
     setPendingFiles([]);
-    setSheetTitle("");
+    setSheetTitles({});
     fetchAttachments();
     toast.success("Arquivo(s) anexado(s) com sucesso!");
   };
@@ -668,26 +671,31 @@ export default function TarefaDetalhe() {
       </Dialog>
 
       {/* Upload title dialog */}
-      <Dialog open={uploadDialogOpen} onOpenChange={(open) => { if (!open) { setPendingFiles([]); setSheetTitle(""); } setUploadDialogOpen(open); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Título da Folha</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-2">
+      <Dialog open={uploadDialogOpen} onOpenChange={(open) => { if (!open) { setPendingFiles([]); setSheetTitles({}); } setUploadDialogOpen(open); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Descrição dos Arquivos</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2 max-h-[60vh] overflow-y-auto">
             <p className="text-sm text-muted-foreground">
-              Informe o título da folha para identificar o(s) arquivo(s):
+              Informe a descrição (título da folha) para cada arquivo:
             </p>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Arquivo(s): {pendingFiles.map(f => f.name).join(", ")}</p>
-            </div>
-            <Input
-              value={sheetTitle}
-              onChange={(e) => setSheetTitle(e.target.value)}
-              placeholder="Ex: Planta de Forma – Pavimento Térreo"
-              autoFocus
-            />
+            {pendingFiles.map((file, idx) => (
+              <div key={idx} className="space-y-1.5 p-3 rounded-lg border">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                  {file.name}
+                </p>
+                <Input
+                  value={sheetTitles[idx] || ""}
+                  onChange={(e) => setSheetTitles(prev => ({ ...prev, [idx]: e.target.value }))}
+                  placeholder="Ex: Planta de Forma – Pavimento Térreo"
+                  autoFocus={idx === 0}
+                />
+              </div>
+            ))}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setUploadDialogOpen(false); setPendingFiles([]); setSheetTitle(""); }}>Cancelar</Button>
-            <Button onClick={handleConfirmUpload} disabled={!sheetTitle.trim() || uploading}>
+            <Button variant="outline" onClick={() => { setUploadDialogOpen(false); setPendingFiles([]); setSheetTitles({}); }}>Cancelar</Button>
+            <Button onClick={handleConfirmUpload} disabled={!allTitlesFilled || uploading}>
               {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
               Confirmar Upload
             </Button>
