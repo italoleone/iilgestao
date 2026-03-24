@@ -1,13 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProjects, useTasks, useActiveProfiles, useTimeEntries, getProfileById } from "@/hooks/useSupabaseData";
 import { useActiveTimers, getTimerForTask } from "@/hooks/useActiveTimers";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  AlertTriangle, Clock, CheckCircle2, Play, Radio, TrendingUp, Users, BarChart3, Timer, CalendarClock, Zap,
+  AlertTriangle, Clock, CheckCircle2, Play, Radio, TrendingUp, Users, BarChart3, Timer, CalendarClock, Zap, CalendarCheck, Filter,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -39,6 +40,9 @@ export default function DashboardPlanejamento() {
   const { activeTimers } = useActiveTimers();
   const { entries: allTimeEntries } = useTimeEntries();
 
+  const [filterDiscipline, setFilterDiscipline] = useState<string>("all");
+  const [filterProject, setFilterProject] = useState<string>("all");
+
   const projectMap = useMemo(() => {
     const m: Record<string, string> = {};
     projects.forEach(p => { m[p.id] = p.name; });
@@ -51,13 +55,31 @@ export default function DashboardPlanejamento() {
     return m;
   }, [profiles]);
 
-  // Filter tasks by discipline for coordenador
-  const filteredTasks = useMemo(() => {
+  // Get unique disciplines from tasks
+  const disciplines = useMemo(() => {
+    const set = new Set(tasks.map(t => t.discipline));
+    return Array.from(set).sort();
+  }, [tasks]);
+
+  // Base filter: role-based (coordenador sees own discipline only)
+  const roleFilteredTasks = useMemo(() => {
     if (profile?.role === "planejamento" && profile.discipline) {
       return tasks.filter(t => t.discipline === profile.discipline);
     }
     return tasks;
   }, [tasks, profile]);
+
+  // Apply user-selected filters on top
+  const filteredTasks = useMemo(() => {
+    let result = roleFilteredTasks;
+    if (filterDiscipline !== "all") {
+      result = result.filter(t => t.discipline === filterDiscipline);
+    }
+    if (filterProject !== "all") {
+      result = result.filter(t => t.projectId === filterProject);
+    }
+    return result;
+  }, [roleFilteredTasks, filterDiscipline, filterProject]);
 
   const now = new Date();
   const weekStart = startOfWeek();
@@ -71,11 +93,20 @@ export default function DashboardPlanejamento() {
     [filteredTasks]
   );
 
-  // 2. Due within 15 days
+  // Due today
+  const dueTodayTasks = useMemo(() =>
+    filteredTasks.filter(t =>
+      daysFromNow(t.endDate) === 0 &&
+      !["aprovada", "concluida"].includes(t.status)
+    ),
+    [filteredTasks]
+  );
+
+  // 2. Due within 15 days (exclude today)
   const dueSoonTasks = useMemo(() =>
     filteredTasks.filter(t => {
       const d = daysFromNow(t.endDate);
-      return d >= 0 && d <= 15 && !["aprovada", "concluida"].includes(t.status);
+      return d > 0 && d <= 15 && !["aprovada", "concluida"].includes(t.status);
     }).sort((a, b) => daysFromNow(a.endDate) - daysFromNow(b.endDate)),
     [filteredTasks]
   );
@@ -189,13 +220,42 @@ export default function DashboardPlanejamento() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard de Planejamento</h1>
-          <p className="text-sm text-muted-foreground">Visão operacional de tarefas e produtividade</p>
+        <div className="flex flex-col md:flex-row md:items-end gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-foreground">Dashboard de Planejamento</h1>
+            <p className="text-sm text-muted-foreground">Visão operacional de tarefas e produtividade</p>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={filterDiscipline} onValueChange={setFilterDiscipline}>
+                <SelectTrigger className="w-[160px] h-9 text-sm">
+                  <SelectValue placeholder="Disciplina" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas disciplinas</SelectItem>
+                  {disciplines.map(d => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Select value={filterProject} onValueChange={setFilterProject}>
+              <SelectTrigger className="w-[200px] h-9 text-sm">
+                <SelectValue placeholder="Projeto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os projetos</SelectItem>
+                {projects.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card className="border-destructive/30 bg-destructive/5">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-destructive/10">
@@ -204,6 +264,18 @@ export default function DashboardPlanejamento() {
               <div>
                 <p className="text-2xl font-bold text-destructive">{overdueTasks.length}</p>
                 <p className="text-xs text-muted-foreground">Atrasadas</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-warning/30 bg-warning/5">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-warning/10">
+                <CalendarCheck className="h-5 w-5 text-warning" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-warning">{dueTodayTasks.length}</p>
+                <p className="text-xs text-muted-foreground">Vencem hoje</p>
               </div>
             </CardContent>
           </Card>
@@ -283,6 +355,39 @@ export default function DashboardPlanejamento() {
             </CardContent>
           </Card>
         )}
+
+        {/* Due Today */}
+        <Card className="border-warning/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarCheck className="h-4 w-4 text-warning" />
+              Tarefas com Entrega Hoje
+              <Badge variant="outline" className="ml-auto border-warning/50 text-warning">{dueTodayTasks.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {dueTodayTasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma tarefa vence hoje</p>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {dueTodayTasks.map(task => (
+                  <div
+                    key={task.id}
+                    className="p-3 rounded-lg border border-warning/20 bg-warning/5 cursor-pointer hover:bg-warning/10 transition-colors"
+                    onClick={() => navigate(`/tarefas/${task.id}`)}
+                  >
+                    <p className="text-sm font-medium truncate">{task.name}</p>
+                    <p className="text-xs text-muted-foreground">{projectMap[task.projectId] || "—"}</p>
+                    <div className="flex justify-between items-center mt-1">
+                      <p className="text-xs text-muted-foreground">{profileMap[task.responsible] || "—"}</p>
+                      <Badge variant="outline" className="text-xs">{task.discipline}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Overdue + Due Soon side by side */}
         <div className="grid md:grid-cols-2 gap-4">
