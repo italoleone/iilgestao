@@ -161,12 +161,15 @@ export default function TarefaDetalhe() {
       const newStatus = task.status === "reprovada" ? "em_andamento" : (task.status === "nao_iniciada" ? "em_andamento" : task.status);
       await supabase.from("tasks").update({ hours_worked: newHours, status: newStatus }).eq("id", task.id);
 
+      await stopActiveTimer(profile.id);
+
       setTask(prev => prev ? { ...prev, hours_worked: newHours, status: newStatus } : prev);
       setTimerStart(null);
       setElapsed(0);
       refetchEntries();
       toast.success("Atividade registrada!");
     } else {
+      await startActiveTimer(task.id, task.project_id, profile.id, profile.name);
       setTimerStart(new Date());
       setElapsed(0);
       if (task.status === "nao_iniciada" || task.status === "reprovada") {
