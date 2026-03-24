@@ -44,6 +44,9 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
       supabase.from("clients").select("name").order("name").then(({ data }) => {
         if (data) setClients(data.map((c) => c.name));
       });
+      supabase.from("profiles").select("id, name").eq("status", "active").order("name").then(({ data }) => {
+        if (data) setActiveUsers(data.map((u) => ({ id: u.id, name: u.name })));
+      });
     }
   }, [open]);
 
