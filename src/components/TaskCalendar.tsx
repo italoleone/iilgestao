@@ -4,11 +4,6 @@ import { type Task, type TaskStatus } from "@/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const taskStatusColors: Record<TaskStatus, string> = {
-  nao_iniciada: "bg-muted text-muted-foreground",
-  em_andamento: "bg-info text-info-foreground",
-  concluida: "bg-success text-success-foreground",
-};
 
 interface TaskCalendarProps {
   tasks: Task[];
