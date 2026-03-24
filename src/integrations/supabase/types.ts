@@ -122,6 +122,44 @@ export type Database = {
         }
         Relationships: []
       }
+      task_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          task_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          task_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          task_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_attachments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           created_at: string
@@ -131,7 +169,9 @@ export type Database = {
           hours_worked: number
           id: string
           name: string
+          parent_task_id: string | null
           project_id: string
+          rejection_reason: string | null
           responsible: string
           stage_name: string
           start_date: string
@@ -145,7 +185,9 @@ export type Database = {
           hours_worked?: number
           id?: string
           name: string
+          parent_task_id?: string | null
           project_id: string
+          rejection_reason?: string | null
           responsible: string
           stage_name: string
           start_date: string
@@ -159,13 +201,22 @@ export type Database = {
           hours_worked?: number
           id?: string
           name?: string
+          parent_task_id?: string | null
           project_id?: string
+          rejection_reason?: string | null
           responsible?: string
           stage_name?: string
           start_date?: string
           status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tasks_project_id_fkey"
             columns: ["project_id"]
