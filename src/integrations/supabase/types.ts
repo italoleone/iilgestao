@@ -129,6 +129,7 @@ export type Database = {
           file_path: string
           file_size: number | null
           id: string
+          sheet_title: string
           task_id: string
           uploaded_by: string
         }
@@ -138,6 +139,7 @@ export type Database = {
           file_path: string
           file_size?: number | null
           id?: string
+          sheet_title?: string
           task_id: string
           uploaded_by: string
         }
@@ -147,6 +149,7 @@ export type Database = {
           file_path?: string
           file_size?: number | null
           id?: string
+          sheet_title?: string
           task_id?: string
           uploaded_by?: string
         }
