@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Projetos from "./pages/Projetos";
 import ProjetoDetalhe from "./pages/ProjetoDetalhe";
 import Tarefas from "./pages/Tarefas";
+import TarefaDetalhe from "./pages/TarefaDetalhe";
 import Horas from "./pages/Horas";
 import Financeiro from "./pages/Financeiro";
 import Alertas from "./pages/Alertas";
