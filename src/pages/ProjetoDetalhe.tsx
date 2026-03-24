@@ -10,6 +10,7 @@ import { useActiveProfiles, getProfileById, useTasks } from "@/hooks/useSupabase
 import { useAuth } from "@/contexts/AuthContext";
 import { DISCIPLINE_SHORT, STATUS_LABELS, TASK_STATUS_LABELS, type ProjectStatus, type TaskStatus, type Discipline, type Project, type Stage } from "@/types";
 import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks, Loader2 } from "lucide-react";
+import { formatBRL } from "@/lib/utils";
 import { useTimeEntries } from "@/hooks/useSupabaseData";
 
 const statusColors: Record<ProjectStatus, string> = {
@@ -122,7 +123,7 @@ export default function ProjetoDetalhe() {
           <Card className="shadow-sm animate-reveal-up delay-2" style={{ animationFillMode: "backwards" }}>
             <CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4" /> Horas</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Valor de Venda</span><span className="font-medium tabular-nums">R$ {project.saleValue.toLocaleString("pt-BR")}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Valor de Venda</span><span className="font-medium tabular-nums">R$ {formatBRL(project.saleValue)}</span></div>
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">Horas estimadas (tarefas)</span><span className="font-medium tabular-nums">{taskHours.estimated}h</span></div>
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">Horas realizadas (tarefas)</span><span className="font-medium tabular-nums">{taskHours.worked}h</span></div>
               <Progress value={taskHours.estimated > 0 ? (taskHours.worked / taskHours.estimated) * 100 : 0} className="h-2" />
@@ -133,10 +134,10 @@ export default function ProjetoDetalhe() {
             <Card className="shadow-sm animate-reveal-up delay-3" style={{ animationFillMode: "backwards" }}>
               <CardHeader><CardTitle className="text-base flex items-center gap-2"><DollarSign className="h-4 w-4" /> Financeiro</CardTitle></CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Receita</span><span className="font-medium tabular-nums">R$ {revenue.toLocaleString("pt-BR")}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Custo</span><span className="font-medium tabular-nums">R$ {cost.toLocaleString("pt-BR")}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Receita</span><span className="font-medium tabular-nums">R$ {formatBRL(revenue)}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Custo</span><span className="font-medium tabular-nums">R$ {formatBRL(cost)}</span></div>
                 <div className={`flex justify-between text-sm font-semibold ${profit >= 0 ? "text-success" : "text-destructive"}`}>
-                  <span>Resultado</span><span className="tabular-nums">{profit >= 0 ? "+" : ""}R$ {profit.toLocaleString("pt-BR")}</span>
+                  <span>Resultado</span><span className="tabular-nums">{profit >= 0 ? "+" : ""}R$ {formatBRL(profit)}</span>
                 </div>
               </CardContent>
             </Card>

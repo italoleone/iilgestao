@@ -7,6 +7,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { TrendingUp, TrendingDown, DollarSign, Loader2 } from "lucide-react";
+import { formatBRL } from "@/lib/utils";
 
 export default function Financeiro() {
   const { projects, loading } = useProjects();
@@ -65,7 +66,7 @@ export default function Financeiro() {
               </CardHeader>
               <CardContent>
                 <div className={`text-2xl font-bold tabular-nums ${kpi.title === "Resultado" ? (kpi.value >= 0 ? "text-success" : "text-destructive") : ""}`}>
-                  R$ {kpi.value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  R$ {formatBRL(kpi.value)}
                 </div>
               </CardContent>
             </Card>
@@ -81,7 +82,7 @@ export default function Financeiro() {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: number) => `R$ ${v.toLocaleString("pt-BR")}`} />
+                  <Tooltip formatter={(v: number) => `R$ ${formatBRL(v)}`} />
                   <Bar dataKey="receita" name="Receita" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="custo" name="Custo" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -105,9 +106,9 @@ export default function Financeiro() {
                     </div>
                     <div className="text-right">
                       <span className={`text-sm font-semibold tabular-nums ${p.profit >= 0 ? "text-success" : "text-destructive"}`}>
-                        {p.profit >= 0 ? "+" : ""}R$ {p.profit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        {p.profit >= 0 ? "+" : ""}R$ {formatBRL(p.profit)}
                       </span>
-                      <p className="text-xs text-muted-foreground tabular-nums">Custo: R$ {p.cost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                      <p className="text-xs text-muted-foreground tabular-nums">Custo: R$ {formatBRL(p.cost)}</p>
                     </div>
                   </div>
                 ))}

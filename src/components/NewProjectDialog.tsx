@@ -8,6 +8,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { STAGE_NAMES, DISCIPLINE_SHORT, type Discipline } from "@/types";
+import { parseBRL } from "@/lib/utils";
 import { toast } from "sonner";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -104,7 +105,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
         responsible: coord,
         team: [coord],
         hours_sold: 0,
-        sale_value: Number(saleValues[disc]) || 0,
+        sale_value: parseBRL(saleValues[disc]),
         hours_worked: 0,
         stages: STAGE_NAMES.map((stageName, i) => ({
           id: `s_${Date.now()}_${disc}_${i}`,
@@ -208,7 +209,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
                         <Label className="text-xs text-muted-foreground">Valor do Projeto (R$) *</Label>
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
-                          <Input type="number" value={saleValues[d]} onChange={(e) => setSaleValues((prev) => ({ ...prev, [d]: e.target.value }))} placeholder="Valor" className="pl-10" />
+                          <Input type="text" inputMode="decimal" value={saleValues[d]} onChange={(e) => setSaleValues((prev) => ({ ...prev, [d]: e.target.value }))} placeholder="Ex: 12.050,89" className="pl-10" />
                         </div>
                       </div>
                     </div>
