@@ -73,7 +73,7 @@ export default function Dashboard() {
       .filter((p) => p.status !== "concluido")
       .map((p) => ({
         name: p.name.length > 20 ? p.name.slice(0, 20) + "…" : p.name,
-        vendidas: p.hoursSold,
+        vendidas: p.saleValue,
         realizadas: p.hoursWorked,
       }));
   }, []);
