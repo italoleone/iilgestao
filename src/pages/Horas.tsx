@@ -7,6 +7,7 @@ import { projects, tasks, getUserById, users } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
 import { TASK_STATUS_LABELS } from "@/types";
 import { Play, Square, Clock } from "lucide-react";
+import { startActiveTimer, stopActiveTimer } from "@/hooks/useActiveTimers";
 
 interface ActiveTimer {
   taskId: string;
@@ -47,8 +48,9 @@ export default function Horas() {
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const startTimer = () => {
-    if (!selectedTaskData) return;
+  const startTimer = async () => {
+    if (!selectedTaskData || !profile) return;
+    await startActiveTimer(selectedTaskData.id, selectedTaskData.projectId, profile.id, profile.name);
     setActiveTimer({
       taskId: selectedTaskData.id,
       projectId: selectedTaskData.projectId,
@@ -57,7 +59,8 @@ export default function Horas() {
     setElapsed(0);
   };
 
-  const stopTimer = () => {
+  const stopTimer = async () => {
+    if (profile) await stopActiveTimer(profile.id);
     setActiveTimer(null);
     setElapsed(0);
   };

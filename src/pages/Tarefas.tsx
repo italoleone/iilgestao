@@ -17,9 +17,10 @@ import {
   type Discipline, type TaskStatus, type Task,
 } from "@/types";
 import {
-  Search, Plus, Clock, User, ChevronRight, ListChecks, List, Calendar, Play, Square, Loader2,
+  Search, Plus, Clock, User, ChevronRight, ListChecks, List, Calendar, Play, Square, Loader2, Radio,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useActiveTimers, startActiveTimer, stopActiveTimer, getTimerForTask } from "@/hooks/useActiveTimers";
 
 const taskStatusColors: Record<TaskStatus, string> = {
   nao_iniciada: "bg-muted text-muted-foreground",
@@ -36,6 +37,7 @@ export default function Tarefas() {
   const { projects } = useProjects();
   const { tasks: allTasks, loading, refetch: refetchTasks } = useTasks();
   const { profiles } = useActiveProfiles();
+  const { activeTimers } = useActiveTimers();
   const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
   const [timerStart, setTimerStart] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -66,7 +68,6 @@ export default function Tarefas() {
       const task = allTasks.find(t => t.id === taskId);
 
       if (task && profile) {
-        // Save time entry
         await supabase.from("time_entries").insert({
           task_id: taskId,
           project_id: task.projectId,
@@ -78,11 +79,12 @@ export default function Tarefas() {
           duration_minutes: durationMinutes,
         });
 
-        // Update task hours
         await supabase.from("tasks").update({
           hours_worked: Math.round((task.hoursWorked + hoursWorked) * 100) / 100,
           status: "em_andamento",
         }).eq("id", taskId);
+
+        await stopActiveTimer(profile.id);
       }
 
       setActiveTimerTaskId(null);
@@ -112,15 +114,19 @@ export default function Tarefas() {
           await supabase.from("tasks").update({
             hours_worked: Math.round((prevTask.hoursWorked + hoursWorked) * 100) / 100,
           }).eq("id", activeTimerTaskId);
+          await stopActiveTimer(profile.id);
         }
       }
 
       // Start new timer
+      const task = allTasks.find(t => t.id === taskId);
+      if (task && profile) {
+        await startActiveTimer(taskId, task.projectId, profile.id, profile.name);
+      }
       setActiveTimerTaskId(taskId);
       setTimerStart(new Date());
       setElapsed(0);
 
-      const task = allTasks.find(t => t.id === taskId);
       if (task && task.status === "nao_iniciada") {
         await supabase.from("tasks").update({ status: "em_andamento" }).eq("id", taskId);
         refetchTasks();
@@ -298,14 +304,22 @@ export default function Tarefas() {
                 const responsible = getProfileById(profiles, task.responsible);
                 const hoursProgress = task.estimatedHours > 0 ? Math.round((task.hoursWorked / task.estimatedHours) * 100) : 0;
                 const isOverdue = new Date(task.endDate) < new Date() && !["concluida", "aprovada"].includes(task.status);
+                const taskActiveTimers = getTimerForTask(activeTimers, task.id).filter(t => t.user_id !== profile?.id);
+                const hasOtherActiveUsers = taskActiveTimers.length > 0;
                 return (
-                  <Card key={task.id} className={`shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${isOverdue ? "border-destructive/40" : ""}`} onClick={() => handleTaskClick(task)}>
+                  <Card key={task.id} className={`shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${isOverdue ? "border-destructive/40" : ""} ${hasOtherActiveUsers ? "border-l-4 border-l-success" : ""}`} onClick={() => handleTaskClick(task)}>
                     <CardContent className="py-3 px-4">
                       <div className="flex items-center gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <p className="text-sm font-medium truncate">{task.name}</p>
                             {isOverdue && <Badge variant="destructive" className="text-xs shrink-0">Atrasada</Badge>}
+                            {hasOtherActiveUsers && !isProjetista && (
+                              <Badge variant="outline" className="text-xs shrink-0 bg-success/10 text-success border-success/30 gap-1 animate-pulse">
+                                <Radio className="h-3 w-3" />
+                                {taskActiveTimers.map(t => t.user_name.split(" ")[0]).join(", ")}
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span>{project?.name}</span><span>·</span><span>{task.stageName}</span><span>·</span>

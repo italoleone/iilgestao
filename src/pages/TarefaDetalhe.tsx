@@ -13,11 +13,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   DISCIPLINE_SHORT, TASK_STATUS_LABELS, type TaskStatus, type Discipline,
 } from "@/types";
-import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign, Trash2, CheckCircle2, Send, ThumbsUp, ThumbsDown, Upload, Download, FileText, AlertTriangle, Eye } from "lucide-react";
+import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign, Trash2, CheckCircle2, Send, ThumbsUp, ThumbsDown, Upload, Download, FileText, AlertTriangle, Eye, Radio } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { PdfViewer } from "@/components/PdfViewer";
+import { useActiveTimers, startActiveTimer, stopActiveTimer, getTimerForTask } from "@/hooks/useActiveTimers";
 
 const taskStatusColors: Record<TaskStatus, string> = {
   nao_iniciada: "bg-muted text-muted-foreground",
@@ -59,6 +60,7 @@ export default function TarefaDetalhe() {
   const { profile, canAccessFinanceiro, isProjetista } = useAuth();
   const { profiles } = useActiveProfiles();
   const { entries: timeEntries, refetch: refetchEntries } = useTimeEntries(id);
+  const { activeTimers } = useActiveTimers();
 
   const [task, setTask] = useState<DbTask | null>(null);
   const [project, setProject] = useState<DbProject | null>(null);
@@ -159,12 +161,15 @@ export default function TarefaDetalhe() {
       const newStatus = task.status === "reprovada" ? "em_andamento" : (task.status === "nao_iniciada" ? "em_andamento" : task.status);
       await supabase.from("tasks").update({ hours_worked: newHours, status: newStatus }).eq("id", task.id);
 
+      await stopActiveTimer(profile.id);
+
       setTask(prev => prev ? { ...prev, hours_worked: newHours, status: newStatus } : prev);
       setTimerStart(null);
       setElapsed(0);
       refetchEntries();
       toast.success("Atividade registrada!");
     } else {
+      await startActiveTimer(task.id, task.project_id, profile.id, profile.name);
       setTimerStart(new Date());
       setElapsed(0);
       if (task.status === "nao_iniciada" || task.status === "reprovada") {
@@ -411,6 +416,29 @@ export default function TarefaDetalhe() {
             </CardContent>
           </Card>
         )}
+
+        {/* Active users indicator */}
+        {(() => {
+          const otherActiveTimers = id ? getTimerForTask(activeTimers, id).filter(t => t.user_id !== profile?.id) : [];
+          if (otherActiveTimers.length > 0 && !isProjetista) {
+            return (
+              <Card className="border-success/30 bg-success/5 shadow-sm animate-reveal-up delay-1" style={{ animationFillMode: "backwards" }}>
+                <CardContent className="py-4">
+                  <div className="flex items-center gap-3">
+                    <Radio className="h-5 w-5 text-success animate-pulse" />
+                    <div>
+                      <p className="text-sm font-semibold text-success">Em execução agora</p>
+                      <p className="text-sm text-muted-foreground">
+                        {otherActiveTimers.map(t => t.user_name).join(", ")} {otherActiveTimers.length === 1 ? "está" : "estão"} trabalhando nesta tarefa
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+          return null;
+        })()}
 
         {/* Timer control */}
         {showTimer && (
