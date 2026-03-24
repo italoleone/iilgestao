@@ -220,13 +220,42 @@ export default function DashboardPlanejamento() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard de Planejamento</h1>
-          <p className="text-sm text-muted-foreground">Visão operacional de tarefas e produtividade</p>
+        <div className="flex flex-col md:flex-row md:items-end gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-foreground">Dashboard de Planejamento</h1>
+            <p className="text-sm text-muted-foreground">Visão operacional de tarefas e produtividade</p>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={filterDiscipline} onValueChange={setFilterDiscipline}>
+                <SelectTrigger className="w-[160px] h-9 text-sm">
+                  <SelectValue placeholder="Disciplina" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas disciplinas</SelectItem>
+                  {disciplines.map(d => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Select value={filterProject} onValueChange={setFilterProject}>
+              <SelectTrigger className="w-[200px] h-9 text-sm">
+                <SelectValue placeholder="Projeto" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os projetos</SelectItem>
+                {projects.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card className="border-destructive/30 bg-destructive/5">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="p-2 rounded-lg bg-destructive/10">
@@ -235,6 +264,18 @@ export default function DashboardPlanejamento() {
               <div>
                 <p className="text-2xl font-bold text-destructive">{overdueTasks.length}</p>
                 <p className="text-xs text-muted-foreground">Atrasadas</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-warning/30 bg-warning/5">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-warning/10">
+                <CalendarCheck className="h-5 w-5 text-warning" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-warning">{dueTodayTasks.length}</p>
+                <p className="text-xs text-muted-foreground">Vencem hoje</p>
               </div>
             </CardContent>
           </Card>
