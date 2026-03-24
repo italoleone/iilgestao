@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Building2, LogIn } from "lucide-react";
+import { LeoneLogo } from "@/components/LeoneLogo";
+import { LogIn } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Login() {
@@ -28,57 +29,89 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-sm space-y-6 animate-reveal-up" style={{ animationFillMode: "backwards" }}>
-        <div className="text-center space-y-2">
-          <div className="flex justify-center">
-            <div className="h-14 w-14 rounded-xl bg-primary flex items-center justify-center">
-              <Building2 className="h-7 w-7 text-primary-foreground" />
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight">II Leone EPP</h1>
-          <p className="text-sm text-muted-foreground">Sistema de Gestão de Projetos</p>
+    <div className="min-h-screen flex">
+      {/* Left panel - brand */}
+      <div className="hidden lg:flex lg:w-1/2 bg-primary items-center justify-center relative overflow-hidden">
+        {/* Decorative geometric pattern */}
+        <div className="absolute inset-0 opacity-[0.03]">
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div
+              key={i}
+              className="absolute border border-white/20"
+              style={{
+                width: `${60 + i * 40}px`,
+                height: `${60 + i * 40}px`,
+                top: `${50 - (60 + i * 40) / 2}%`,
+                left: `${50 - (60 + i * 40) / 2}%`,
+                transform: `translate(${50}%, ${50}%) rotate(${i * 4}deg)`,
+              }}
+            />
+          ))}
         </div>
+        <div className="relative z-10 text-center">
+          <LeoneLogo className="w-64 mx-auto" variant="light" showSubtext={true} />
+          <div className="mt-8 space-y-1">
+            <p className="text-primary-foreground/40 text-sm tracking-wide">
+              Sistema de Gestão de Projetos
+            </p>
+          </div>
+        </div>
+        {/* Accent bar at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-accent" />
+      </div>
 
-        <Card className="shadow-md">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base">Entrar no sistema</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu@email.com"
-                  autoComplete="email"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••"
-                  autoComplete="current-password"
-                />
-              </div>
-              <Button type="submit" className="w-full gap-2" disabled={loading}>
-                <LogIn className="h-4 w-4" />
-                {loading ? "Entrando..." : "Entrar"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+      {/* Right panel - login form */}
+      <div className="flex-1 flex items-center justify-center p-8 bg-background">
+        <div className="w-full max-w-sm space-y-8 animate-reveal-up" style={{ animationFillMode: "backwards" }}>
+          {/* Mobile logo */}
+          <div className="lg:hidden text-center">
+            <LeoneLogo className="w-40 mx-auto" variant="dark" showSubtext={true} />
+          </div>
 
-        <p className="text-xs text-center text-muted-foreground">
-          Leone Engenharia © {new Date().getFullYear()}
-        </p>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">Entrar no sistema</h1>
+            <p className="text-sm text-muted-foreground mt-1">Acesse sua conta para continuar</p>
+          </div>
+
+          <Card className="shadow-none border">
+            <CardContent className="pt-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="seu@email.com"
+                    autoComplete="email"
+                    className="h-11"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••"
+                    autoComplete="current-password"
+                    className="h-11"
+                  />
+                </div>
+                <Button type="submit" className="w-full h-11 gap-2 bg-accent text-accent-foreground hover:bg-accent/90 font-medium" disabled={loading}>
+                  <LogIn className="h-4 w-4" />
+                  {loading ? "Entrando..." : "Entrar"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <p className="text-xs text-center text-muted-foreground">
+            Leone Engenharia © {new Date().getFullYear()}
+          </p>
+        </div>
       </div>
     </div>
   );
