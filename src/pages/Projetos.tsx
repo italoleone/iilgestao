@@ -129,7 +129,7 @@ export default function Projetos() {
                   <SortHeader field="name">Projeto</SortHeader>
                   <SortHeader field="client">Cliente</SortHeader>
                   <SortHeader field="discipline">Disciplina</SortHeader>
-                  <th className="text-left py-3 px-3 font-medium text-muted-foreground">Responsável</th>
+                  <th className="text-left py-3 px-3 font-medium text-muted-foreground">Coordenador</th>
                   <SortHeader field="deadline">Prazo</SortHeader>
                   <SortHeader field="progress">Progresso</SortHeader>
                   <SortHeader field="status">Status</SortHeader>

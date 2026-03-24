@@ -30,7 +30,9 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
   });
   const [startDate, setStartDate] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [responsible, setResponsible] = useState("");
+  const [coordinators, setCoordinators] = useState<Record<Discipline, string>>({
+    estrutural: "", hidraulica: "", eletrica: "",
+  });
   const [saleValues, setSaleValues] = useState<Record<Discipline, string>>({
     estrutural: "", hidraulica: "", eletrica: "",
   });
@@ -59,16 +61,21 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
   const resetForm = () => {
     setName(""); setClientValue(""); setClientSearch("");
     setDisciplines({ estrutural: false, hidraulica: false, eletrica: false });
-    setStartDate(""); setDeadline(""); setResponsible("");
+    setStartDate(""); setDeadline("");
+    setCoordinators({ estrutural: "", hidraulica: "", eletrica: "" });
     setSaleValues({ estrutural: "", hidraulica: "", eletrica: "" });
   };
 
   const handleCreate = async () => {
-    if (!name || !clientValue || selectedDisciplines.length === 0 || !startDate || !deadline || !responsible) {
+    if (!name || !clientValue || selectedDisciplines.length === 0 || !startDate || !deadline) {
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
     for (const d of selectedDisciplines) {
+      if (!coordinators[d]) {
+        toast.error(`Selecione o coordenador de ${DISCIPLINE_SHORT[d]}.`);
+        return;
+      }
       if (!saleValues[d] || Number(saleValues[d]) <= 0) {
         toast.error(`Informe o valor de venda para ${DISCIPLINE_SHORT[d]}.`);
         return;
@@ -82,17 +89,11 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
       await supabase.from("clients").insert({ name: clientValue });
     }
 
-    const stages = STAGE_NAMES.map((stageName, i) => ({
-      id: `s_${Date.now()}_${i}`,
-      name: stageName,
-      responsible,
-      deadline,
-      status: "pendente",
-      hoursSpent: 0,
-    }));
+    // stages are now created inline per discipline in projectRows
 
     const projectRows = selectedDisciplines.map((disc) => {
       const suffix = selectedDisciplines.length > 1 ? ` - ${DISCIPLINE_SHORT[disc]}` : "";
+      const coord = coordinators[disc];
       return {
         name: `${name}${suffix}`,
         client: clientValue,
@@ -100,12 +101,19 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
         start_date: startDate,
         deadline,
         status: "em_andamento",
-        responsible,
-        team: [responsible],
+        responsible: coord,
+        team: [coord],
         hours_sold: 0,
         sale_value: Number(saleValues[disc]) || 0,
         hours_worked: 0,
-        stages,
+        stages: STAGE_NAMES.map((stageName, i) => ({
+          id: `s_${Date.now()}_${disc}_${i}`,
+          name: stageName,
+          responsible: coord,
+          deadline,
+          status: "pendente",
+          hoursSpent: 0,
+        })),
         revisions: [],
       };
     });
@@ -177,25 +185,39 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
           </div>
 
           <div className="space-y-2">
-            <Label>Disciplinas e Valores *</Label>
-            <div className="flex flex-col gap-3">
+            <Label>Disciplinas, Coordenador e Valor *</Label>
+            <div className="flex flex-col gap-4">
               {(["estrutural", "hidraulica", "eletrica"] as Discipline[]).map((d) => (
-                <div key={d} className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer min-w-[120px]">
+                <div key={d} className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
                     <Checkbox checked={disciplines[d]} onCheckedChange={(checked) => setDisciplines((prev) => ({ ...prev, [d]: !!checked }))} />
-                    <span className="text-sm">{DISCIPLINE_SHORT[d]}</span>
+                    <span className="text-sm font-medium">{DISCIPLINE_SHORT[d]}</span>
                   </label>
                   {disciplines[d] && (
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
-                      <Input type="number" value={saleValues[d]} onChange={(e) => setSaleValues((prev) => ({ ...prev, [d]: e.target.value }))} placeholder="Valor do projeto" className="pl-10" />
+                    <div className="grid grid-cols-2 gap-3 pl-6">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Coordenador {DISCIPLINE_SHORT[d]} *</Label>
+                        <select value={coordinators[d]} onChange={(e) => setCoordinators((prev) => ({ ...prev, [d]: e.target.value }))} className="h-10 w-full rounded-md border bg-card px-3 text-sm">
+                          <option value="">Selecione...</option>
+                          {activeUsers.map((u) => (
+                            <option key={u.id} value={u.id}>{u.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Valor do Projeto (R$) *</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                          <Input type="number" value={saleValues[d]} onChange={(e) => setSaleValues((prev) => ({ ...prev, [d]: e.target.value }))} placeholder="Valor" className="pl-10" />
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
               ))}
             </div>
             {selectedDisciplines.length > 1 && (
-              <p className="text-xs text-muted-foreground">Serão criados {selectedDisciplines.length} projetos separados.</p>
+              <p className="text-xs text-muted-foreground">Serão criados {selectedDisciplines.length} projetos separados, cada um com seu coordenador.</p>
             )}
           </div>
 
@@ -208,16 +230,6 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
               <Label htmlFor="proj-deadline">Data Final *</Label>
               <Input id="proj-deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Responsável *</Label>
-            <select value={responsible} onChange={(e) => setResponsible(e.target.value)} className="h-10 w-full rounded-md border bg-card px-3 text-sm">
-              <option value="">Selecione...</option>
-              {activeUsers.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
-            </select>
           </div>
         </div>
         <DialogFooter>

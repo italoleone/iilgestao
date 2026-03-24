@@ -106,7 +106,7 @@ export default function ProjetoDetalhe() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-reveal-up delay-1" style={{ animationFillMode: "backwards" }}>
           <Card className="shadow-sm"><CardContent className="pt-4"><p className="text-xs text-muted-foreground mb-1">Disciplina</p><p className="font-medium">{DISCIPLINE_SHORT[project.discipline]}</p></CardContent></Card>
-          <Card className="shadow-sm"><CardContent className="pt-4"><p className="text-xs text-muted-foreground mb-1">Responsável</p><p className="font-medium">{responsible?.name || "—"}</p></CardContent></Card>
+          <Card className="shadow-sm"><CardContent className="pt-4"><p className="text-xs text-muted-foreground mb-1">Coordenador</p><p className="font-medium">{responsible?.name || "—"}</p></CardContent></Card>
           <Card className="shadow-sm"><CardContent className="pt-4"><p className="text-xs text-muted-foreground mb-1">Prazo</p><p className="font-medium tabular-nums">{new Date(project.deadline).toLocaleDateString("pt-BR")}</p></CardContent></Card>
           <Card className="shadow-sm"><CardContent className="pt-4"><p className="text-xs text-muted-foreground mb-1">Tarefas</p><p className="font-medium tabular-nums">{projectTasks.filter(t => t.status === "concluida").length}/{projectTasks.length}</p></CardContent></Card>
         </div>
