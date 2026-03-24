@@ -2,30 +2,20 @@ import {
   LayoutDashboard,
   FolderKanban,
   Users,
-  Clock,
   BarChart3,
   Bell,
   ListChecks,
   LogOut,
+  Briefcase,
+  ChevronRight,
+  ClipboardList,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { LeoneLogo } from "@/components/LeoneLogo";
-import { useLocation } from "react-router-dom";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarHeader,
-  SidebarFooter,
-  useSidebar,
-} from "@/components/ui/sidebar";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
+import { LeoneLogo } from "@/components/LeoneLogo";
+import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 const ROLE_LABELS: Record<string, string> = {
   admin_geral: "Diretor",
@@ -34,106 +24,210 @@ const ROLE_LABELS: Record<string, string> = {
   projetista: "Projetista",
 };
 
-interface NavItem {
+interface NavModule {
   title: string;
-  url: string;
   icon: typeof LayoutDashboard;
-  roles?: string[]; // if undefined, visible to all
+  url?: string;
+  roles?: string[];
+  children?: { title: string; url: string; icon: typeof LayoutDashboard }[];
 }
 
-const allNav: NavItem[] = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin_geral", "admin", "planejamento"] },
-  { title: "Projetos", url: "/projetos", icon: FolderKanban, roles: ["admin_geral", "admin", "planejamento"] },
-  { title: "Tarefas", url: "/tarefas", icon: ListChecks },
-  
-  { title: "Financeiro", url: "/financeiro", icon: BarChart3, roles: ["admin_geral", "admin"] },
-  { title: "Usuários", url: "/usuarios", icon: Users, roles: ["admin_geral"] },
-  { title: "Alertas", url: "/alertas", icon: Bell, roles: ["admin_geral", "admin", "planejamento"] },
+const modules: NavModule[] = [
+  {
+    title: "Dashboard",
+    icon: LayoutDashboard,
+    url: "/",
+    roles: ["admin_geral", "admin", "planejamento"],
+  },
+  {
+    title: "Planejamento",
+    icon: ClipboardList,
+    roles: ["admin_geral", "admin", "planejamento", "projetista"],
+    children: [
+      { title: "Projetos", url: "/projetos", icon: FolderKanban },
+      { title: "Tarefas", url: "/tarefas", icon: ListChecks },
+    ],
+  },
+  {
+    title: "Financeiro",
+    icon: BarChart3,
+    url: "/financeiro",
+    roles: ["admin_geral", "admin"],
+  },
+  {
+    title: "Comercial",
+    icon: Briefcase,
+    url: "#",
+    roles: ["admin_geral", "admin"],
+  },
+  {
+    title: "Usuários",
+    icon: Users,
+    url: "/usuarios",
+    roles: ["admin_geral"],
+  },
+  {
+    title: "Alertas",
+    icon: Bell,
+    url: "/alertas",
+    roles: ["admin_geral", "admin", "planejamento"],
+  },
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
-  const collapsed = state === "collapsed";
   const location = useLocation();
+  const navigate = useNavigate();
   const { profile, signOut } = useAuth();
+  const [hoveredModule, setHoveredModule] = useState<string | null>(null);
 
   const userRole = profile?.role || "projetista";
 
-  const visibleNav = allNav.filter((item) => {
-    if (!item.roles) return true;
-    return item.roles.includes(userRole);
+  // For projetista, only show Planejamento > Tarefas
+  const visibleModules = modules.filter((m) => {
+    if (!m.roles) return true;
+    return m.roles.includes(userRole);
   });
 
-  const isActive = (path: string) =>
-    path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+  // Filter children for projetista
+  const getVisibleChildren = (mod: NavModule) => {
+    if (!mod.children) return [];
+    if (userRole === "projetista") {
+      return mod.children.filter((c) => c.url === "/tarefas");
+    }
+    return mod.children;
+  };
+
+  const isModuleActive = (mod: NavModule) => {
+    if (mod.url && mod.url !== "#") {
+      return mod.url === "/" ? location.pathname === "/" : location.pathname.startsWith(mod.url);
+    }
+    if (mod.children) {
+      return mod.children.some((c) =>
+        c.url === "/" ? location.pathname === "/" : location.pathname.startsWith(c.url)
+      );
+    }
+    return false;
+  };
+
+  const isChildActive = (url: string) =>
+    url === "/" ? location.pathname === "/" : location.pathname.startsWith(url);
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="p-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          {!collapsed ? (
-            <LeoneLogo className="w-28" variant="light" showSubtext={true} />
-          ) : (
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent">
-              <span className="text-xs font-bold text-accent-foreground">L</span>
-            </div>
-          )}
-        </div>
-      </SidebarHeader>
-
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/40 uppercase text-[0.65rem] tracking-widest">
-            Menu
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {visibleNav.map((item) => {
-                const active = isActive(item.url);
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={active}>
-                      <NavLink
-                        to={item.url}
-                        end={item.url === "/"}
-                        activeClassName="bg-sidebar-accent text-accent"
-                        className={active ? "" : "text-sidebar-foreground/70 hover:text-sidebar-foreground"}
-                      >
-                        <item.icon className={`mr-2 h-4 w-4 ${active ? "text-accent" : ""}`} />
-                        {!collapsed && <span>{item.title}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarFooter className="p-4 space-y-2 border-t border-sidebar-border">
-        <NavLink to="/perfil" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
-            {profile?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
+    <div className="relative flex h-screen shrink-0 z-40">
+      {/* Compact icon strip */}
+      <div className="flex flex-col w-16 bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
+        {/* Logo */}
+        <div className="flex items-center justify-center h-14 border-b border-sidebar-border">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent">
+            <span className="text-xs font-bold text-accent-foreground">L</span>
           </div>
-          {!collapsed && (
-            <div className="animate-fade-in min-w-0">
-              <p className="text-sm font-medium text-sidebar-foreground truncate">{profile?.name || "Usuário"}</p>
-              <p className="text-xs text-sidebar-foreground/50">{ROLE_LABELS[profile?.role || ""] || ""}</p>
-            </div>
-          )}
-        </NavLink>
-        {!collapsed && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent gap-2"
-            onClick={signOut}
+        </div>
+
+        {/* Module icons */}
+        <nav className="flex-1 flex flex-col py-2 gap-1">
+          {visibleModules.map((mod) => {
+            const active = isModuleActive(mod);
+            const Icon = mod.icon;
+            return (
+              <div
+                key={mod.title}
+                className="relative px-2"
+                onMouseEnter={() => setHoveredModule(mod.title)}
+                onMouseLeave={() => setHoveredModule(null)}
+              >
+                <button
+                  onClick={() => {
+                    if (mod.url && mod.url !== "#") {
+                      navigate(mod.url);
+                    } else if (mod.children) {
+                      const children = getVisibleChildren(mod);
+                      if (children.length > 0) navigate(children[0].url);
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center justify-center w-12 h-10 rounded-lg transition-all duration-200",
+                    active
+                      ? "bg-accent text-accent-foreground"
+                      : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                </button>
+
+                {/* Hover flyout */}
+                {hoveredModule === mod.title && (
+                  <div
+                    className="absolute left-full top-0 ml-0 z-50"
+                    onMouseEnter={() => setHoveredModule(mod.title)}
+                    onMouseLeave={() => setHoveredModule(null)}
+                  >
+                    <div className="bg-sidebar border border-sidebar-border rounded-lg shadow-xl py-2 px-1 min-w-[180px] ml-1">
+                      {/* Module title */}
+                      <div className="px-3 py-1.5 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
+                        {mod.title}
+                      </div>
+
+                      {mod.children ? (
+                        getVisibleChildren(mod).map((child) => {
+                          const childActive = isChildActive(child.url);
+                          const ChildIcon = child.icon;
+                          return (
+                            <NavLink
+                              key={child.url}
+                              to={child.url}
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-2 mx-1 rounded-md text-sm transition-colors",
+                                childActive
+                                  ? "bg-accent text-accent-foreground font-medium"
+                                  : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                              )}
+                            >
+                              <ChildIcon className="h-4 w-4" />
+                              <span>{child.title}</span>
+                              {childActive && <ChevronRight className="h-3 w-3 ml-auto" />}
+                            </NavLink>
+                          );
+                        })
+                      ) : (
+                        <NavLink
+                          to={mod.url || "#"}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 mx-1 rounded-md text-sm transition-colors",
+                            active
+                              ? "bg-accent text-accent-foreground font-medium"
+                              : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>Acessar</span>
+                        </NavLink>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+
+        {/* Footer - user avatar + logout */}
+        <div className="border-t border-sidebar-border p-2 flex flex-col items-center gap-2 pb-3">
+          <button
+            onClick={() => navigate("/perfil")}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-foreground hover:ring-2 hover:ring-accent/50 transition-all"
+            title={profile?.name || "Perfil"}
           >
-            <LogOut className="h-3.5 w-3.5" /> Sair
-          </Button>
-        )}
-      </SidebarFooter>
-    </Sidebar>
+            {profile?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
+          </button>
+          <button
+            onClick={signOut}
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+            title="Sair"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
