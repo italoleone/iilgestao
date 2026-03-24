@@ -56,7 +56,7 @@ export default function Dashboard() {
   const activeProjects = getActiveProjects();
   const lateProjects = projects.filter((p) => p.status === "atrasado");
   const totalHoursWorked = projects.reduce((s, p) => s + p.hoursWorked, 0);
-  const totalHoursSold = projects.reduce((s, p) => s + p.hoursSold, 0);
+  const totalSaleValue = projects.reduce((s, p) => s + p.saleValue, 0);
 
   const projectsByDiscipline = useMemo(() => {
     const counts: Record<string, number> = { estrutural: 0, hidraulica: 0, eletrica: 0 };
