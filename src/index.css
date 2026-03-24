@@ -1,59 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 220 25% 10%;
+    --font-sans: 'Ubuntu', system-ui, sans-serif;
+
+    --background: 60 4% 95%;
+    --foreground: 0 0% 13%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 25% 10%;
+    --card-foreground: 0 0% 13%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 10%;
+    --popover-foreground: 0 0% 13%;
 
-    --primary: 220 65% 18%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 0 0% 13%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 93%;
-    --secondary-foreground: 220 25% 10%;
+    --secondary: 60 4% 91%;
+    --secondary-foreground: 0 0% 13%;
 
-    --muted: 220 14% 95%;
-    --muted-foreground: 220 10% 46%;
+    --muted: 60 3% 93%;
+    --muted-foreground: 0 0% 40%;
 
-    --accent: 38 92% 50%;
-    --accent-foreground: 220 25% 10%;
+    --accent: 64 88% 44%;
+    --accent-foreground: 0 0% 13%;
 
     --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 90%;
-    --input: 220 13% 90%;
-    --ring: 220 65% 18%;
+    --border: 60 4% 88%;
+    --input: 60 4% 88%;
+    --ring: 64 88% 44%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 220 25% 10%;
-    --sidebar-foreground: 220 14% 85%;
-    --sidebar-primary: 38 92% 50%;
-    --sidebar-primary-foreground: 220 25% 10%;
-    --sidebar-accent: 220 20% 16%;
-    --sidebar-accent-foreground: 220 14% 90%;
-    --sidebar-border: 220 20% 18%;
-    --sidebar-ring: 38 92% 50%;
+    --sidebar-background: 0 0% 13%;
+    --sidebar-foreground: 0 0% 85%;
+    --sidebar-primary: 64 88% 44%;
+    --sidebar-primary-foreground: 0 0% 13%;
+    --sidebar-accent: 0 0% 18%;
+    --sidebar-accent-foreground: 0 0% 92%;
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 64 88% 44%;
 
-    /* Custom tokens */
-    --success: 152 60% 40%;
+    /* Semantic tokens */
+    --success: 152 60% 36%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 220 25% 10%;
-    --info: 210 80% 52%;
+    --warning: 40 90% 48%;
+    --warning-foreground: 0 0% 13%;
+    --info: 200 70% 45%;
     --info-foreground: 0 0% 100%;
 
-    --estrutural: 220 65% 50%;
-    --hidraulica: 195 80% 42%;
-    --eletrica: 38 92% 50%;
+    /* Discipline colors */
+    --estrutural: 0 0% 25%;
+    --hidraulica: 200 60% 40%;
+    --eletrica: 64 88% 44%;
   }
 }
 
@@ -64,11 +69,13 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply tracking-tight;
+    font-family: var(--font-sans);
     text-wrap: balance;
   }
 

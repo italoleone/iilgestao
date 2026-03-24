@@ -5,12 +5,11 @@ import {
   Clock,
   BarChart3,
   Bell,
-  Building2,
   ListChecks,
-  UserCircle,
   LogOut,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { LeoneLogo } from "@/components/LeoneLogo";
 import { useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -56,15 +55,13 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Building2 className="h-5 w-5 text-sidebar-primary-foreground" />
-          </div>
-          {!collapsed && (
-            <div className="animate-fade-in">
-              <p className="text-sm font-semibold text-sidebar-foreground">II Leone EPP</p>
-              <p className="text-xs text-sidebar-foreground/60">Engenharia</p>
+          {!collapsed ? (
+            <LeoneLogo className="w-28" variant="light" showSubtext={true} />
+          ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent">
+              <span className="text-xs font-bold text-accent-foreground">L</span>
             </div>
           )}
         </div>
@@ -72,24 +69,28 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-sidebar-foreground/40 uppercase text-[0.65rem] tracking-widest">
+            Menu
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNav.map((item) => {
-                // Hide financeiro for non-admin users
                 if (item.url === "/financeiro" && !canAccessFinanceiro) {
                   return null;
                 }
 
+                const active = isActive(item.url);
+
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                    <SidebarMenuButton asChild isActive={active}>
                       <NavLink
                         to={item.url}
                         end={item.url === "/"}
-                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+                        activeClassName="bg-sidebar-accent text-accent"
+                        className={active ? "" : "text-sidebar-foreground/70 hover:text-sidebar-foreground"}
                       >
-                        <item.icon className="mr-2 h-4 w-4" />
+                        <item.icon className={`mr-2 h-4 w-4 ${active ? "text-accent" : ""}`} />
                         {!collapsed && <span>{item.title}</span>}
                       </NavLink>
                     </SidebarMenuButton>
@@ -101,15 +102,15 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 space-y-2">
+      <SidebarFooter className="p-4 space-y-2 border-t border-sidebar-border">
         <NavLink to="/perfil" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-foreground">
             {profile?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
           </div>
           {!collapsed && (
             <div className="animate-fade-in min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">{profile?.name || "Usuário"}</p>
-              <p className="text-xs text-sidebar-foreground/60">{ROLE_LABELS[profile?.role || ""] || ""}</p>
+              <p className="text-xs text-sidebar-foreground/50">{ROLE_LABELS[profile?.role || ""] || ""}</p>
             </div>
           )}
         </NavLink>
@@ -117,7 +118,7 @@ export function AppSidebar() {
           <Button
             variant="ghost"
             size="sm"
-            className="w-full justify-start text-sidebar-foreground/60 hover:text-sidebar-foreground gap-2"
+            className="w-full justify-start text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent gap-2"
             onClick={signOut}
           >
             <LogOut className="h-3.5 w-3.5" /> Sair
