@@ -61,6 +61,7 @@ export default function TarefaDetalhe() {
   const navigate = useNavigate();
   const { profile, canAccessFinanceiro, isProjetista } = useAuth();
   const { profiles } = useActiveProfiles();
+  const { projects: allProjects } = useProjects();
   const { entries: timeEntries, refetch: refetchEntries } = useTimeEntries(id);
   const { activeTimers } = useActiveTimers();
 
