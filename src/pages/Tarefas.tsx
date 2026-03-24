@@ -203,8 +203,7 @@ export default function Tarefas() {
   }, [visibleTasks]);
 
   const handleTaskClick = (task: Task) => {
-    setSelectedTask(task);
-    setDialogOpen(true);
+    navigate(`/tarefas/${task.id}`);
   };
 
   return (
