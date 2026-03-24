@@ -191,25 +191,19 @@ export default function TarefaDetalhe() {
   };
 
   const handleApprove = async () => {
-    if (!task || !task.parent_task_id) return;
-    // Approve parent task
-    await supabase.from("tasks").update({ status: "aprovada" }).eq("id", task.parent_task_id);
-    // Mark validation task as done
+    if (!task) return;
     await supabase.from("tasks").update({ status: "aprovada" }).eq("id", task.id);
     setTask(prev => prev ? { ...prev, status: "aprovada" } : prev);
     toast.success("Tarefa aprovada com sucesso!");
   };
 
   const handleReject = async () => {
-    if (!task || !task.parent_task_id || !rejectReason.trim()) {
+    if (!task || !rejectReason.trim()) {
       toast.error("Informe o motivo da reprovação.");
       return;
     }
-    // Reject parent task back to em_andamento
-    await supabase.from("tasks").update({ status: "reprovada", rejection_reason: rejectReason.trim() }).eq("id", task.parent_task_id);
-    // Mark validation task as done
     await supabase.from("tasks").update({ status: "reprovada", rejection_reason: rejectReason.trim() }).eq("id", task.id);
-    setTask(prev => prev ? { ...prev, status: "reprovada" } : prev);
+    setTask(prev => prev ? { ...prev, status: "reprovada", rejection_reason: rejectReason.trim() } : prev);
     setRejectOpen(false);
     setRejectReason("");
     toast.success("Tarefa reprovada. O projetista foi notificado.");
