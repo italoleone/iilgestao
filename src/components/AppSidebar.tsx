@@ -45,7 +45,7 @@ const allNav: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin_geral", "admin", "planejamento"] },
   { title: "Projetos", url: "/projetos", icon: FolderKanban, roles: ["admin_geral", "admin", "planejamento"] },
   { title: "Tarefas", url: "/tarefas", icon: ListChecks },
-  { title: "Controle de Horas", url: "/horas", icon: Clock, roles: ["admin_geral", "admin", "planejamento"] },
+  
   { title: "Financeiro", url: "/financeiro", icon: BarChart3, roles: ["admin_geral", "admin"] },
   { title: "Usuários", url: "/usuarios", icon: Users, roles: ["admin_geral"] },
   { title: "Alertas", url: "/alertas", icon: Bell, roles: ["admin_geral", "admin", "planejamento"] },
