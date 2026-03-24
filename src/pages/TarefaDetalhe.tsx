@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,10 +13,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   DISCIPLINE_SHORT, TASK_STATUS_LABELS, type TaskStatus, type Discipline,
 } from "@/types";
-import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign, Trash2, CheckCircle2, Send, ThumbsUp, ThumbsDown, Upload, Download, FileText, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign, Trash2, CheckCircle2, Send, ThumbsUp, ThumbsDown, Upload, Download, FileText, AlertTriangle, Eye } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { PdfViewer } from "@/components/PdfViewer";
 
 const taskStatusColors: Record<TaskStatus, string> = {
   nao_iniciada: "bg-muted text-muted-foreground",
@@ -73,6 +74,7 @@ export default function TarefaDetalhe() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [sheetTitles, setSheetTitles] = useState<Record<number, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pdfViewer, setPdfViewer] = useState<{ url: string; attachmentId: string; fileName: string; sheetTitle: string } | null>(null);
 
   const fetchTask = async () => {
     if (!id) return;
@@ -519,6 +521,14 @@ export default function TarefaDetalhe() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
+                        {att.file_name.toLowerCase().endsWith(".pdf") && (
+                          <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => {
+                            const { data } = supabase.storage.from("task-attachments").getPublicUrl(att.file_path);
+                            setPdfViewer({ url: data.publicUrl, attachmentId: att.id, fileName: att.file_name, sheetTitle: att.sheet_title });
+                          }}>
+                            <Eye className="h-4 w-4" /> Visualizar
+                          </Button>
+                        )}
                         <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => handleDownload(att)}>
                           <Download className="h-4 w-4" /> Baixar
                         </Button>
@@ -664,6 +674,18 @@ export default function TarefaDetalhe() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* PDF Viewer */}
+      {pdfViewer && (
+        <PdfViewer
+          fileUrl={pdfViewer.url}
+          attachmentId={pdfViewer.attachmentId}
+          taskId={task.id}
+          fileName={pdfViewer.fileName}
+          sheetTitle={pdfViewer.sheetTitle}
+          onClose={() => setPdfViewer(null)}
+        />
+      )}
     </AppLayout>
   );
 }
