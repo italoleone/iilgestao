@@ -30,7 +30,9 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
   });
   const [startDate, setStartDate] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [responsible, setResponsible] = useState("");
+  const [coordinators, setCoordinators] = useState<Record<Discipline, string>>({
+    estrutural: "", hidraulica: "", eletrica: "",
+  });
   const [saleValues, setSaleValues] = useState<Record<Discipline, string>>({
     estrutural: "", hidraulica: "", eletrica: "",
   });
@@ -59,16 +61,21 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
   const resetForm = () => {
     setName(""); setClientValue(""); setClientSearch("");
     setDisciplines({ estrutural: false, hidraulica: false, eletrica: false });
-    setStartDate(""); setDeadline(""); setResponsible("");
+    setStartDate(""); setDeadline("");
+    setCoordinators({ estrutural: "", hidraulica: "", eletrica: "" });
     setSaleValues({ estrutural: "", hidraulica: "", eletrica: "" });
   };
 
   const handleCreate = async () => {
-    if (!name || !clientValue || selectedDisciplines.length === 0 || !startDate || !deadline || !responsible) {
+    if (!name || !clientValue || selectedDisciplines.length === 0 || !startDate || !deadline) {
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
     for (const d of selectedDisciplines) {
+      if (!coordinators[d]) {
+        toast.error(`Selecione o coordenador de ${DISCIPLINE_SHORT[d]}.`);
+        return;
+      }
       if (!saleValues[d] || Number(saleValues[d]) <= 0) {
         toast.error(`Informe o valor de venda para ${DISCIPLINE_SHORT[d]}.`);
         return;
@@ -93,6 +100,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
 
     const projectRows = selectedDisciplines.map((disc) => {
       const suffix = selectedDisciplines.length > 1 ? ` - ${DISCIPLINE_SHORT[disc]}` : "";
+      const coord = coordinators[disc];
       return {
         name: `${name}${suffix}`,
         client: clientValue,
@@ -100,12 +108,19 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
         start_date: startDate,
         deadline,
         status: "em_andamento",
-        responsible,
-        team: [responsible],
+        responsible: coord,
+        team: [coord],
         hours_sold: 0,
         sale_value: Number(saleValues[disc]) || 0,
         hours_worked: 0,
-        stages,
+        stages: STAGE_NAMES.map((stageName, i) => ({
+          id: `s_${Date.now()}_${disc}_${i}`,
+          name: stageName,
+          responsible: coord,
+          deadline,
+          status: "pendente",
+          hoursSpent: 0,
+        })),
         revisions: [],
       };
     });
