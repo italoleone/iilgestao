@@ -68,6 +68,167 @@ export type Database = {
         }
         Relationships: []
       }
+      projects: {
+        Row: {
+          client: string
+          created_at: string
+          deadline: string
+          discipline: string
+          hours_sold: number
+          hours_worked: number
+          id: string
+          name: string
+          responsible: string
+          revisions: Json
+          sale_value: number
+          stages: Json
+          start_date: string
+          status: string
+          team: string[]
+        }
+        Insert: {
+          client: string
+          created_at?: string
+          deadline: string
+          discipline: string
+          hours_sold?: number
+          hours_worked?: number
+          id?: string
+          name: string
+          responsible: string
+          revisions?: Json
+          sale_value?: number
+          stages?: Json
+          start_date: string
+          status?: string
+          team?: string[]
+        }
+        Update: {
+          client?: string
+          created_at?: string
+          deadline?: string
+          discipline?: string
+          hours_sold?: number
+          hours_worked?: number
+          id?: string
+          name?: string
+          responsible?: string
+          revisions?: Json
+          sale_value?: number
+          stages?: Json
+          start_date?: string
+          status?: string
+          team?: string[]
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          created_at: string
+          discipline: string
+          end_date: string
+          estimated_hours: number
+          hours_worked: number
+          id: string
+          name: string
+          project_id: string
+          responsible: string
+          stage_name: string
+          start_date: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          discipline: string
+          end_date: string
+          estimated_hours?: number
+          hours_worked?: number
+          id?: string
+          name: string
+          project_id: string
+          responsible: string
+          stage_name: string
+          start_date: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          discipline?: string
+          end_date?: string
+          estimated_hours?: number
+          hours_worked?: number
+          id?: string
+          name?: string
+          project_id?: string
+          responsible?: string
+          stage_name?: string
+          start_date?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      time_entries: {
+        Row: {
+          created_at: string
+          date: string
+          duration_minutes: number
+          end_time: string
+          id: string
+          project_id: string
+          start_time: string
+          task_id: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          duration_minutes?: number
+          end_time: string
+          id?: string
+          project_id: string
+          start_time: string
+          task_id: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          duration_minutes?: number
+          end_time?: string
+          id?: string
+          project_id?: string
+          start_time?: string
+          task_id?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
