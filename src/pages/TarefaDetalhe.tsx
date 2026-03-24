@@ -11,7 +11,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   DISCIPLINE_SHORT, TASK_STATUS_LABELS, type TaskStatus, type Discipline,
 } from "@/types";
-import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign } from "lucide-react";
+import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 const taskStatusColors: Record<TaskStatus, string> = {
@@ -158,14 +159,55 @@ export default function TarefaDetalhe() {
 
   const responsible = getProfileById(profiles, task.responsible);
   const isOverdue = new Date(task.end_date) < new Date() && task.status !== "concluida";
+  const canDelete = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
+
+  const [deleting, setDeleting] = useState(false);
+  const handleDeleteTask = async () => {
+    setDeleting(true);
+    const { error } = await supabase.from("tasks").delete().eq("id", task.id);
+    setDeleting(false);
+    if (error) {
+      toast.error("Erro ao excluir tarefa: " + error.message);
+    } else {
+      toast.success("Tarefa excluída com sucesso.");
+      navigate("/tarefas");
+    }
+  };
 
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="animate-reveal-up" style={{ animationFillMode: "backwards" }}>
-          <Button variant="ghost" size="sm" className="gap-1.5 mb-3 -ml-2" onClick={() => navigate("/tarefas")}>
-            <ArrowLeft className="h-4 w-4" /> Voltar
-          </Button>
+          <div className="flex items-center justify-between mb-3">
+            <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => navigate("/tarefas")}>
+              <ArrowLeft className="h-4 w-4" /> Voltar
+            </Button>
+            {canDelete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm" className="gap-1.5" disabled={deleting}>
+                    <Trash2 className="h-4 w-4" /> Excluir Tarefa
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir tarefa?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Tem certeza que deseja excluir a tarefa <strong>{task.name}</strong>?
+                      <br /><br />
+                      ⚠️ Todos os registros de horas vinculados também serão excluídos permanentemente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteTask} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Excluir permanentemente
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold">{task.name}</h1>
