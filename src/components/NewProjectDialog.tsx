@@ -59,9 +59,6 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
 
   const isNewClient = clientValue && !clients.some((c) => c.toLowerCase() === clientValue.toLowerCase());
 
-  const disciplineUsers = users.filter(
-    (u) => (u.role === "coordenador" || u.role === "projetista")
-  );
 
   const resetForm = () => {
     setName("");
