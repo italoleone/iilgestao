@@ -245,13 +245,34 @@ export default function TarefaDetalhe() {
     toast.success("Tarefa reprovada. O projetista foi notificado.");
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || !task || !profile) return;
-    setUploading(true);
+    if (!files || files.length === 0) return;
+    setPendingFiles(Array.from(files));
+    setSheetTitle("");
+    setUploadDialogOpen(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
-    for (const file of Array.from(files)) {
-      const filePath = `${task.id}/${Date.now()}_${file.name}`;
+  const sanitizeFileName = (name: string) => {
+    return name
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9._-]/g, "_")
+      .replace(/_+/g, "_");
+  };
+
+  const handleConfirmUpload = async () => {
+    if (!sheetTitle.trim()) {
+      toast.error("Preencha o Título da Folha.");
+      return;
+    }
+    if (!task || !profile || pendingFiles.length === 0) return;
+    setUploading(true);
+    setUploadDialogOpen(false);
+
+    for (const file of pendingFiles) {
+      const safeName = sanitizeFileName(file.name);
+      const filePath = `${task.id}/${Date.now()}_${safeName}`;
       const { error: uploadError } = await supabase.storage.from("task-attachments").upload(filePath, file);
       if (uploadError) {
         toast.error(`Erro ao enviar ${file.name}: ${uploadError.message}`);
@@ -263,13 +284,15 @@ export default function TarefaDetalhe() {
         file_path: filePath,
         file_size: file.size,
         uploaded_by: profile.id,
+        sheet_title: sheetTitle.trim(),
       });
     }
 
     setUploading(false);
+    setPendingFiles([]);
+    setSheetTitle("");
     fetchAttachments();
     toast.success("Arquivo(s) anexado(s) com sucesso!");
-    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleDownload = (att: TaskAttachment) => {
