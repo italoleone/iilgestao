@@ -339,7 +339,7 @@ export default function Tarefas() {
           ) : (
             <Card className="shadow-sm">
               <CardContent className="pt-4">
-                <TaskCalendar tasks={visibleTasks} month={calMonth} year={calYear} onMonthChange={(m, y) => { setCalMonth(m); setCalYear(y); }} />
+                <TaskCalendar tasks={visibleTasks} projects={projects} month={calMonth} year={calYear} onMonthChange={(m, y) => { setCalMonth(m); setCalYear(y); }} />
               </CardContent>
             </Card>
           )}
