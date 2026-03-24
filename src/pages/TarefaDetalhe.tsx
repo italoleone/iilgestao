@@ -553,9 +553,34 @@ export default function TarefaDetalhe() {
                           </p>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => handleDownload(att)}>
-                        <Download className="h-4 w-4" /> Baixar
-                      </Button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => handleDownload(att)}>
+                          <Download className="h-4 w-4" /> Baixar
+                        </Button>
+                        {canDeleteAttachment(att) && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="gap-1 text-destructive hover:text-destructive" disabled={deletingAttId === att.id}>
+                                {deletingAttId === att.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Excluir anexo?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Deseja realmente excluir o anexo <strong>"{att.sheet_title || att.file_name}"</strong>? Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteAttachment(att)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
