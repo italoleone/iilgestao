@@ -40,6 +40,9 @@ export default function DashboardPlanejamento() {
   const { activeTimers } = useActiveTimers();
   const { entries: allTimeEntries } = useTimeEntries();
 
+  const [filterDiscipline, setFilterDiscipline] = useState<string>("all");
+  const [filterProject, setFilterProject] = useState<string>("all");
+
   const projectMap = useMemo(() => {
     const m: Record<string, string> = {};
     projects.forEach(p => { m[p.id] = p.name; });
@@ -52,13 +55,31 @@ export default function DashboardPlanejamento() {
     return m;
   }, [profiles]);
 
-  // Filter tasks by discipline for coordenador
-  const filteredTasks = useMemo(() => {
+  // Get unique disciplines from tasks
+  const disciplines = useMemo(() => {
+    const set = new Set(tasks.map(t => t.discipline));
+    return Array.from(set).sort();
+  }, [tasks]);
+
+  // Base filter: role-based (coordenador sees own discipline only)
+  const roleFilteredTasks = useMemo(() => {
     if (profile?.role === "planejamento" && profile.discipline) {
       return tasks.filter(t => t.discipline === profile.discipline);
     }
     return tasks;
   }, [tasks, profile]);
+
+  // Apply user-selected filters on top
+  const filteredTasks = useMemo(() => {
+    let result = roleFilteredTasks;
+    if (filterDiscipline !== "all") {
+      result = result.filter(t => t.discipline === filterDiscipline);
+    }
+    if (filterProject !== "all") {
+      result = result.filter(t => t.projectId === filterProject);
+    }
+    return result;
+  }, [roleFilteredTasks, filterDiscipline, filterProject]);
 
   const now = new Date();
   const weekStart = startOfWeek();
