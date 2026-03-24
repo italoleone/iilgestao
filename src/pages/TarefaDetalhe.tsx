@@ -770,6 +770,86 @@ export default function TarefaDetalhe() {
           onClose={() => setPdfViewer(null)}
         />
       )}
+
+      {/* Edit Task Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Editar Tarefa</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nome da tarefa</Label>
+              <Input value={editData.name || ""} onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Projeto</Label>
+              <Select value={editData.project_id || ""} onValueChange={(v) => setEditData(prev => ({ ...prev, project_id: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {allProjects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Disciplina</Label>
+                <Select value={editData.discipline || ""} onValueChange={(v) => setEditData(prev => ({ ...prev, discipline: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="estrutural">Estrutural</SelectItem>
+                    <SelectItem value="hidraulica">Hidráulica</SelectItem>
+                    <SelectItem value="eletrica">Elétrica</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Responsável</Label>
+                <Select value={editData.responsible || ""} onValueChange={(v) => setEditData(prev => ({ ...prev, responsible: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {profiles.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Etapa</Label>
+              <Select value={editData.stage_name || ""} onValueChange={(v) => setEditData(prev => ({ ...prev, stage_name: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STAGE_NAMES.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Data de início</Label>
+                <Input type="date" value={editData.start_date || ""} onChange={(e) => setEditData(prev => ({ ...prev, start_date: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Data de término</Label>
+                <Input type="date" value={editData.end_date || ""} onChange={(e) => setEditData(prev => ({ ...prev, end_date: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Horas estimadas</Label>
+              <Input type="number" min={0} step={0.5} value={editData.estimated_hours ?? 0} onChange={(e) => setEditData(prev => ({ ...prev, estimated_hours: Number(e.target.value) }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveEdit} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Salvar Alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
