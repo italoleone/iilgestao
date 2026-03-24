@@ -16,15 +16,23 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const results = [];
+    const { action, emails } = await req.json();
 
-    for (const user of existingUsers?.users || []) {
-      const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id);
-      results.push({ email: user.email, deleted: !error, error: error?.message });
+    if (action === "delete") {
+      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+      const results = [];
+      for (const user of existingUsers?.users || []) {
+        if (emails && !emails.includes(user.email)) continue;
+        const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+        results.push({ email: user.email, deleted: !error });
+      }
+      return new Response(JSON.stringify({ success: true, results }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(JSON.stringify({ success: true, results }), {
+    return new Response(JSON.stringify({ error: "invalid action" }), {
+      status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
