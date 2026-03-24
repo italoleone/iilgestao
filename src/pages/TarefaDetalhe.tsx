@@ -180,35 +180,12 @@ export default function TarefaDetalhe() {
   };
 
   const handleSendForValidation = async () => {
-    if (!task || !project || !profile) return;
-    if (attachments.filter(a => a.task_id === task.id).length === 0) {
+    if (!task || !profile) return;
+    if (attachments.length === 0) {
       toast.error("Anexe pelo menos 1 arquivo antes de enviar para validação.");
       return;
     }
-
-    // Update current task status
     await supabase.from("tasks").update({ status: "aguardando_validacao" }).eq("id", task.id);
-
-    // Create validation task for coordinator
-    const { error } = await supabase.from("tasks").insert({
-      name: `Validação – ${task.name}`,
-      project_id: task.project_id,
-      discipline: task.discipline,
-      stage_name: task.stage_name,
-      responsible: project.responsible,
-      start_date: new Date().toISOString().slice(0, 10),
-      end_date: task.end_date,
-      estimated_hours: 0,
-      hours_worked: 0,
-      status: "nao_iniciada",
-      parent_task_id: task.id,
-    });
-
-    if (error) {
-      toast.error("Erro ao criar tarefa de validação: " + error.message);
-      return;
-    }
-
     setTask(prev => prev ? { ...prev, status: "aguardando_validacao" } : prev);
     toast.success("Tarefa enviada para validação do coordenador!");
   };
@@ -287,7 +264,7 @@ export default function TarefaDetalhe() {
     setUploading(false);
     setPendingFiles([]);
     setSheetTitles({});
-    fetchAttachments(task.parent_task_id);
+    fetchAttachments();
     toast.success("Arquivo(s) anexado(s) com sucesso!");
   };
 
