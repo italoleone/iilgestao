@@ -389,7 +389,6 @@ export default function Tarefas() {
                   month={calMonth}
                   year={calYear}
                   onMonthChange={(m, y) => { setCalMonth(m); setCalYear(y); }}
-                  onTaskClick={handleTaskClick}
                 />
               </CardContent>
             </Card>

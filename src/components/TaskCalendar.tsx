@@ -16,10 +16,9 @@ interface TaskCalendarProps {
   month: number; // 0-indexed
   year: number;
   onMonthChange: (month: number, year: number) => void;
-  onTaskClick: (task: Task) => void;
 }
 
-export function TaskCalendar({ tasks, month, year, onMonthChange, onTaskClick }: TaskCalendarProps) {
+export function TaskCalendar({ tasks, month, year, onMonthChange }: TaskCalendarProps) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sunday
 
