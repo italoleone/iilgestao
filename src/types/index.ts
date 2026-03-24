@@ -67,6 +67,7 @@ export interface Project {
   responsible: string;
   team: string[];
   hoursSold: number;
+  saleValue: number;
   hoursWorked: number;
   stages: Stage[];
   revisions: Revision[];

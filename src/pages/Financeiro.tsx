@@ -17,7 +17,7 @@ import { TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 export default function Financeiro() {
   const projectFinancials = projects.map((p) => {
     const cost = getProjectCost(p);
-    const revenue = p.hoursSold * 130;
+    const revenue = p.saleValue;
     const profit = revenue - cost;
     return { ...p, cost, revenue, profit };
   });

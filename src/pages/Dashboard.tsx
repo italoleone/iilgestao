@@ -56,7 +56,7 @@ export default function Dashboard() {
   const activeProjects = getActiveProjects();
   const lateProjects = projects.filter((p) => p.status === "atrasado");
   const totalHoursWorked = projects.reduce((s, p) => s + p.hoursWorked, 0);
-  const totalHoursSold = projects.reduce((s, p) => s + p.hoursSold, 0);
+  const totalSaleValue = projects.reduce((s, p) => s + p.saleValue, 0);
 
   const projectsByDiscipline = useMemo(() => {
     const counts: Record<string, number> = { estrutural: 0, hidraulica: 0, eletrica: 0 };
@@ -73,7 +73,7 @@ export default function Dashboard() {
       .filter((p) => p.status !== "concluido")
       .map((p) => ({
         name: p.name.length > 20 ? p.name.slice(0, 20) + "…" : p.name,
-        vendidas: p.hoursSold,
+        vendidas: p.saleValue,
         realizadas: p.hoursWorked,
       }));
   }, []);
@@ -122,7 +122,7 @@ export default function Dashboard() {
             {
               title: "Horas Realizadas",
               value: totalHoursWorked.toLocaleString("pt-BR"),
-              sub: `de ${totalHoursSold.toLocaleString("pt-BR")} vendidas`,
+              sub: `R$ ${totalSaleValue.toLocaleString("pt-BR")} vendidos`,
               icon: Clock,
             },
             {

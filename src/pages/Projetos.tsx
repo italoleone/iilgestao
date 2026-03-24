@@ -4,14 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { projects as initialProjects, getUserById, users } from "@/data/mockData";
+import { NewProjectDialog } from "@/components/NewProjectDialog";
+import { projects as initialProjects, getUserById } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
-import { DISCIPLINE_SHORT, STATUS_LABELS, STAGE_NAMES, type Discipline, type ProjectStatus, type Project } from "@/types";
+import { DISCIPLINE_SHORT, STATUS_LABELS, type Discipline, type ProjectStatus, type Project } from "@/types";
 import { Search, Plus, ArrowUpDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 
 const statusColors: Record<ProjectStatus, string> = {
   em_andamento: "bg-info text-info-foreground",
@@ -38,16 +36,6 @@ export default function Projetos() {
   const [allProjects, setAllProjects] = useState<Project[]>(initialProjects);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortAsc, setSortAsc] = useState(true);
-
-  const [form, setForm] = useState({
-    name: "",
-    client: "",
-    discipline: "estrutural" as Discipline,
-    startDate: "",
-    deadline: "",
-    responsible: "",
-    hoursSold: "",
-  });
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -89,44 +77,9 @@ export default function Projetos() {
     return result;
   }, [allProjects, search, filterDiscipline, filterStatus, sortField, sortAsc]);
 
-  const handleCreate = () => {
-    if (!form.name || !form.client || !form.startDate || !form.deadline || !form.responsible) {
-      toast.error("Preencha todos os campos obrigatórios.");
-      return;
-    }
-
-    const newProject: Project = {
-      id: `p${Date.now()}`,
-      name: form.name,
-      client: form.client,
-      discipline: form.discipline,
-      startDate: form.startDate,
-      deadline: form.deadline,
-      status: "em_andamento",
-      responsible: form.responsible,
-      team: [form.responsible],
-      hoursSold: Number(form.hoursSold) || 0,
-      hoursWorked: 0,
-      stages: STAGE_NAMES.map((name, i) => ({
-        id: `ns${Date.now()}_${i}`,
-        name,
-        responsible: form.responsible,
-        deadline: form.deadline,
-        status: "pendente" as const,
-        hoursSpent: 0,
-      })),
-      revisions: [],
-    };
-
-    setAllProjects((prev) => [newProject, ...prev]);
-    setDialogOpen(false);
-    setForm({ name: "", client: "", discipline: "estrutural", startDate: "", deadline: "", responsible: "", hoursSold: "" });
-    toast.success("Projeto criado com sucesso!");
+  const handleProjectsCreated = (newProjects: Project[]) => {
+    setAllProjects((prev) => [...newProjects, ...prev]);
   };
-
-  const disciplineUsers = users.filter(
-    (u) => u.discipline === form.discipline && (u.role === "coordenador" || u.role === "projetista")
-  );
 
   const SortHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
     <th
@@ -239,67 +192,11 @@ export default function Projetos() {
         </div>
       </div>
 
-      {/* New Project Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Novo Projeto</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome do Projeto *</Label>
-              <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: Edifício Central Park" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="client">Cliente *</Label>
-              <Input id="client" value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })} placeholder="Ex: Construtora ABC" />
-            </div>
-            <div className="space-y-2">
-              <Label>Disciplina *</Label>
-              <select
-                value={form.discipline}
-                onChange={(e) => setForm({ ...form, discipline: e.target.value as Discipline, responsible: "" })}
-                className="h-10 w-full rounded-md border bg-card px-3 text-sm"
-              >
-                <option value="estrutural">Estrutural</option>
-                <option value="hidraulica">Hidráulica</option>
-                <option value="eletrica">Elétrica</option>
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="startDate">Data de Início *</Label>
-                <Input id="startDate" type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="deadline">Prazo Final *</Label>
-                <Input id="deadline" type="date" value={form.deadline} onChange={(e) => setForm({ ...form, deadline: e.target.value })} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Responsável *</Label>
-              <select
-                value={form.responsible}
-                onChange={(e) => setForm({ ...form, responsible: e.target.value })}
-                className="h-10 w-full rounded-md border bg-card px-3 text-sm"
-              >
-                <option value="">Selecione...</option>
-                {disciplineUsers.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="hoursSold">Horas Vendidas</Label>
-              <Input id="hoursSold" type="number" value={form.hoursSold} onChange={(e) => setForm({ ...form, hoursSold: e.target.value })} placeholder="Ex: 480" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreate}>Criar Projeto</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <NewProjectDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onProjectsCreated={handleProjectsCreated}
+      />
     </AppLayout>
   );
 }

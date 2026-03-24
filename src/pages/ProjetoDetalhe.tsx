@@ -57,7 +57,7 @@ export default function ProjetoDetalhe() {
   const progress = Math.round((completedStages / project.stages.length) * 100);
   const responsible = getUserById(project.responsible);
   const cost = getProjectCost(project);
-  const revenue = project.hoursSold * 130;
+  const revenue = project.saleValue;
   const profit = revenue - cost;
   const { canAccessFinanceiro: canSeeFinancial } = useAuth();
   const projectTasks = getTasksByProject(project.id);
@@ -125,8 +125,8 @@ export default function ProjetoDetalhe() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Horas vendidas</span>
-                <span className="font-medium tabular-nums">{project.hoursSold}h</span>
+                <span className="text-muted-foreground">Valor de Venda</span>
+                <span className="font-medium tabular-nums">R$ {project.saleValue.toLocaleString("pt-BR")}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Horas estimadas (tarefas)</span>
@@ -136,9 +136,9 @@ export default function ProjetoDetalhe() {
                 <span className="text-muted-foreground">Horas realizadas (tarefas)</span>
                 <span className="font-medium tabular-nums">{taskHours.worked}h</span>
               </div>
-              <Progress value={project.hoursSold > 0 ? (taskHours.worked / project.hoursSold) * 100 : 0} className="h-2" />
+              <Progress value={taskHours.estimated > 0 ? (taskHours.worked / taskHours.estimated) * 100 : 0} className="h-2" />
               <p className="text-xs text-muted-foreground">
-                {project.hoursSold > 0 ? Math.round((taskHours.worked / project.hoursSold) * 100) : 0}% das horas vendidas consumidas
+                {taskHours.estimated > 0 ? Math.round((taskHours.worked / taskHours.estimated) * 100) : 0}% das horas estimadas consumidas
               </p>
             </CardContent>
           </Card>

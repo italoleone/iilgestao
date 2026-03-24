@@ -27,7 +27,7 @@ export const projects: Project[] = [
   {
     id: 'p1', name: 'Edifício Panorama Tower', client: 'Construtora Horizonte', discipline: 'estrutural',
     startDate: '2026-01-15', deadline: '2026-04-30', status: 'em_andamento', responsible: 'u3',
-    team: ['u3', 'u6', 'u9'], hoursSold: 480, hoursWorked: 312,
+    team: ['u3', 'u6', 'u9'], hoursSold: 480, saleValue: 62400, hoursWorked: 312,
     stages: [
       { id: 's1', name: 'Estudo Preliminar', responsible: 'u3', deadline: '2026-02-01', status: 'concluido', hoursSpent: 48 },
       { id: 's2', name: 'Anteprojeto', responsible: 'u6', deadline: '2026-02-20', status: 'concluido', hoursSpent: 72 },
@@ -44,7 +44,7 @@ export const projects: Project[] = [
   {
     id: 'p2', name: 'Residencial Villa Serena', client: 'Incorporadora Sol', discipline: 'hidraulica',
     startDate: '2026-02-01', deadline: '2026-05-15', status: 'em_andamento', responsible: 'u4',
-    team: ['u4', 'u7', 'u10'], hoursSold: 320, hoursWorked: 145,
+    team: ['u4', 'u7', 'u10'], hoursSold: 320, saleValue: 41600, hoursWorked: 145,
     stages: [
       { id: 's7', name: 'Estudo Preliminar', responsible: 'u4', deadline: '2026-02-15', status: 'concluido', hoursSpent: 32 },
       { id: 's8', name: 'Anteprojeto', responsible: 'u7', deadline: '2026-03-10', status: 'concluido', hoursSpent: 56 },
@@ -60,7 +60,7 @@ export const projects: Project[] = [
   {
     id: 'p3', name: 'Centro Comercial Atlântica', client: 'Grupo Atlântica', discipline: 'eletrica',
     startDate: '2025-11-01', deadline: '2026-03-15', status: 'atrasado', responsible: 'u5',
-    team: ['u5', 'u8'], hoursSold: 400, hoursWorked: 420,
+    team: ['u5', 'u8'], hoursSold: 400, saleValue: 52000, hoursWorked: 420,
     stages: [
       { id: 's13', name: 'Estudo Preliminar', responsible: 'u5', deadline: '2025-11-20', status: 'concluido', hoursSpent: 40 },
       { id: 's14', name: 'Anteprojeto', responsible: 'u8', deadline: '2025-12-15', status: 'concluido', hoursSpent: 80 },
@@ -78,7 +78,7 @@ export const projects: Project[] = [
   {
     id: 'p4', name: 'Galpão Industrial Progresso', client: 'Indústrias Progresso', discipline: 'estrutural',
     startDate: '2026-03-01', deadline: '2026-06-30', status: 'em_andamento', responsible: 'u3',
-    team: ['u3', 'u6'], hoursSold: 560, hoursWorked: 48,
+    team: ['u3', 'u6'], hoursSold: 560, saleValue: 72800, hoursWorked: 48,
     stages: [
       { id: 's19', name: 'Estudo Preliminar', responsible: 'u3', deadline: '2026-03-20', status: 'em_andamento', hoursSpent: 32 },
       { id: 's20', name: 'Anteprojeto', responsible: 'u6', deadline: '2026-04-15', status: 'pendente', hoursSpent: 0 },
@@ -92,7 +92,7 @@ export const projects: Project[] = [
   {
     id: 'p5', name: 'Hospital Regional Norte', client: 'Governo do Estado', discipline: 'hidraulica',
     startDate: '2026-01-10', deadline: '2026-07-30', status: 'em_andamento', responsible: 'u4',
-    team: ['u4', 'u7'], hoursSold: 720, hoursWorked: 198,
+    team: ['u4', 'u7'], hoursSold: 720, saleValue: 93600, hoursWorked: 198,
     stages: [
       { id: 's25', name: 'Estudo Preliminar', responsible: 'u4', deadline: '2026-02-10', status: 'concluido', hoursSpent: 56 },
       { id: 's26', name: 'Anteprojeto', responsible: 'u7', deadline: '2026-03-20', status: 'em_andamento', hoursSpent: 88 },
@@ -108,7 +108,7 @@ export const projects: Project[] = [
   {
     id: 'p6', name: 'Escola Técnica Municipal', client: 'Prefeitura Municipal', discipline: 'eletrica',
     startDate: '2026-02-15', deadline: '2026-04-15', status: 'em_andamento', responsible: 'u5',
-    team: ['u5', 'u8'], hoursSold: 240, hoursWorked: 164,
+    team: ['u5', 'u8'], hoursSold: 240, saleValue: 31200, hoursWorked: 164,
     stages: [
       { id: 's31', name: 'Estudo Preliminar', responsible: 'u5', deadline: '2026-02-28', status: 'concluido', hoursSpent: 24 },
       { id: 's32', name: 'Anteprojeto', responsible: 'u8', deadline: '2026-03-10', status: 'concluido', hoursSpent: 48 },
@@ -125,7 +125,7 @@ export const projects: Project[] = [
   {
     id: 'p7', name: 'Condomínio Parque das Águas', client: 'Construtora Onda', discipline: 'estrutural',
     startDate: '2025-10-01', deadline: '2026-02-28', status: 'concluido', responsible: 'u3',
-    team: ['u3', 'u9'], hoursSold: 380, hoursWorked: 352,
+    team: ['u3', 'u9'], hoursSold: 380, saleValue: 49400, hoursWorked: 352,
     stages: [
       { id: 's37', name: 'Estudo Preliminar', responsible: 'u3', deadline: '2025-10-20', status: 'concluido', hoursSpent: 36 },
       { id: 's38', name: 'Anteprojeto', responsible: 'u9', deadline: '2025-11-15', status: 'concluido', hoursSpent: 64 },
