@@ -61,7 +61,6 @@ export default function TarefaDetalhe() {
 
   const [task, setTask] = useState<DbTask | null>(null);
   const [project, setProject] = useState<DbProject | null>(null);
-  const [parentTask, setParentTask] = useState<DbTask | null>(null);
   const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [timerStart, setTimerStart] = useState<Date | null>(null);
@@ -84,28 +83,20 @@ export default function TarefaDetalhe() {
       setTask(t);
       const { data: proj } = await supabase.from("projects").select("id, name, client, discipline, responsible").eq("id", t.project_id).maybeSingle();
       if (proj) setProject(proj as unknown as DbProject);
-      // Fetch parent task if this is a validation task
-      if (t.parent_task_id) {
-        const { data: parent } = await supabase.from("tasks").select("*").eq("id", t.parent_task_id).maybeSingle();
-        if (parent) setParentTask(parent as unknown as DbTask);
-      }
     }
     setLoading(false);
   };
 
-  const fetchAttachments = async (parentTaskId?: string | null) => {
+  const fetchAttachments = async () => {
     if (!id) return;
-    // Fetch attachments for this task and parent task (if validation task)
-    const taskIds = [id];
-    if (parentTaskId) taskIds.push(parentTaskId);
-    const { data } = await supabase.from("task_attachments").select("*").in("task_id", taskIds).order("created_at", { ascending: false });
+    const { data } = await supabase.from("task_attachments").select("*").eq("task_id", id).order("created_at", { ascending: false });
     if (data) setAttachments(data as unknown as TaskAttachment[]);
   };
 
   useEffect(() => { fetchTask(); }, [id]);
   useEffect(() => {
-    if (task) fetchAttachments(task.parent_task_id);
-  }, [task?.id, task?.parent_task_id]);
+    if (task) fetchAttachments();
+  }, [task?.id]);
 
   useEffect(() => {
     if (!timerStart) return;
@@ -138,8 +129,7 @@ export default function TarefaDetalhe() {
   const hoursProgress = task && Number(task.estimated_hours) > 0
     ? Math.round((Number(task.hours_worked) / Number(task.estimated_hours)) * 100) : 0;
 
-  const isValidationTask = !!task?.parent_task_id;
-  const isCoordinator = project && profile && (project.responsible === profile.id || task?.responsible === profile.id);
+  const isCoordinator = project && profile && project.responsible === profile.id;
   const isTaskResponsible = task && profile && task.responsible === profile.id;
   const isManager = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
   const canExecuteTimer = task && (task.status === "nao_iniciada" || task.status === "em_andamento" || task.status === "reprovada");
@@ -190,59 +180,30 @@ export default function TarefaDetalhe() {
   };
 
   const handleSendForValidation = async () => {
-    if (!task || !project || !profile) return;
-    if (attachments.filter(a => a.task_id === task.id).length === 0) {
+    if (!task || !profile) return;
+    if (attachments.length === 0) {
       toast.error("Anexe pelo menos 1 arquivo antes de enviar para validação.");
       return;
     }
-
-    // Update current task status
     await supabase.from("tasks").update({ status: "aguardando_validacao" }).eq("id", task.id);
-
-    // Create validation task for coordinator
-    const { error } = await supabase.from("tasks").insert({
-      name: `Validação – ${task.name}`,
-      project_id: task.project_id,
-      discipline: task.discipline,
-      stage_name: task.stage_name,
-      responsible: project.responsible,
-      start_date: new Date().toISOString().slice(0, 10),
-      end_date: task.end_date,
-      estimated_hours: 0,
-      hours_worked: 0,
-      status: "nao_iniciada",
-      parent_task_id: task.id,
-    });
-
-    if (error) {
-      toast.error("Erro ao criar tarefa de validação: " + error.message);
-      return;
-    }
-
     setTask(prev => prev ? { ...prev, status: "aguardando_validacao" } : prev);
     toast.success("Tarefa enviada para validação do coordenador!");
   };
 
   const handleApprove = async () => {
-    if (!task || !task.parent_task_id) return;
-    // Approve parent task
-    await supabase.from("tasks").update({ status: "aprovada" }).eq("id", task.parent_task_id);
-    // Mark validation task as done
+    if (!task) return;
     await supabase.from("tasks").update({ status: "aprovada" }).eq("id", task.id);
     setTask(prev => prev ? { ...prev, status: "aprovada" } : prev);
     toast.success("Tarefa aprovada com sucesso!");
   };
 
   const handleReject = async () => {
-    if (!task || !task.parent_task_id || !rejectReason.trim()) {
+    if (!task || !rejectReason.trim()) {
       toast.error("Informe o motivo da reprovação.");
       return;
     }
-    // Reject parent task back to em_andamento
-    await supabase.from("tasks").update({ status: "reprovada", rejection_reason: rejectReason.trim() }).eq("id", task.parent_task_id);
-    // Mark validation task as done
     await supabase.from("tasks").update({ status: "reprovada", rejection_reason: rejectReason.trim() }).eq("id", task.id);
-    setTask(prev => prev ? { ...prev, status: "reprovada" } : prev);
+    setTask(prev => prev ? { ...prev, status: "reprovada", rejection_reason: rejectReason.trim() } : prev);
     setRejectOpen(false);
     setRejectReason("");
     toast.success("Tarefa reprovada. O projetista foi notificado.");
@@ -297,7 +258,7 @@ export default function TarefaDetalhe() {
     setUploading(false);
     setPendingFiles([]);
     setSheetTitles({});
-    fetchAttachments(task.parent_task_id);
+    fetchAttachments();
     toast.success("Arquivo(s) anexado(s) com sucesso!");
   };
 
@@ -364,10 +325,10 @@ export default function TarefaDetalhe() {
     }
   };
 
-  const showTimer = canExecuteTimer && !isValidationTask;
-  const showCompleteButton = (isTaskResponsible || isManager) && task.status === "em_andamento" && !isValidationTask;
-  const showSendValidation = (isTaskResponsible || isManager) && task.status === "concluida" && !isValidationTask;
-  const showValidationActions = isValidationTask && (isCoordinator || isManager) && !["aprovada", "reprovada"].includes(task.status);
+  const showTimer = canExecuteTimer;
+  const showCompleteButton = (isTaskResponsible || isManager) && task.status === "em_andamento";
+  const showSendValidation = (isTaskResponsible || isManager) && task.status === "concluida";
+  const showValidationActions = (isCoordinator || isManager) && task.status === "aguardando_validacao";
 
   return (
     <AppLayout>
@@ -432,17 +393,16 @@ export default function TarefaDetalhe() {
           </Card>
         )}
 
-        {/* Validation task: show parent task info */}
-        {isValidationTask && parentTask && (
-          <Card className="border-primary/30 bg-primary/5 shadow-sm animate-reveal-up" style={{ animationFillMode: "backwards" }}>
+        {/* Awaiting validation info */}
+        {task.status === "aguardando_validacao" && (
+          <Card className="border-warning/30 bg-warning/5 shadow-sm animate-reveal-up" style={{ animationFillMode: "backwards" }}>
             <CardContent className="py-4">
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <Send className="h-5 w-5 text-warning mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold">Tarefa de Validação</p>
+                  <p className="text-sm font-semibold">Aguardando Validação do Coordenador</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Tarefa original: <strong>{parentTask.name}</strong><br />
-                    Projetista: <strong>{getProfileById(profiles, parentTask.responsible)?.name || "—"}</strong>
+                    Esta tarefa foi enviada para validação e aguarda aprovação.
                   </p>
                 </div>
               </div>
