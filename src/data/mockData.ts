@@ -108,7 +108,7 @@ export const projects: Project[] = [
   {
     id: 'p6', name: 'Escola Técnica Municipal', client: 'Prefeitura Municipal', discipline: 'eletrica',
     startDate: '2026-02-15', deadline: '2026-04-15', status: 'em_andamento', responsible: 'u5',
-    team: ['u5', 'u8'], hoursSold: 240, hoursWorked: 164,
+    team: ['u5', 'u8'], hoursSold: 240, saleValue: 31200, hoursWorked: 164,
     stages: [
       { id: 's31', name: 'Estudo Preliminar', responsible: 'u5', deadline: '2026-02-28', status: 'concluido', hoursSpent: 24 },
       { id: 's32', name: 'Anteprojeto', responsible: 'u8', deadline: '2026-03-10', status: 'concluido', hoursSpent: 48 },
