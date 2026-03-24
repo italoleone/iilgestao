@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveProfiles, getProfileById, useTimeEntries, type DbTimeEntry } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
