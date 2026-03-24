@@ -19,6 +19,9 @@ const taskStatusColors: Record<TaskStatus, string> = {
   nao_iniciada: "bg-muted text-muted-foreground",
   em_andamento: "bg-info text-info-foreground",
   concluida: "bg-success text-success-foreground",
+  aguardando_validacao: "bg-warning text-warning-foreground",
+  aprovada: "bg-success text-success-foreground",
+  reprovada: "bg-destructive text-destructive-foreground",
 };
 
 function formatDuration(minutes: number) {
