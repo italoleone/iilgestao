@@ -10,6 +10,7 @@ import { useActiveProfiles, getProfileById, useTasks } from "@/hooks/useSupabase
 import { useAuth } from "@/contexts/AuthContext";
 import { DISCIPLINE_SHORT, STATUS_LABELS, TASK_STATUS_LABELS, type ProjectStatus, type TaskStatus, type Discipline, type Project, type Stage } from "@/types";
 import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks, Loader2 } from "lucide-react";
+import { useTimeEntries } from "@/hooks/useSupabaseData";
 
 const statusColors: Record<ProjectStatus, string> = {
   em_andamento: "bg-info text-info-foreground",

@@ -9,9 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useActiveProfiles, getProfileById, useTimeEntries, type DbTimeEntry } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  DISCIPLINE_SHORT, TASK_STATUS_LABELS, type TaskStatus, type Task, type Discipline,
+  DISCIPLINE_SHORT, TASK_STATUS_LABELS, type TaskStatus, type Discipline,
 } from "@/types";
-import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 
 const taskStatusColors: Record<TaskStatus, string> = {
@@ -27,6 +27,10 @@ function formatDuration(minutes: number) {
   return m > 0 ? `${h}h ${m.toString().padStart(2, "0")}min` : `${h}h`;
 }
 
+function formatCurrency(value: number) {
+  return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 interface DbTask {
   id: string; name: string; project_id: string; discipline: string; stage_name: string;
   responsible: string; start_date: string; end_date: string; estimated_hours: number;
@@ -40,7 +44,7 @@ interface DbProject {
 export default function TarefaDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, canAccessFinanceiro } = useAuth();
   const { profiles } = useActiveProfiles();
   const { entries: timeEntries, refetch: refetchEntries } = useTimeEntries(id);
 
@@ -80,6 +84,19 @@ export default function TarefaDetalhe() {
   };
 
   const totalHistoryMinutes = useMemo(() => timeEntries.reduce((sum, r) => sum + r.duration_minutes, 0), [timeEntries]);
+
+  // Calculate cost per entry using user's cost_per_hour
+  const entriesWithCost = useMemo(() => {
+    return timeEntries.map((entry) => {
+      const userProfile = getProfileById(profiles, entry.user_id);
+      const costPerHour = userProfile?.cost_per_hour || 0;
+      const cost = (entry.duration_minutes / 60) * costPerHour;
+      return { ...entry, cost, costPerHour };
+    });
+  }, [timeEntries, profiles]);
+
+  const totalCost = useMemo(() => entriesWithCost.reduce((sum, e) => sum + e.cost, 0), [entriesWithCost]);
+
   const hoursProgress = task && Number(task.estimated_hours) > 0
     ? Math.round((Number(task.hours_worked) / Number(task.estimated_hours)) * 100) : 0;
 
@@ -208,6 +225,12 @@ export default function TarefaDetalhe() {
                 </div>
                 <Progress value={Math.min(hoursProgress, 100)} className={`h-2 ${hoursProgress > 100 ? "[&>div]:bg-destructive" : ""}`} />
               </div>
+              {canAccessFinanceiro && (
+                <div className="flex justify-between pt-1 border-t">
+                  <span className="text-muted-foreground flex items-center gap-1"><DollarSign className="h-3 w-3" /> Custo acumulado</span>
+                  <span className="font-semibold tabular-nums">{formatCurrency(totalCost)}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -216,15 +239,22 @@ export default function TarefaDetalhe() {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <History className="h-4 w-4" /> Histórico de Atividades
-              <Badge variant="secondary" className="ml-auto font-mono text-xs">Total: {formatDuration(totalHistoryMinutes)}</Badge>
+              <div className="ml-auto flex items-center gap-2">
+                {canAccessFinanceiro && totalCost > 0 && (
+                  <Badge variant="outline" className="font-mono text-xs gap-1">
+                    <DollarSign className="h-3 w-3" /> {formatCurrency(totalCost)}
+                  </Badge>
+                )}
+                <Badge variant="secondary" className="font-mono text-xs">Total: {formatDuration(totalHistoryMinutes)}</Badge>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {timeEntries.length === 0 ? (
+            {entriesWithCost.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">Nenhum registro de atividade ainda.</p>
             ) : (
               <div className="space-y-2">
-                {timeEntries.map((record) => (
+                {entriesWithCost.map((record) => (
                   <div key={record.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/30 transition-colors">
                     <div>
                       <p className="text-sm font-medium">{record.user_name}</p>
@@ -232,7 +262,12 @@ export default function TarefaDetalhe() {
                         {new Date(record.date + "T00:00:00").toLocaleDateString("pt-BR")} — {record.start_time} → {record.end_time}
                       </p>
                     </div>
-                    <div className="text-right"><p className="text-sm font-medium tabular-nums">{formatDuration(record.duration_minutes)}</p></div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium tabular-nums">{formatDuration(record.duration_minutes)}</p>
+                      {canAccessFinanceiro && record.cost > 0 && (
+                        <p className="text-xs text-muted-foreground tabular-nums">{formatCurrency(record.cost)}</p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
