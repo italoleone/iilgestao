@@ -160,7 +160,7 @@ export default function Tarefas() {
     if (filterResponsible !== "all") filtered = filtered.filter(t => t.responsible === filterResponsible);
     if (filterStage !== "all") filtered = filtered.filter(t => t.stageName === filterStage);
 
-    const statusOrder: Record<string, number> = { em_andamento: 0, nao_iniciada: 1, concluida: 2 };
+    const statusOrder: Record<string, number> = { em_andamento: 0, nao_iniciada: 1, aguardando_validacao: 2, reprovada: 3, concluida: 4, aprovada: 5 };
     return filtered.sort((a, b) => {
       const so = (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1);
       if (so !== 0) return so;
@@ -272,6 +272,9 @@ export default function Tarefas() {
             <option value="nao_iniciada">Não iniciada</option>
             <option value="em_andamento">Em andamento</option>
             <option value="concluida">Concluída</option>
+            <option value="aguardando_validacao">Aguardando Validação</option>
+            <option value="aprovada">Aprovada</option>
+            <option value="reprovada">Reprovada</option>
           </select>
           <select value={filterStage} onChange={(e) => setFilterStage(e.target.value)} className="h-10 rounded-md border bg-card px-3 text-sm">
             <option value="all">Todas etapas</option>
