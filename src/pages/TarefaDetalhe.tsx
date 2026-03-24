@@ -8,12 +8,14 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
-import { useActiveProfiles, getProfileById, useTimeEntries, type DbTimeEntry } from "@/hooks/useSupabaseData";
+import { useActiveProfiles, getProfileById, useTimeEntries, useProjects, type DbTimeEntry } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  DISCIPLINE_SHORT, TASK_STATUS_LABELS, type TaskStatus, type Discipline,
+  DISCIPLINE_SHORT, TASK_STATUS_LABELS, type TaskStatus, type Discipline, STAGE_NAMES,
 } from "@/types";
-import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign, Trash2, CheckCircle2, Send, ThumbsUp, ThumbsDown, Upload, Download, FileText, AlertTriangle, Eye, Radio } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign, Trash2, CheckCircle2, Send, ThumbsUp, ThumbsDown, Upload, Download, FileText, AlertTriangle, Eye, Radio, Pencil } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -59,6 +61,7 @@ export default function TarefaDetalhe() {
   const navigate = useNavigate();
   const { profile, canAccessFinanceiro, isProjetista } = useAuth();
   const { profiles } = useActiveProfiles();
+  const { projects: allProjects } = useProjects();
   const { entries: timeEntries, refetch: refetchEntries } = useTimeEntries(id);
   const { activeTimers } = useActiveTimers();
 
@@ -77,6 +80,9 @@ export default function TarefaDetalhe() {
   const [sheetTitles, setSheetTitles] = useState<Record<number, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pdfViewer, setPdfViewer] = useState<{ url: string; attachmentId: string; fileName: string; sheetTitle: string } | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editData, setEditData] = useState<Partial<DbTask>>({});
+  const [saving, setSaving] = useState(false);
 
   const fetchTask = async () => {
     if (!id) return;
@@ -319,6 +325,49 @@ export default function TarefaDetalhe() {
   const responsible = getProfileById(profiles, task.responsible);
   const isOverdue = new Date(task.end_date) < new Date() && !["concluida", "aprovada"].includes(task.status);
   const canDelete = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
+  const canEdit = !isProjetista && task.status !== "aprovada";
+
+  const openEditDialog = () => {
+    setEditData({
+      name: task.name,
+      project_id: task.project_id,
+      discipline: task.discipline,
+      responsible: task.responsible,
+      start_date: task.start_date,
+      end_date: task.end_date,
+      stage_name: task.stage_name,
+      estimated_hours: task.estimated_hours,
+    });
+    setEditOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editData.name?.trim()) { toast.error("Nome da tarefa é obrigatório."); return; }
+    setSaving(true);
+    const { error } = await supabase.from("tasks").update({
+      name: editData.name,
+      project_id: editData.project_id,
+      discipline: editData.discipline,
+      responsible: editData.responsible,
+      start_date: editData.start_date,
+      end_date: editData.end_date,
+      stage_name: editData.stage_name,
+      estimated_hours: editData.estimated_hours,
+    }).eq("id", task.id);
+    setSaving(false);
+    if (error) {
+      toast.error("Erro ao salvar: " + error.message);
+    } else {
+      setTask(prev => prev ? { ...prev, ...editData } as DbTask : prev);
+      // Refresh project info if project changed
+      if (editData.project_id && editData.project_id !== task.project_id) {
+        const { data: proj } = await supabase.from("projects").select("id, name, client, discipline, responsible").eq("id", editData.project_id).maybeSingle();
+        if (proj) setProject(proj as unknown as DbProject);
+      }
+      setEditOpen(false);
+      toast.success("Tarefa atualizada com sucesso!");
+    }
+  };
 
   const handleDeleteTask = async () => {
     setDeleting(true);
@@ -345,31 +394,38 @@ export default function TarefaDetalhe() {
             <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => navigate("/tarefas")}>
               <ArrowLeft className="h-4 w-4" /> Voltar
             </Button>
-            {canDelete && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm" className="gap-1.5" disabled={deleting}>
-                    <Trash2 className="h-4 w-4" /> Excluir Tarefa
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir tarefa?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Tem certeza que deseja excluir a tarefa <strong>{task.name}</strong>?
-                      <br /><br />
-                      ⚠️ Todos os registros de horas vinculados também serão excluídos permanentemente.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteTask} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      Excluir permanentemente
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
+            <div className="flex items-center gap-2">
+              {canEdit && (
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={openEditDialog}>
+                  <Pencil className="h-4 w-4" /> Editar Tarefa
+                </Button>
+              )}
+              {canDelete && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" className="gap-1.5" disabled={deleting}>
+                      <Trash2 className="h-4 w-4" /> Excluir Tarefa
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Excluir tarefa?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja excluir a tarefa <strong>{task.name}</strong>?
+                        <br /><br />
+                        ⚠️ Todos os registros de horas vinculados também serão excluídos permanentemente.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteTask} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Excluir permanentemente
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           </div>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -714,6 +770,86 @@ export default function TarefaDetalhe() {
           onClose={() => setPdfViewer(null)}
         />
       )}
+
+      {/* Edit Task Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Editar Tarefa</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nome da tarefa</Label>
+              <Input value={editData.name || ""} onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Projeto</Label>
+              <Select value={editData.project_id || ""} onValueChange={(v) => setEditData(prev => ({ ...prev, project_id: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {allProjects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Disciplina</Label>
+                <Select value={editData.discipline || ""} onValueChange={(v) => setEditData(prev => ({ ...prev, discipline: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="estrutural">Estrutural</SelectItem>
+                    <SelectItem value="hidraulica">Hidráulica</SelectItem>
+                    <SelectItem value="eletrica">Elétrica</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Responsável</Label>
+                <Select value={editData.responsible || ""} onValueChange={(v) => setEditData(prev => ({ ...prev, responsible: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {profiles.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Etapa</Label>
+              <Select value={editData.stage_name || ""} onValueChange={(v) => setEditData(prev => ({ ...prev, stage_name: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STAGE_NAMES.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Data de início</Label>
+                <Input type="date" value={editData.start_date || ""} onChange={(e) => setEditData(prev => ({ ...prev, start_date: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Data de término</Label>
+                <Input type="date" value={editData.end_date || ""} onChange={(e) => setEditData(prev => ({ ...prev, end_date: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Horas estimadas</Label>
+              <Input type="number" min={0} step={0.5} value={editData.estimated_hours ?? 0} onChange={(e) => setEditData(prev => ({ ...prev, estimated_hours: Number(e.target.value) }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveEdit} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Salvar Alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
