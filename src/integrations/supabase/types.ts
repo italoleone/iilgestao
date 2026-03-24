@@ -32,6 +32,54 @@ export type Database = {
         }
         Relationships: []
       }
+      pdf_annotations: {
+        Row: {
+          annotation_data: Json
+          attachment_id: string
+          created_at: string
+          id: string
+          task_id: string
+          updated_at: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          annotation_data?: Json
+          attachment_id: string
+          created_at?: string
+          id?: string
+          task_id: string
+          updated_at?: string
+          user_id: string
+          user_name?: string
+        }
+        Update: {
+          annotation_data?: Json
+          attachment_id?: string
+          created_at?: string
+          id?: string
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdf_annotations_attachment_id_fkey"
+            columns: ["attachment_id"]
+            isOneToOne: false
+            referencedRelation: "task_attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdf_annotations_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
