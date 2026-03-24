@@ -162,7 +162,6 @@ export default function TarefaDetalhe() {
   const isOverdue = new Date(task.end_date) < new Date() && task.status !== "concluida";
   const canDelete = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
 
-  const [deleting, setDeleting] = useState(false);
   const handleDeleteTask = async () => {
     setDeleting(true);
     const { error } = await supabase.from("tasks").delete().eq("id", task.id);
