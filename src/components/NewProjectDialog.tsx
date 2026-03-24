@@ -7,7 +7,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
-import { users } from "@/data/mockData";
 import { STAGE_NAMES, DISCIPLINE_SHORT, type Discipline, type Project } from "@/types";
 import { toast } from "sonner";
 import { Check, ChevronsUpDown } from "lucide-react";
