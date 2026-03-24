@@ -617,6 +617,34 @@ export default function TarefaDetalhe() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Upload title dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={(open) => { if (!open) { setPendingFiles([]); setSheetTitle(""); } setUploadDialogOpen(open); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Título da Folha</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Informe o título da folha para identificar o(s) arquivo(s):
+            </p>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Arquivo(s): {pendingFiles.map(f => f.name).join(", ")}</p>
+            </div>
+            <Input
+              value={sheetTitle}
+              onChange={(e) => setSheetTitle(e.target.value)}
+              placeholder="Ex: Planta de Forma – Pavimento Térreo"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setUploadDialogOpen(false); setPendingFiles([]); setSheetTitle(""); }}>Cancelar</Button>
+            <Button onClick={handleConfirmUpload} disabled={!sheetTitle.trim() || uploading}>
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+              Confirmar Upload
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
