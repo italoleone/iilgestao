@@ -44,11 +44,12 @@ export default function ProjetoDetalhe() {
   const navigate = useNavigate();
   const { profiles } = useActiveProfiles();
   const { tasks: allTasks } = useTasks();
-  const { canAccessFinanceiro: canSeeFinancial } = useAuth();
+  const { canAccessFinanceiro: canSeeFinancial, canAccessAllProjects } = useAuth();
   const { entries: projectTimeEntries } = useTimeEntries(undefined, id);
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -100,9 +101,7 @@ export default function ProjetoDetalhe() {
   const responsible = getProfileById(profiles, project.responsible);
   const revenue = project.saleValue;
   const profit = revenue - cost;
-  const { canAccessAllProjects } = useAuth();
 
-  const [deleting, setDeleting] = useState(false);
   const handleDeleteProject = async () => {
     setDeleting(true);
     const { error } = await supabase.from("projects").delete().eq("id", project.id);
