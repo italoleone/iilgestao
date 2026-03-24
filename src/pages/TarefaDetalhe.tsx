@@ -354,10 +354,10 @@ export default function TarefaDetalhe() {
     }
   };
 
-  const showTimer = canExecuteTimer && !isValidationTask;
-  const showCompleteButton = (isTaskResponsible || isManager) && task.status === "em_andamento" && !isValidationTask;
-  const showSendValidation = (isTaskResponsible || isManager) && task.status === "concluida" && !isValidationTask;
-  const showValidationActions = isValidationTask && (isCoordinator || isManager) && !["aprovada", "reprovada"].includes(task.status);
+  const showTimer = canExecuteTimer;
+  const showCompleteButton = (isTaskResponsible || isManager) && task.status === "em_andamento";
+  const showSendValidation = (isTaskResponsible || isManager) && task.status === "concluida";
+  const showValidationActions = (isCoordinator || isManager) && task.status === "aguardando_validacao";
 
   return (
     <AppLayout>
@@ -422,17 +422,16 @@ export default function TarefaDetalhe() {
           </Card>
         )}
 
-        {/* Validation task: show parent task info */}
-        {isValidationTask && parentTask && (
-          <Card className="border-primary/30 bg-primary/5 shadow-sm animate-reveal-up" style={{ animationFillMode: "backwards" }}>
+        {/* Awaiting validation info */}
+        {task.status === "aguardando_validacao" && (
+          <Card className="border-warning/30 bg-warning/5 shadow-sm animate-reveal-up" style={{ animationFillMode: "backwards" }}>
             <CardContent className="py-4">
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <Send className="h-5 w-5 text-warning mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold">Tarefa de Validação</p>
+                  <p className="text-sm font-semibold">Aguardando Validação do Coordenador</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Tarefa original: <strong>{parentTask.name}</strong><br />
-                    Projetista: <strong>{getProfileById(profiles, parentTask.responsible)?.name || "—"}</strong>
+                    Esta tarefa foi enviada para validação e aguarda aprovação.
                   </p>
                 </div>
               </div>
