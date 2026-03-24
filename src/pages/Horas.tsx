@@ -7,6 +7,7 @@ import { projects, tasks, getUserById, users } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
 import { TASK_STATUS_LABELS } from "@/types";
 import { Play, Square, Clock } from "lucide-react";
+import { startActiveTimer, stopActiveTimer } from "@/hooks/useActiveTimers";
 
 interface ActiveTimer {
   taskId: string;
