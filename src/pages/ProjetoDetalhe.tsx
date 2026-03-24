@@ -57,7 +57,7 @@ export default function ProjetoDetalhe() {
   const progress = Math.round((completedStages / project.stages.length) * 100);
   const responsible = getUserById(project.responsible);
   const cost = getProjectCost(project);
-  const revenue = project.hoursSold * 130;
+  const revenue = project.saleValue;
   const profit = revenue - cost;
   const { canAccessFinanceiro: canSeeFinancial } = useAuth();
   const projectTasks = getTasksByProject(project.id);
