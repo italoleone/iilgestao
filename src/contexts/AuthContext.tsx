@@ -19,6 +19,7 @@ interface AuthContextType {
   user: SupabaseUser | null;
   profile: UserProfile | null;
   loading: boolean;
+  pendingApproval: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
