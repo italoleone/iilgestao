@@ -44,6 +44,67 @@ const taskStatusColors: Record<TaskStatus, string> = {
 export default function Tarefas() {
   const { isProjetista, profile } = useAuth();
   const [allTasks, setAllTasks] = useState<Task[]>(initialTasks);
+  const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
+  const [timerStart, setTimerStart] = useState<Date | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+
+  // Timer tick
+  useState(() => {
+    const interval = setInterval(() => {
+      if (timerStart) {
+        setElapsed(Math.floor((Date.now() - timerStart.getTime()) / 1000));
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  });
+
+  const formatTimer = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const toggleTimer = (taskId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (activeTimerTaskId === taskId) {
+      // Stop timer
+      const hoursWorked = elapsed / 3600;
+      setAllTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId
+            ? { ...t, hoursWorked: Math.round((t.hoursWorked + hoursWorked) * 100) / 100, status: "em_andamento" as TaskStatus }
+            : t
+        )
+      );
+      setActiveTimerTaskId(null);
+      setTimerStart(null);
+      setElapsed(0);
+      toast.success("Atividade registrada!");
+    } else {
+      // Start timer (stop any existing)
+      if (activeTimerTaskId) {
+        const hoursWorked = elapsed / 3600;
+        setAllTasks((prev) =>
+          prev.map((t) =>
+            t.id === activeTimerTaskId
+              ? { ...t, hoursWorked: Math.round((t.hoursWorked + hoursWorked) * 100) / 100 }
+              : t
+          )
+        );
+      }
+      setActiveTimerTaskId(taskId);
+      setTimerStart(new Date());
+      setElapsed(0);
+      setAllTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskId && t.status === "nao_iniciada"
+            ? { ...t, status: "em_andamento" as TaskStatus }
+            : t
+        )
+      );
+    }
+  };
   const [search, setSearch] = useState("");
   const [filterProject, setFilterProject] = useState<string>("all");
   const [filterDiscipline, setFilterDiscipline] = useState<Discipline | "all">("all");
