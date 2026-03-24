@@ -356,6 +356,39 @@ export default function DashboardPlanejamento() {
           </Card>
         )}
 
+        {/* Due Today */}
+        <Card className="border-warning/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarCheck className="h-4 w-4 text-warning" />
+              Tarefas com Entrega Hoje
+              <Badge variant="outline" className="ml-auto border-warning/50 text-warning">{dueTodayTasks.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {dueTodayTasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma tarefa vence hoje</p>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {dueTodayTasks.map(task => (
+                  <div
+                    key={task.id}
+                    className="p-3 rounded-lg border border-warning/20 bg-warning/5 cursor-pointer hover:bg-warning/10 transition-colors"
+                    onClick={() => navigate(`/tarefas/${task.id}`)}
+                  >
+                    <p className="text-sm font-medium truncate">{task.name}</p>
+                    <p className="text-xs text-muted-foreground">{projectMap[task.projectId] || "—"}</p>
+                    <div className="flex justify-between items-center mt-1">
+                      <p className="text-xs text-muted-foreground">{profileMap[task.responsible] || "—"}</p>
+                      <Badge variant="outline" className="text-xs">{task.discipline}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Overdue + Due Soon side by side */}
         <div className="grid md:grid-cols-2 gap-4">
           {/* Overdue */}
