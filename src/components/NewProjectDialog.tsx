@@ -220,6 +220,17 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
               <p className="text-xs text-muted-foreground">Serão criados {selectedDisciplines.length} projetos separados, cada um com seu coordenador.</p>
             )}
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="proj-start">Data de Início *</Label>
+              <Input id="proj-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="proj-deadline">Data Final *</Label>
+              <Input id="proj-deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { onOpenChange(false); resetForm(); }}>Cancelar</Button>
