@@ -42,6 +42,7 @@ export default function ProjetoDetalhe() {
   const { profiles } = useActiveProfiles();
   const { tasks: allTasks } = useTasks();
   const { canAccessFinanceiro: canSeeFinancial } = useAuth();
+  const { entries: projectTimeEntries } = useTimeEntries(undefined, id);
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,7 +89,11 @@ export default function ProjetoDetalhe() {
   const completedStages = project.stages.filter(s => s.status === "concluido").length;
   const progress = project.stages.length > 0 ? Math.round((completedStages / project.stages.length) * 100) : 0;
   const responsible = getProfileById(profiles, project.responsible);
-  const cost = project.hoursWorked * (responsible?.cost_per_hour || 0);
+  const cost = useMemo(() => projectTimeEntries.reduce((sum, entry) => {
+    const userProfile = getProfileById(profiles, entry.user_id);
+    const costPerHour = userProfile?.cost_per_hour || 0;
+    return sum + (entry.duration_minutes / 60) * costPerHour;
+  }, 0), [projectTimeEntries, profiles]);
   const revenue = project.saleValue;
   const profit = revenue - cost;
 
