@@ -304,14 +304,22 @@ export default function Tarefas() {
                 const responsible = getProfileById(profiles, task.responsible);
                 const hoursProgress = task.estimatedHours > 0 ? Math.round((task.hoursWorked / task.estimatedHours) * 100) : 0;
                 const isOverdue = new Date(task.endDate) < new Date() && !["concluida", "aprovada"].includes(task.status);
+                const taskActiveTimers = getTimerForTask(activeTimers, task.id).filter(t => t.user_id !== profile?.id);
+                const hasOtherActiveUsers = taskActiveTimers.length > 0;
                 return (
-                  <Card key={task.id} className={`shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${isOverdue ? "border-destructive/40" : ""}`} onClick={() => handleTaskClick(task)}>
+                  <Card key={task.id} className={`shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${isOverdue ? "border-destructive/40" : ""} ${hasOtherActiveUsers ? "border-l-4 border-l-success" : ""}`} onClick={() => handleTaskClick(task)}>
                     <CardContent className="py-3 px-4">
                       <div className="flex items-center gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <p className="text-sm font-medium truncate">{task.name}</p>
                             {isOverdue && <Badge variant="destructive" className="text-xs shrink-0">Atrasada</Badge>}
+                            {hasOtherActiveUsers && !isProjetista && (
+                              <Badge variant="outline" className="text-xs shrink-0 bg-success/10 text-success border-success/30 gap-1 animate-pulse">
+                                <Radio className="h-3 w-3" />
+                                {taskActiveTimers.map(t => t.user_name.split(" ")[0]).join(", ")}
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span>{project?.name}</span><span>·</span><span>{task.stageName}</span><span>·</span>
