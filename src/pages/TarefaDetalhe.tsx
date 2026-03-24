@@ -297,7 +297,7 @@ export default function TarefaDetalhe() {
     setUploading(false);
     setPendingFiles([]);
     setSheetTitles({});
-    fetchAttachments();
+    fetchAttachments(task.parent_task_id);
     toast.success("Arquivo(s) anexado(s) com sucesso!");
   };
 
