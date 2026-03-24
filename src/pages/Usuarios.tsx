@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Check, X, UserCog, Shield } from "lucide-react";
+import { Check, X, UserCog, Shield, DollarSign } from "lucide-react";
 import { toast } from "sonner";
-import type { AppRole } from "@/contexts/AuthContext";
+import { useAuth, type AppRole } from "@/contexts/AuthContext";
 
 const ROLE_DISPLAY: Record<string, string> = {
   admin_geral: "Diretor",
@@ -30,9 +31,11 @@ interface UserRow {
   discipline: string | null;
   status: string;
   role?: string;
+  cost_per_hour?: number | null;
 }
 
 export default function Usuarios() {
+  const { canAccessFinanceiro } = useAuth();
   const [pendingUsers, setPendingUsers] = useState<UserRow[]>([]);
   const [activeUsers, setActiveUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,12 +43,12 @@ export default function Usuarios() {
   const [selectedRole, setSelectedRole] = useState<AppRole | "">("");
   const [editRoleDialog, setEditRoleDialog] = useState<UserRow | null>(null);
   const [editRole, setEditRole] = useState<AppRole | "">("");
+  const [editingCostId, setEditingCostId] = useState<string | null>(null);
+  const [editCostValue, setEditCostValue] = useState("");
 
   const fetchUsers = async () => {
     setLoading(true);
-    // Fetch all profiles
     const { data: profiles } = await supabase.from("profiles").select("*");
-    // Fetch all roles
     const { data: roles } = await supabase.from("user_roles").select("*");
 
     if (profiles) {
@@ -61,6 +64,7 @@ export default function Usuarios() {
           ...p,
           status: "active",
           role: roleMap.get(p.id) || undefined,
+          cost_per_hour: p.cost_per_hour,
         } as UserRow));
 
       setPendingUsers(pending);
@@ -166,6 +170,29 @@ export default function Usuarios() {
     fetchUsers();
   };
 
+  const handleSaveCost = async (userId: string) => {
+    const value = parseFloat(editCostValue.replace(",", "."));
+    if (isNaN(value) || value < 0) {
+      toast.error("Informe um valor válido.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ cost_per_hour: value } as any)
+      .eq("id", userId);
+
+    if (error) {
+      toast.error("Erro ao salvar valor hora: " + error.message);
+      return;
+    }
+
+    toast.success("Valor hora atualizado!");
+    setEditingCostId(null);
+    setEditCostValue("");
+    fetchUsers();
+  };
+
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto space-y-8">
@@ -241,7 +268,7 @@ export default function Usuarios() {
                       </div>
                       <div>
                         <p className="font-medium">{user.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           <span className="text-sm text-muted-foreground">{user.email}</span>
                           {user.discipline && (
                             <Badge variant="outline" className="text-xs">
@@ -252,6 +279,46 @@ export default function Usuarios() {
                             <Badge className="text-xs bg-primary/10 text-primary border-0">
                               {ROLE_DISPLAY[user.role] || user.role}
                             </Badge>
+                          )}
+                          {/* Cost per hour - visible only for Diretor/Gerente */}
+                          {canAccessFinanceiro && (
+                            <div className="flex items-center gap-1">
+                              {editingCostId === user.id ? (
+                                <div className="flex items-center gap-1">
+                                  <DollarSign className="h-3 w-3 text-muted-foreground" />
+                                  <Input
+                                    type="text"
+                                    value={editCostValue}
+                                    onChange={(e) => setEditCostValue(e.target.value)}
+                                    placeholder="0,00"
+                                    className="h-7 w-24 text-xs"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") handleSaveCost(user.id);
+                                      if (e.key === "Escape") setEditingCostId(null);
+                                    }}
+                                    autoFocus
+                                  />
+                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => handleSaveCost(user.id)}>
+                                    <Check className="h-3 w-3" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingCostId(null)}>
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs cursor-pointer hover:bg-muted gap-1"
+                                  onClick={() => {
+                                    setEditingCostId(user.id);
+                                    setEditCostValue(user.cost_per_hour ? String(user.cost_per_hour).replace(".", ",") : "");
+                                  }}
+                                >
+                                  <DollarSign className="h-3 w-3" />
+                                  R$ {user.cost_per_hour ? Number(user.cost_per_hour).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "—"}/h
+                                </Badge>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>

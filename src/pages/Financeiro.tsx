@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useProjects, useActiveProfiles, getProfileById } from "@/hooks/useSupabaseData";
+import { useProjects, useActiveProfiles, getProfileById, useTimeEntries } from "@/hooks/useSupabaseData";
 import { DISCIPLINE_SHORT, type Discipline } from "@/types";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -11,13 +11,19 @@ import { TrendingUp, TrendingDown, DollarSign, Loader2 } from "lucide-react";
 export default function Financeiro() {
   const { projects, loading } = useProjects();
   const { profiles } = useActiveProfiles();
+  const { entries: allTimeEntries } = useTimeEntries();
 
+  // Calculate real cost per project based on time_entries × user cost_per_hour
   const projectFinancials = useMemo(() => projects.map(p => {
-    const responsible = getProfileById(profiles, p.responsible);
-    const cost = p.hoursWorked * (responsible?.cost_per_hour || 0);
+    const projectEntries = allTimeEntries.filter(e => e.project_id === p.id);
+    const cost = projectEntries.reduce((sum, entry) => {
+      const userProfile = getProfileById(profiles, entry.user_id);
+      const costPerHour = userProfile?.cost_per_hour || 0;
+      return sum + (entry.duration_minutes / 60) * costPerHour;
+    }, 0);
     const revenue = p.saleValue;
     return { ...p, cost, revenue, profit: revenue - cost };
-  }), [projects, profiles]);
+  }), [projects, profiles, allTimeEntries]);
 
   const totalRevenue = projectFinancials.reduce((s, p) => s + p.revenue, 0);
   const totalCost = projectFinancials.reduce((s, p) => s + p.cost, 0);
@@ -59,7 +65,7 @@ export default function Financeiro() {
               </CardHeader>
               <CardContent>
                 <div className={`text-2xl font-bold tabular-nums ${kpi.title === "Resultado" ? (kpi.value >= 0 ? "text-success" : "text-destructive") : ""}`}>
-                  R$ {kpi.value.toLocaleString("pt-BR")}
+                  R$ {kpi.value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </CardContent>
             </Card>
@@ -97,9 +103,12 @@ export default function Financeiro() {
                       <span className="text-sm font-medium text-muted-foreground w-6">#{i + 1}</span>
                       <div><p className="text-sm font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{DISCIPLINE_SHORT[p.discipline]}</p></div>
                     </div>
-                    <span className={`text-sm font-semibold tabular-nums ${p.profit >= 0 ? "text-success" : "text-destructive"}`}>
-                      {p.profit >= 0 ? "+" : ""}R$ {p.profit.toLocaleString("pt-BR")}
-                    </span>
+                    <div className="text-right">
+                      <span className={`text-sm font-semibold tabular-nums ${p.profit >= 0 ? "text-success" : "text-destructive"}`}>
+                        {p.profit >= 0 ? "+" : ""}R$ {p.profit.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                      <p className="text-xs text-muted-foreground tabular-nums">Custo: R$ {p.cost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p>
+                    </div>
                   </div>
                 ))}
               </div>

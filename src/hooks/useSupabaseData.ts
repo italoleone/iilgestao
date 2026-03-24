@@ -152,7 +152,7 @@ export function useTasks() {
   return { tasks, loading, refetch: fetchTasks, setTasks };
 }
 
-export function useTimeEntries(taskId?: string) {
+export function useTimeEntries(taskId?: string, projectId?: string) {
   const [entries, setEntries] = useState<DbTimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -160,12 +160,13 @@ export function useTimeEntries(taskId?: string) {
     setLoading(true);
     let query = supabase.from("time_entries").select("*").order("created_at", { ascending: false });
     if (taskId) query = query.eq("task_id", taskId);
+    if (projectId) query = query.eq("project_id", projectId);
     const { data, error } = await query;
     if (!error && data) {
       setEntries(data as unknown as DbTimeEntry[]);
     }
     setLoading(false);
-  }, [taskId]);
+  }, [taskId, projectId]);
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
