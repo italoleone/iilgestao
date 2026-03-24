@@ -83,6 +83,16 @@ export interface TimeEntry {
   duration: number; // minutes
 }
 
+export interface TimeRecord {
+  id: string;
+  userId: string;
+  userName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+}
+
 export interface Alert {
   id: string;
   type: 'atrasado' | 'prazo_proximo' | 'sobrecarga' | 'prejuizo' | 'tarefa_atrasada' | 'tarefa_prazo_proximo' | 'tarefa_nao_iniciada';
