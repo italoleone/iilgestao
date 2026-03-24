@@ -127,6 +127,9 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   nao_iniciada: 'Não iniciada',
   em_andamento: 'Em andamento',
   concluida: 'Concluída',
+  aguardando_validacao: 'Aguardando Validação',
+  aprovada: 'Aprovada',
+  reprovada: 'Reprovada',
 };
 
 export const STAGE_NAMES = [
