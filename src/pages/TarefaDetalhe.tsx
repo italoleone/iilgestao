@@ -310,9 +310,9 @@ export default function TarefaDetalhe() {
   };
 
   const showTimer = canExecuteTimer && !isValidationTask;
-  const showCompleteButton = isTaskResponsible && task.status === "em_andamento" && !isValidationTask;
-  const showSendValidation = isTaskResponsible && task.status === "concluida" && !isValidationTask;
-  const showValidationActions = isValidationTask && (isCoordinator || !isProjetista) && task.status === "nao_iniciada";
+  const showCompleteButton = (isTaskResponsible || isManager) && task.status === "em_andamento" && !isValidationTask;
+  const showSendValidation = (isTaskResponsible || isManager) && task.status === "concluida" && !isValidationTask;
+  const showValidationActions = isValidationTask && (isCoordinator || isManager) && !["aprovada", "reprovada"].includes(task.status);
 
   return (
     <AppLayout>
