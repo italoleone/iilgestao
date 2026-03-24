@@ -44,7 +44,7 @@ export const projects: Project[] = [
   {
     id: 'p2', name: 'Residencial Villa Serena', client: 'Incorporadora Sol', discipline: 'hidraulica',
     startDate: '2026-02-01', deadline: '2026-05-15', status: 'em_andamento', responsible: 'u4',
-    team: ['u4', 'u7', 'u10'], hoursSold: 320, hoursWorked: 145,
+    team: ['u4', 'u7', 'u10'], hoursSold: 320, saleValue: 41600, hoursWorked: 145,
     stages: [
       { id: 's7', name: 'Estudo Preliminar', responsible: 'u4', deadline: '2026-02-15', status: 'concluido', hoursSpent: 32 },
       { id: 's8', name: 'Anteprojeto', responsible: 'u7', deadline: '2026-03-10', status: 'concluido', hoursSpent: 56 },
