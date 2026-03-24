@@ -44,6 +44,7 @@ const modules: NavModule[] = [
     icon: ClipboardList,
     roles: ["admin_geral", "admin", "planejamento", "projetista"],
     children: [
+      { title: "Dashboard", url: "/planejamento", icon: LayoutDashboard },
       { title: "Projetos", url: "/projetos", icon: FolderKanban },
       { title: "Tarefas", url: "/tarefas", icon: ListChecks },
     ],
@@ -94,6 +95,7 @@ export function AppSidebar() {
     if (userRole === "projetista") {
       return mod.children.filter((c) => c.url === "/tarefas");
     }
+    // Coordenador sees all planning children
     return mod.children;
   };
 
