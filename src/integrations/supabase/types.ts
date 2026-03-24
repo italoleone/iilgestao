@@ -24,6 +24,7 @@ export type Database = {
           id: string
           monthly_capacity_hours: number | null
           name: string
+          status: string
         }
         Insert: {
           avatar_url?: string | null
@@ -34,6 +35,7 @@ export type Database = {
           id: string
           monthly_capacity_hours?: number | null
           name?: string
+          status?: string
         }
         Update: {
           avatar_url?: string | null
@@ -44,6 +46,7 @@ export type Database = {
           id?: string
           monthly_capacity_hours?: number | null
           name?: string
+          status?: string
         }
         Relationships: []
       }

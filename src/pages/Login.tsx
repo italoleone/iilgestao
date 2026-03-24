@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { LeoneLogo } from "@/components/LeoneLogo";
 import { LogIn } from "lucide-react";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 
 export default function Login() {
-  const { signIn } = useAuth();
+  const { signIn, pendingApproval } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,6 +28,27 @@ export default function Login() {
     }
     setLoading(false);
   };
+
+  if (pendingApproval) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-8 bg-background">
+        <div className="w-full max-w-sm space-y-6 text-center">
+          <div className="h-16 w-16 rounded-full bg-accent/20 flex items-center justify-center mx-auto">
+            <LogIn className="h-8 w-8 text-accent" />
+          </div>
+          <h1 className="text-xl font-bold">Aguardando aprovação</h1>
+          <p className="text-sm text-muted-foreground">
+            Seu cadastro está pendente de aprovação pelo administrador. Tente novamente mais tarde.
+          </p>
+          <Link to="/login">
+            <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+              Tentar novamente
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -107,6 +129,11 @@ export default function Login() {
               </form>
             </CardContent>
           </Card>
+
+          <p className="text-sm text-center text-muted-foreground">
+            Não tem conta?{" "}
+            <Link to="/cadastro" className="text-accent hover:underline font-medium">Cadastrar-se</Link>
+          </p>
 
           <p className="text-xs text-center text-muted-foreground">
             Leone Engenharia © {new Date().getFullYear()}
