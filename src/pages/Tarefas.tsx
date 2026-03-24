@@ -112,8 +112,7 @@ export default function Tarefas() {
   const [filterStatus, setFilterStatus] = useState<TaskStatus | "all">("all");
   const [filterResponsible, setFilterResponsible] = useState<string>("all");
   const [filterStage, setFilterStage] = useState<string>("all");
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
