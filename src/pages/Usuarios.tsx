@@ -315,7 +315,7 @@ export default function Usuarios() {
                                   }}
                                 >
                                   <DollarSign className="h-3 w-3" />
-                                  R$ {user.cost_per_hour ? Number(user.cost_per_hour).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "—"}/h
+                                  R$ {user.cost_per_hour ? Number(user.cost_per_hour).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}/h
                                 </Badge>
                               )}
                             </div>

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { formatBRL } from "@/lib/utils";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -70,7 +71,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { title: "Projetos Ativos", value: activeProjects.length, sub: `${lateProjects.length} atrasado(s)`, icon: FolderKanban, accent: lateProjects.length > 0 },
-            { title: "Valor Total", value: `R$ ${totalSaleValue.toLocaleString("pt-BR")}`, sub: "vendidos", icon: Clock },
+            { title: "Valor Total", value: `R$ ${formatBRL(totalSaleValue)}`, sub: "vendidos", icon: Clock },
             { title: "Equipe Ativa", value: profiles.length, sub: "3 disciplinas", icon: TrendingUp },
             { title: "Total Projetos", value: projects.length, sub: `${activeProjects.length} ativos`, icon: FolderKanban },
           ].map((kpi, i) => (
