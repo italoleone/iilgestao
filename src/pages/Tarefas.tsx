@@ -334,11 +334,31 @@ export default function Tarefas() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-4 shrink-0">
+                        <div className="flex items-center gap-3 shrink-0">
                           <div className="hidden sm:flex items-center gap-2 w-28">
                             <Progress value={Math.min(hoursProgress, 100)} className={`h-1.5 flex-1 ${hoursProgress > 100 ? "[&>div]:bg-destructive" : ""}`} />
                             <span className="text-xs tabular-nums text-muted-foreground">{task.hoursWorked}/{task.estimatedHours}h</span>
                           </div>
+                          {activeTimerTaskId === task.id && (
+                            <span className="text-xs font-mono font-medium text-primary tabular-nums">
+                              {formatTimer(elapsed)}
+                            </span>
+                          )}
+                          {task.status !== "concluida" && (
+                            <Button
+                              variant={activeTimerTaskId === task.id ? "destructive" : "outline"}
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={(e) => toggleTimer(task.id, e)}
+                              title={activeTimerTaskId === task.id ? "Parar atividade" : "Iniciar atividade"}
+                            >
+                              {activeTimerTaskId === task.id ? (
+                                <Square className="h-3.5 w-3.5" />
+                              ) : (
+                                <Play className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                          )}
                           <div className="hidden sm:block text-xs text-muted-foreground tabular-nums w-20 text-right">
                             {new Date(task.endDate).toLocaleDateString("pt-BR")}
                           </div>
