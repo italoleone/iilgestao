@@ -370,7 +370,7 @@ export default function Tarefas() {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Responsável *</Label>
+                <Label>Projetista Responsável *</Label>
                 <select value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })} className="h-10 w-full rounded-md border bg-card px-3 text-sm">
                   <option value="">Selecione...</option>
                   {profiles.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
