@@ -60,7 +60,7 @@ export const projects: Project[] = [
   {
     id: 'p3', name: 'Centro Comercial Atlântica', client: 'Grupo Atlântica', discipline: 'eletrica',
     startDate: '2025-11-01', deadline: '2026-03-15', status: 'atrasado', responsible: 'u5',
-    team: ['u5', 'u8'], hoursSold: 400, hoursWorked: 420,
+    team: ['u5', 'u8'], hoursSold: 400, saleValue: 52000, hoursWorked: 420,
     stages: [
       { id: 's13', name: 'Estudo Preliminar', responsible: 'u5', deadline: '2025-11-20', status: 'concluido', hoursSpent: 40 },
       { id: 's14', name: 'Anteprojeto', responsible: 'u8', deadline: '2025-12-15', status: 'concluido', hoursSpent: 80 },
