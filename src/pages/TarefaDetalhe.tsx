@@ -129,8 +129,7 @@ export default function TarefaDetalhe() {
   const hoursProgress = task && Number(task.estimated_hours) > 0
     ? Math.round((Number(task.hours_worked) / Number(task.estimated_hours)) * 100) : 0;
 
-  const isValidationTask = !!task?.parent_task_id;
-  const isCoordinator = project && profile && (project.responsible === profile.id || task?.responsible === profile.id);
+  const isCoordinator = project && profile && project.responsible === profile.id;
   const isTaskResponsible = task && profile && task.responsible === profile.id;
   const isManager = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
   const canExecuteTimer = task && (task.status === "nao_iniciada" || task.status === "em_andamento" || task.status === "reprovada");
