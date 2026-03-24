@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { getUserById } from "@/data/mockData";
-import { type Task, type TaskStatus } from "@/types";
+import { type Task } from "@/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
