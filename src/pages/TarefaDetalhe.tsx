@@ -93,17 +93,19 @@ export default function TarefaDetalhe() {
     setLoading(false);
   };
 
-  const fetchAttachments = async () => {
+  const fetchAttachments = async (parentTaskId?: string | null) => {
     if (!id) return;
-    // Fetch attachments for this task and parent task
+    // Fetch attachments for this task and parent task (if validation task)
     const taskIds = [id];
-    if (task?.parent_task_id) taskIds.push(task.parent_task_id);
+    if (parentTaskId) taskIds.push(parentTaskId);
     const { data } = await supabase.from("task_attachments").select("*").in("task_id", taskIds).order("created_at", { ascending: false });
     if (data) setAttachments(data as unknown as TaskAttachment[]);
   };
 
   useEffect(() => { fetchTask(); }, [id]);
-  useEffect(() => { if (task) fetchAttachments(); }, [task?.id, task?.parent_task_id]);
+  useEffect(() => {
+    if (task) fetchAttachments(task.parent_task_id);
+  }, [task?.id, task?.parent_task_id]);
 
   useEffect(() => {
     if (!timerStart) return;
@@ -137,7 +139,7 @@ export default function TarefaDetalhe() {
     ? Math.round((Number(task.hours_worked) / Number(task.estimated_hours)) * 100) : 0;
 
   const isValidationTask = !!task?.parent_task_id;
-  const isCoordinator = project && profile && project.responsible === profile.id;
+  const isCoordinator = project && profile && (project.responsible === profile.id || task?.responsible === profile.id);
   const isTaskResponsible = task && profile && task.responsible === profile.id;
   const isManager = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
   const canExecuteTimer = task && (task.status === "nao_iniciada" || task.status === "em_andamento" || task.status === "reprovada");
@@ -295,7 +297,7 @@ export default function TarefaDetalhe() {
     setUploading(false);
     setPendingFiles([]);
     setSheetTitles({});
-    fetchAttachments();
+    fetchAttachments(task.parent_task_id);
     toast.success("Arquivo(s) anexado(s) com sucesso!");
   };
 
