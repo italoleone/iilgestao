@@ -16,6 +16,7 @@ import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
 import Perfil from "./pages/Perfil";
 import Usuarios from "./pages/Usuarios";
+import DashboardPlanejamento from "./pages/DashboardPlanejamento";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,6 +61,7 @@ function AppRoutes() {
       <Route path="/login" element={user && !pendingApproval ? <Navigate to={defaultRoute} replace /> : <Login />} />
       <Route path="/cadastro" element={user && !pendingApproval ? <Navigate to={defaultRoute} replace /> : <Cadastro />} />
       <Route path="/" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Dashboard /></ProtectedRoute>} />
+      <Route path="/planejamento" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><DashboardPlanejamento /></ProtectedRoute>} />
       <Route path="/projetos" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Projetos /></ProtectedRoute>} />
       <Route path="/projetos/:id" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><ProjetoDetalhe /></ProtectedRoute>} />
       <Route path="/tarefas" element={<ProtectedRoute><Tarefas /></ProtectedRoute>} />
