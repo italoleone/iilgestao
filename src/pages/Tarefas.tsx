@@ -68,7 +68,6 @@ export default function Tarefas() {
       const task = allTasks.find(t => t.id === taskId);
 
       if (task && profile) {
-        // Save time entry
         await supabase.from("time_entries").insert({
           task_id: taskId,
           project_id: task.projectId,
@@ -80,11 +79,12 @@ export default function Tarefas() {
           duration_minutes: durationMinutes,
         });
 
-        // Update task hours
         await supabase.from("tasks").update({
           hours_worked: Math.round((task.hoursWorked + hoursWorked) * 100) / 100,
           status: "em_andamento",
         }).eq("id", taskId);
+
+        await stopActiveTimer(profile.id);
       }
 
       setActiveTimerTaskId(null);
@@ -114,15 +114,19 @@ export default function Tarefas() {
           await supabase.from("tasks").update({
             hours_worked: Math.round((prevTask.hoursWorked + hoursWorked) * 100) / 100,
           }).eq("id", activeTimerTaskId);
+          await stopActiveTimer(profile.id);
         }
       }
 
       // Start new timer
+      const task = allTasks.find(t => t.id === taskId);
+      if (task && profile) {
+        await startActiveTimer(taskId, task.projectId, profile.id, profile.name);
+      }
       setActiveTimerTaskId(taskId);
       setTimerStart(new Date());
       setElapsed(0);
 
-      const task = allTasks.find(t => t.id === taskId);
       if (task && task.status === "nao_iniciada") {
         await supabase.from("tasks").update({ status: "em_andamento" }).eq("id", taskId);
         refetchTasks();
