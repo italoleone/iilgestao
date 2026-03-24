@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { tasks as initialTasks, projects, users, getUserById } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,6 +44,7 @@ const taskStatusColors: Record<TaskStatus, string> = {
 
 export default function Tarefas() {
   const { isProjetista, profile } = useAuth();
+  const navigate = useNavigate();
   const [allTasks, setAllTasks] = useState<Task[]>(initialTasks);
   const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
   const [timerStart, setTimerStart] = useState<Date | null>(null);
@@ -110,8 +112,6 @@ export default function Tarefas() {
   const [filterStatus, setFilterStatus] = useState<TaskStatus | "all">("all");
   const [filterResponsible, setFilterResponsible] = useState<string>("all");
   const [filterStage, setFilterStage] = useState<string>("all");
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -202,8 +202,7 @@ export default function Tarefas() {
   }, [visibleTasks]);
 
   const handleTaskClick = (task: Task) => {
-    setSelectedTask(task);
-    setDialogOpen(true);
+    navigate(`/tarefas/${task.id}`);
   };
 
   return (
@@ -399,95 +398,6 @@ export default function Tarefas() {
           )}
         </div>
       </div>
-
-      {/* Task detail dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          {selectedTask && (() => {
-            const project = projects.find((p) => p.id === selectedTask.projectId);
-            const responsible = getUserById(selectedTask.responsible);
-            const hoursProgress = selectedTask.estimatedHours > 0
-              ? Math.round((selectedTask.hoursWorked / selectedTask.estimatedHours) * 100)
-              : 0;
-
-            return (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="text-lg">{selectedTask.name}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-muted-foreground text-xs mb-1">Projeto</p>
-                      <p className="font-medium">{project?.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs mb-1">Disciplina</p>
-                      <p className="font-medium">{DISCIPLINE_SHORT[selectedTask.discipline]}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs mb-1">Etapa</p>
-                      <p className="font-medium">{selectedTask.stageName}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs mb-1">Responsável</p>
-                      <p className="font-medium">{responsible?.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs mb-1">Início</p>
-                      <p className="font-medium tabular-nums">{new Date(selectedTask.startDate).toLocaleDateString("pt-BR")}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs mb-1">Término</p>
-                      <p className="font-medium tabular-nums">{new Date(selectedTask.endDate).toLocaleDateString("pt-BR")}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="text-muted-foreground">Progresso de horas</span>
-                      <span className={`font-medium tabular-nums ${hoursProgress > 100 ? "text-destructive" : ""}`}>
-                        {selectedTask.hoursWorked}h / {selectedTask.estimatedHours}h ({hoursProgress}%)
-                      </span>
-                    </div>
-                    <Progress value={Math.min(hoursProgress, 100)} className={`h-2 ${hoursProgress > 100 ? "[&>div]:bg-destructive" : ""}`} />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Status:</span>
-                    <Badge variant="secondary" className={taskStatusColors[selectedTask.status]}>
-                      {TASK_STATUS_LABELS[selectedTask.status]}
-                    </Badge>
-                  </div>
-
-                  {/* Attachments section */}
-                  <div className="border-t pt-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Paperclip className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Arquivos Anexos</span>
-                    </div>
-                    {selectedTask.attachments.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Nenhum arquivo anexado.</p>
-                    ) : (
-                      <div className="space-y-1">
-                        {selectedTask.attachments.map((a) => (
-                          <div key={a.id} className="flex items-center justify-between p-2 rounded border text-sm">
-                            <span>{a.name}</span>
-                            <Button variant="ghost" size="sm">Download</Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <Button variant="outline" size="sm" className="mt-2 gap-1">
-                      <Paperclip className="h-3 w-3" /> Anexar arquivo
-                    </Button>
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
 
       {/* Create task dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
