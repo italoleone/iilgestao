@@ -27,7 +27,7 @@ export const projects: Project[] = [
   {
     id: 'p1', name: 'Edifício Panorama Tower', client: 'Construtora Horizonte', discipline: 'estrutural',
     startDate: '2026-01-15', deadline: '2026-04-30', status: 'em_andamento', responsible: 'u3',
-    team: ['u3', 'u6', 'u9'], hoursSold: 480, hoursWorked: 312,
+    team: ['u3', 'u6', 'u9'], hoursSold: 480, saleValue: 62400, hoursWorked: 312,
     stages: [
       { id: 's1', name: 'Estudo Preliminar', responsible: 'u3', deadline: '2026-02-01', status: 'concluido', hoursSpent: 48 },
       { id: 's2', name: 'Anteprojeto', responsible: 'u6', deadline: '2026-02-20', status: 'concluido', hoursSpent: 72 },
