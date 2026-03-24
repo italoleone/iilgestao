@@ -521,9 +521,10 @@ export default function TarefaDetalhe() {
                       <div className="flex items-center gap-3">
                         <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
                         <div>
-                          <p className="text-sm font-medium">{att.file_name}</p>
+                          <p className="text-sm font-semibold">{att.sheet_title || att.file_name}</p>
+                          <p className="text-xs text-muted-foreground">{att.file_name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {uploader?.name || "—"} · {new Date(att.created_at).toLocaleDateString("pt-BR")}
+                            Enviado por: {uploader?.name || "—"} · {new Date(att.created_at).toLocaleDateString("pt-BR")}
                             {att.file_size > 0 && ` · ${(att.file_size / 1024).toFixed(0)} KB`}
                           </p>
                         </div>
