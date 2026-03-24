@@ -77,7 +77,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
         toast.error(`Selecione o coordenador de ${DISCIPLINE_SHORT[d]}.`);
         return;
       }
-      if (!saleValues[d] || Number(saleValues[d]) <= 0) {
+      if (!saleValues[d] || parseBRL(saleValues[d]) <= 0) {
         toast.error(`Informe o valor de venda para ${DISCIPLINE_SHORT[d]}.`);
         return;
       }
