@@ -150,7 +150,12 @@ export default function Tarefas() {
     if (filterResponsible !== "all") filtered = filtered.filter((t) => t.responsible === filterResponsible);
     if (filterStage !== "all") filtered = filtered.filter((t) => t.stageName === filterStage);
 
-    return filtered.sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
+    const statusOrder: Record<string, number> = { em_andamento: 0, nao_iniciada: 1, concluida: 2 };
+    return filtered.sort((a, b) => {
+      const so = (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1);
+      if (so !== 0) return so;
+      return new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
+    });
   }, [allTasks, search, filterProject, filterDiscipline, filterStatus, filterResponsible, filterStage, isProjetista]);
 
   const selectedProject = projects.find((p) => p.id === form.projectId);
