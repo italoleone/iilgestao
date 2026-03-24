@@ -122,7 +122,7 @@ export default function Dashboard() {
             {
               title: "Horas Realizadas",
               value: totalHoursWorked.toLocaleString("pt-BR"),
-              sub: `de ${totalHoursSold.toLocaleString("pt-BR")} vendidas`,
+              sub: `R$ ${totalSaleValue.toLocaleString("pt-BR")} vendidos`,
               icon: Clock,
             },
             {
