@@ -93,11 +93,20 @@ export default function DashboardPlanejamento() {
     [filteredTasks]
   );
 
-  // 2. Due within 15 days
+  // Due today
+  const dueTodayTasks = useMemo(() =>
+    filteredTasks.filter(t =>
+      daysFromNow(t.endDate) === 0 &&
+      !["aprovada", "concluida"].includes(t.status)
+    ),
+    [filteredTasks]
+  );
+
+  // 2. Due within 15 days (exclude today)
   const dueSoonTasks = useMemo(() =>
     filteredTasks.filter(t => {
       const d = daysFromNow(t.endDate);
-      return d >= 0 && d <= 15 && !["aprovada", "concluida"].includes(t.status);
+      return d > 0 && d <= 15 && !["aprovada", "concluida"].includes(t.status);
     }).sort((a, b) => daysFromNow(a.endDate) - daysFromNow(b.endDate)),
     [filteredTasks]
   );
