@@ -28,27 +28,41 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 
 const ROLE_LABELS: Record<string, string> = {
-  admin_geral: "Admin Geral",
-  admin: "Administrador",
-  planejamento: "Planejamento",
+  admin_geral: "Diretor",
+  admin: "Gerente",
+  planejamento: "Coordenador",
   projetista: "Projetista",
 };
 
-const mainNav = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Projetos", url: "/projetos", icon: FolderKanban },
+interface NavItem {
+  title: string;
+  url: string;
+  icon: typeof LayoutDashboard;
+  roles?: string[]; // if undefined, visible to all
+}
+
+const allNav: NavItem[] = [
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ["admin_geral", "admin", "planejamento"] },
+  { title: "Projetos", url: "/projetos", icon: FolderKanban, roles: ["admin_geral", "admin", "planejamento"] },
   { title: "Tarefas", url: "/tarefas", icon: ListChecks },
-  { title: "Equipe", url: "/equipe", icon: Users },
-  { title: "Controle de Horas", url: "/horas", icon: Clock },
-  { title: "Financeiro", url: "/financeiro", icon: BarChart3 },
-  { title: "Alertas", url: "/alertas", icon: Bell },
+  { title: "Controle de Horas", url: "/horas", icon: Clock, roles: ["admin_geral", "admin", "planejamento"] },
+  { title: "Financeiro", url: "/financeiro", icon: BarChart3, roles: ["admin_geral", "admin"] },
+  { title: "Usuários", url: "/usuarios", icon: Users, roles: ["admin_geral"] },
+  { title: "Alertas", url: "/alertas", icon: Bell, roles: ["admin_geral", "admin", "planejamento"] },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
-  const { profile, signOut, canAccessFinanceiro } = useAuth();
+  const { profile, signOut } = useAuth();
+
+  const userRole = profile?.role || "projetista";
+
+  const visibleNav = allNav.filter((item) => {
+    if (!item.roles) return true;
+    return item.roles.includes(userRole);
+  });
 
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
@@ -74,13 +88,8 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNav.map((item) => {
-                if (item.url === "/financeiro" && !canAccessFinanceiro) {
-                  return null;
-                }
-
+              {visibleNav.map((item) => {
                 const active = isActive(item.url);
-
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={active}>

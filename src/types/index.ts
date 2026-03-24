@@ -127,9 +127,9 @@ export const STAGE_NAMES = [
   'Revisão',
 ];
 
-export const ROLE_LABELS: Record<UserRole, string> = {
-  admin: 'Administrador',
-  gerente: 'Gerente',
-  coordenador: 'Coordenador',
+export const ROLE_LABELS: Record<string, string> = {
+  admin_geral: 'Diretor',
+  admin: 'Gerente',
+  planejamento: 'Coordenador',
   projetista: 'Projetista',
 };
