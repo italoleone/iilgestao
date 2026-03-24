@@ -301,6 +301,29 @@ export default function TarefaDetalhe() {
     window.open(data.publicUrl, "_blank");
   };
 
+  const [deletingAttId, setDeletingAttId] = useState<string | null>(null);
+
+  const handleDeleteAttachment = async (att: TaskAttachment) => {
+    setDeletingAttId(att.id);
+    // Remove from storage
+    await supabase.storage.from("task-attachments").remove([att.file_path]);
+    // Remove from database
+    const { error } = await supabase.from("task_attachments").delete().eq("id", att.id);
+    setDeletingAttId(null);
+    if (error) {
+      toast.error("Erro ao excluir anexo: " + error.message);
+    } else {
+      setAttachments(prev => prev.filter(a => a.id !== att.id));
+      toast.success("Arquivo excluído com sucesso!");
+    }
+  };
+
+  const canDeleteAttachment = (att: TaskAttachment) => {
+    if (!profile) return false;
+    if (task?.status === "aprovada") return false;
+    return att.uploaded_by === profile.id || isManager || isCoordinator;
+  };
+
   if (loading) {
     return (
       <AppLayout>
