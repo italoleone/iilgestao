@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useProjects, useActiveProfiles, getProfileById, useTimeEntries, useTasks } from "@/hooks/useSupabaseData";
 import { DISCIPLINE_SHORT, type Discipline } from "@/types";
 import {
@@ -84,19 +84,13 @@ export default function Financeiro() {
             <p className="text-muted-foreground mt-1">Visão financeira dos projetos</p>
           </div>
           <div className="w-full sm:w-72">
-            <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecionar Projeto" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os projetos</SelectItem>
-                {projects.map(p => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ProjectCombobox
+              projects={projects}
+              value={selectedProjectId}
+              onValueChange={setSelectedProjectId}
+              includeAll
+              placeholder="Selecionar Projeto"
+            />
           </div>
         </div>
 
