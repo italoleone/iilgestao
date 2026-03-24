@@ -7,7 +7,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
-import { users } from "@/data/mockData";
 import { STAGE_NAMES, DISCIPLINE_SHORT, type Discipline, type Project } from "@/types";
 import { toast } from "sonner";
 import { Check, ChevronsUpDown } from "lucide-react";
@@ -25,6 +24,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
   const [clientValue, setClientValue] = useState("");
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [clients, setClients] = useState<string[]>([]);
+  const [activeUsers, setActiveUsers] = useState<{ id: string; name: string }[]>([]);
   const [disciplines, setDisciplines] = useState<Record<Discipline, boolean>>({
     estrutural: false,
     hidraulica: false,
@@ -44,6 +44,9 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
       supabase.from("clients").select("name").order("name").then(({ data }) => {
         if (data) setClients(data.map((c) => c.name));
       });
+      supabase.from("profiles").select("id, name").eq("status", "active").order("name").then(({ data }) => {
+        if (data) setActiveUsers(data.map((u) => ({ id: u.id, name: u.name })));
+      });
     }
   }, [open]);
 
@@ -55,10 +58,6 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
   }, [clients, clientSearch]);
 
   const isNewClient = clientValue && !clients.some((c) => c.toLowerCase() === clientValue.toLowerCase());
-
-  const disciplineUsers = users.filter(
-    (u) => (u.role === "coordenador" || u.role === "projetista")
-  );
 
   const resetForm = () => {
     setName("");
@@ -169,7 +168,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
                             setClientPopoverOpen(false);
                           }}
                         >
-                          Criar novo: <strong>"{clientSearch}"</strong>
+                          Criar novo: <strong>&quot;{clientSearch}&quot;</strong>
                         </button>
                       ) : (
                         "Nenhum cliente encontrado."
@@ -196,24 +195,38 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
               </PopoverContent>
             </Popover>
             {isNewClient && (
-              <p className="text-xs text-amber-600 dark:text-amber-400">Novo cliente será cadastrado automaticamente.</p>
+              <p className="text-xs text-warning">Novo cliente será cadastrado automaticamente.</p>
             )}
           </div>
 
-          {/* Disciplinas - Checkboxes */}
+          {/* Disciplinas com Valores inline */}
           <div className="space-y-2">
-            <Label>Disciplinas *</Label>
-            <div className="flex flex-col gap-2">
+            <Label>Disciplinas e Valores *</Label>
+            <div className="flex flex-col gap-3">
               {(["estrutural", "hidraulica", "eletrica"] as Discipline[]).map((d) => (
-                <label key={d} className="flex items-center gap-2 cursor-pointer">
-                  <Checkbox
-                    checked={disciplines[d]}
-                    onCheckedChange={(checked) =>
-                      setDisciplines((prev) => ({ ...prev, [d]: !!checked }))
-                    }
-                  />
-                  <span className="text-sm">{DISCIPLINE_SHORT[d]}</span>
-                </label>
+                <div key={d} className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer min-w-[120px]">
+                    <Checkbox
+                      checked={disciplines[d]}
+                      onCheckedChange={(checked) =>
+                        setDisciplines((prev) => ({ ...prev, [d]: !!checked }))
+                      }
+                    />
+                    <span className="text-sm">{DISCIPLINE_SHORT[d]}</span>
+                  </label>
+                  {disciplines[d] && (
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                      <Input
+                        type="number"
+                        value={saleValues[d]}
+                        onChange={(e) => setSaleValues((prev) => ({ ...prev, [d]: e.target.value }))}
+                        placeholder="Valor do projeto"
+                        className="pl-10"
+                      />
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
             {selectedDisciplines.length > 1 && (
@@ -244,33 +257,11 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
               className="h-10 w-full rounded-md border bg-card px-3 text-sm"
             >
               <option value="">Selecione...</option>
-              {disciplineUsers.map((u) => (
+              {activeUsers.map((u) => (
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
             </select>
           </div>
-
-          {/* Valores de Venda por Disciplina */}
-          {selectedDisciplines.length > 0 && (
-            <div className="space-y-3">
-              <Label>Valores de Venda *</Label>
-              {selectedDisciplines.map((d) => (
-                <div key={d} className="flex items-center gap-2">
-                  <span className="text-sm w-24 text-muted-foreground">{DISCIPLINE_SHORT[d]}:</span>
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
-                    <Input
-                      type="number"
-                      value={saleValues[d]}
-                      onChange={(e) => setSaleValues((prev) => ({ ...prev, [d]: e.target.value }))}
-                      placeholder="0,00"
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { onOpenChange(false); resetForm(); }}>Cancelar</Button>
