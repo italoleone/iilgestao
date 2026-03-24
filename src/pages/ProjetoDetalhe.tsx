@@ -71,6 +71,12 @@ export default function ProjetoDetalhe() {
     worked: projectTasks.reduce((s, t) => s + t.hoursWorked, 0),
   }), [projectTasks]);
 
+  const cost = useMemo(() => projectTimeEntries.reduce((sum, entry) => {
+    const userProfile = getProfileById(profiles, entry.user_id);
+    const costPerHour = userProfile?.cost_per_hour || 0;
+    return sum + (entry.duration_minutes / 60) * costPerHour;
+  }, 0), [projectTimeEntries, profiles]);
+
   if (loading) {
     return <AppLayout><div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div></AppLayout>;
   }
@@ -89,11 +95,6 @@ export default function ProjetoDetalhe() {
   const completedStages = project.stages.filter(s => s.status === "concluido").length;
   const progress = project.stages.length > 0 ? Math.round((completedStages / project.stages.length) * 100) : 0;
   const responsible = getProfileById(profiles, project.responsible);
-  const cost = useMemo(() => projectTimeEntries.reduce((sum, entry) => {
-    const userProfile = getProfileById(profiles, entry.user_id);
-    const costPerHour = userProfile?.cost_per_hour || 0;
-    return sum + (entry.duration_minutes / 60) * costPerHour;
-  }, 0), [projectTimeEntries, profiles]);
   const revenue = project.saleValue;
   const profit = revenue - cost;
 
