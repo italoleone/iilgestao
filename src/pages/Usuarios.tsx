@@ -79,32 +79,42 @@ export default function Usuarios() {
       return;
     }
 
-    // Insert role
-    const { error: roleError } = await supabase.from("user_roles").upsert({
+    const { error: clearRoleError } = await supabase
+      .from("user_roles")
+      .delete()
+      .eq("user_id", approveDialog.id);
+
+    if (clearRoleError) {
+      toast.error("Erro ao limpar função anterior: " + clearRoleError.message);
+      return;
+    }
+
+    const { error: roleError } = await supabase.from("user_roles").insert({
       user_id: approveDialog.id,
       role: selectedRole as AppRole,
-    }, { onConflict: "user_id,role" });
+    });
 
     if (roleError) {
       toast.error("Erro ao definir função: " + roleError.message);
       return;
     }
 
-    // Update profile status to active
-    const { error: profileError } = await supabase
+    const { data: updatedProfile, error: profileError } = await supabase
       .from("profiles")
       .update({ status: "active" } as any)
-      .eq("id", approveDialog.id);
+      .eq("id", approveDialog.id)
+      .select("id")
+      .maybeSingle();
 
-    if (profileError) {
-      toast.error("Erro ao aprovar: " + profileError.message);
+    if (profileError || !updatedProfile) {
+      toast.error(profileError?.message || "Não foi possível ativar o usuário.");
       return;
     }
 
     toast.success(`${approveDialog.name} aprovado como ${ROLE_DISPLAY[selectedRole]}`);
     setApproveDialog(null);
     setSelectedRole("");
-    fetchUsers();
+    await fetchUsers();
   };
 
   const handleReject = async (user: UserRow) => {
