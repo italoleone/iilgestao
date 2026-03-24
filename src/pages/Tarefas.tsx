@@ -314,12 +314,17 @@ export default function Tarefas() {
                           <div className="flex items-center gap-2 mb-1">
                             <p className="text-sm font-medium truncate">{task.name}</p>
                             {isOverdue && <Badge variant="destructive" className="text-xs shrink-0">Atrasada</Badge>}
-                            {hasActiveUsers && (
+                            {hasActiveUsers ? (
                               <Badge variant="outline" className="text-xs shrink-0 bg-success/10 text-success border-success/30 gap-1 animate-pulse">
                                 <Radio className="h-3 w-3" />
                                 {taskActiveTimers.map(t => t.user_name.split(" ")[0]).join(", ")}
                               </Badge>
-                            )}
+                            ) : task.status === "em_andamento" ? (
+                              <Badge variant="outline" className="text-xs shrink-0 bg-destructive/10 text-destructive border-destructive/30 gap-1">
+                                <Square className="h-3 w-3" />
+                                Parado
+                              </Badge>
+                            ) : null}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span>{project?.name}</span><span>·</span><span>{task.stageName}</span><span>·</span>
