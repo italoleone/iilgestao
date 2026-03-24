@@ -135,6 +135,7 @@ export default function TarefaDetalhe() {
   const isValidationTask = !!task?.parent_task_id;
   const isCoordinator = project && profile && project.responsible === profile.id;
   const isTaskResponsible = task && profile && task.responsible === profile.id;
+  const isManager = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
   const canExecuteTimer = task && (task.status === "nao_iniciada" || task.status === "em_andamento" || task.status === "reprovada");
 
   const toggleTimer = async () => {
