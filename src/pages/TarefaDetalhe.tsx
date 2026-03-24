@@ -417,6 +417,29 @@ export default function TarefaDetalhe() {
           </Card>
         )}
 
+        {/* Active users indicator */}
+        {(() => {
+          const otherActiveTimers = id ? getTimerForTask(activeTimers, id).filter(t => t.user_id !== profile?.id) : [];
+          if (otherActiveTimers.length > 0 && !isProjetista) {
+            return (
+              <Card className="border-success/30 bg-success/5 shadow-sm animate-reveal-up delay-1" style={{ animationFillMode: "backwards" }}>
+                <CardContent className="py-4">
+                  <div className="flex items-center gap-3">
+                    <Radio className="h-5 w-5 text-success animate-pulse" />
+                    <div>
+                      <p className="text-sm font-semibold text-success">Em execução agora</p>
+                      <p className="text-sm text-muted-foreground">
+                        {otherActiveTimers.map(t => t.user_name).join(", ")} {otherActiveTimers.length === 1 ? "está" : "estão"} trabalhando nesta tarefa
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+          return null;
+        })()}
+
         {/* Timer control */}
         {showTimer && (
           <Card className="shadow-sm animate-reveal-up delay-1" style={{ animationFillMode: "backwards" }}>
