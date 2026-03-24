@@ -30,6 +30,8 @@ import {
   ListChecks,
   List,
   Calendar,
+  Play,
+  Square,
 } from "lucide-react";
 import { toast } from "sonner";
 
