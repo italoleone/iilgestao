@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_timers: {
+        Row: {
+          id: string
+          project_id: string
+          started_at: string
+          task_id: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          started_at?: string
+          task_id: string
+          user_id: string
+          user_name?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          started_at?: string
+          task_id?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "active_timers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "active_timers_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           created_at: string
