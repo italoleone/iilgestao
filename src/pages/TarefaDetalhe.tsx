@@ -54,6 +54,7 @@ export default function TarefaDetalhe() {
   const [loading, setLoading] = useState(true);
   const [timerStart, setTimerStart] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
