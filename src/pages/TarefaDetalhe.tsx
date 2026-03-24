@@ -71,8 +71,8 @@ export default function TarefaDetalhe() {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [sheetTitle, setSheetTitle] = useState("");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [sheetTitles, setSheetTitles] = useState<Record<number, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchTask = async () => {
