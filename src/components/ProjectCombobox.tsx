@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Check, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,27 @@ interface ProjectComboboxProps {
   triggerClassName?: string;
 }
 
+const normalize = (str: string) =>
+  str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+function highlightMatch(text: string, query: string) {
+  if (!query) return <>{text}</>;
+  const normText = normalize(text);
+  const normQuery = normalize(query);
+  const idx = normText.indexOf(normQuery);
+  if (idx === -1) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <span className="font-semibold text-primary">{text.slice(idx, idx + query.length)}</span>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
 export function ProjectCombobox({
   projects,
   value,
@@ -54,11 +75,11 @@ export function ProjectCombobox({
 
   const filteredProjects = useMemo(() => {
     if (!search) return projects;
-    const lower = search.toLowerCase();
+    const normSearch = normalize(search);
     return projects.filter(
       (p) =>
-        p.name.toLowerCase().includes(lower) ||
-        (p.client && p.client.toLowerCase().includes(lower))
+        normalize(p.name).includes(normSearch) ||
+        (p.client && normalize(p.client).includes(normSearch))
     );
   }, [projects, search]);
 
@@ -76,7 +97,7 @@ export function ProjectCombobox({
               triggerClassName
             )}
           >
-            <span className="truncate">
+            <span className="truncate flex-1 text-left">
               {selectedLabel || placeholder}
             </span>
             <div className="flex items-center gap-1 shrink-0 ml-2">
@@ -93,14 +114,17 @@ export function ProjectCombobox({
             </div>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <PopoverContent
+          className="min-w-[320px] max-w-[520px] w-max p-0"
+          align="start"
+        >
           <Command shouldFilter={false}>
             <CommandInput
               placeholder="Buscar projeto..."
               value={search}
               onValueChange={setSearch}
             />
-            <CommandList>
+            <CommandList className="max-h-[340px]">
               <CommandEmpty>Nenhum projeto encontrado.</CommandEmpty>
               <CommandGroup>
                 {includeAll && (
@@ -114,7 +138,7 @@ export function ProjectCombobox({
                   >
                     <Check
                       className={cn(
-                        "mr-2 h-4 w-4",
+                        "mr-2 h-4 w-4 shrink-0",
                         value === "all" ? "opacity-100" : "opacity-0"
                       )}
                     />
@@ -133,15 +157,17 @@ export function ProjectCombobox({
                   >
                     <Check
                       className={cn(
-                        "mr-2 h-4 w-4",
+                        "mr-2 h-4 w-4 shrink-0",
                         value === project.id ? "opacity-100" : "opacity-0"
                       )}
                     />
                     <div className="flex flex-col min-w-0">
-                      <span className="truncate">{project.name}</span>
+                      <span className="whitespace-normal break-words leading-snug">
+                        {highlightMatch(project.name, search)}
+                      </span>
                       {project.client && (
-                        <span className="text-xs text-muted-foreground truncate">
-                          {project.client}
+                        <span className="text-xs text-muted-foreground whitespace-normal break-words">
+                          {highlightMatch(project.client, search)}
                         </span>
                       )}
                     </div>
