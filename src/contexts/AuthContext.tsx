@@ -42,7 +42,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.from("user_roles").select("role").eq("user_id", userId).single(),
       ]);
 
-      if (profileData && roleData) {
+      if (profileData) {
+        const status = (profileData as any).status || "active";
+        if (status !== "active") {
+          // User not approved yet - sign them out
+          await supabase.auth.signOut();
+          setUser(null);
+          setProfile(null);
+          setPendingApproval(status === "pending");
+          setLoading(false);
+          return;
+        }
+
         setProfile({
           id: profileData.id,
           name: profileData.name,
@@ -51,8 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           cost_per_hour: Number(profileData.cost_per_hour) || 0,
           monthly_capacity_hours: profileData.monthly_capacity_hours || 176,
           avatar_url: profileData.avatar_url,
-          role: roleData.role as AppRole,
+          role: (roleData?.role as AppRole) || "projetista",
         });
+        setPendingApproval(false);
       }
     } catch (err) {
       console.error("Error fetching profile:", err);
