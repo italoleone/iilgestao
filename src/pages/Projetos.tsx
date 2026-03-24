@@ -21,9 +21,9 @@ const statusColors: Record<ProjectStatus, string> = {
 };
 
 const disciplineColors: Record<Discipline, string> = {
-  estrutural: "#4472C4",
-  hidraulica: "#0097A7",
-  eletrica: "#E8A317",
+  estrutural: "hsl(0, 0%, 25%)",
+  hidraulica: "hsl(200, 60%, 40%)",
+  eletrica: "hsl(64, 88%, 44%)",
 };
 
 type SortField = "name" | "client" | "discipline" | "deadline" | "status" | "progress";
