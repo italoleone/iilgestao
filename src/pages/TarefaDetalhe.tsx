@@ -545,7 +545,7 @@ export default function TarefaDetalhe() {
                 multiple
                 accept=".pdf,.doc,.docx,.dwg,.dxf,.xlsx,.xls,.png,.jpg,.jpeg"
                 className="hidden"
-                onChange={handleFileUpload}
+                onChange={handleFileSelect}
               />
               <Button variant="outline" size="sm" className="gap-1.5" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
                 {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
