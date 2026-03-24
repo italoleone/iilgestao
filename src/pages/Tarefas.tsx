@@ -297,7 +297,7 @@ export default function Tarefas() {
                 const project = projects.find(p => p.id === task.projectId);
                 const responsible = getProfileById(profiles, task.responsible);
                 const hoursProgress = task.estimatedHours > 0 ? Math.round((task.hoursWorked / task.estimatedHours) * 100) : 0;
-                const isOverdue = new Date(task.endDate) < new Date() && task.status !== "concluida";
+                const isOverdue = new Date(task.endDate) < new Date() && !["concluida", "aprovada"].includes(task.status);
                 return (
                   <Card key={task.id} className={`shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${isOverdue ? "border-destructive/40" : ""}`} onClick={() => handleTaskClick(task)}>
                     <CardContent className="py-3 px-4">
@@ -320,7 +320,7 @@ export default function Tarefas() {
                           {activeTimerTaskId === task.id && (
                             <span className="text-xs font-mono font-medium text-primary tabular-nums">{formatTimer(elapsed)}</span>
                           )}
-                          {task.status !== "concluida" && (
+                          {!["concluida", "aguardando_validacao", "aprovada"].includes(task.status) && (
                             <Button variant={activeTimerTaskId === task.id ? "destructive" : "outline"} size="icon" className="h-8 w-8 shrink-0" onClick={(e) => toggleTimer(task.id, e)}>
                               {activeTimerTaskId === task.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                             </Button>
