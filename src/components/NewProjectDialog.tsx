@@ -24,6 +24,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
   const [clientValue, setClientValue] = useState("");
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [clients, setClients] = useState<string[]>([]);
+  const [activeUsers, setActiveUsers] = useState<{ id: string; name: string }[]>([]);
   const [disciplines, setDisciplines] = useState<Record<Discipline, boolean>>({
     estrutural: false,
     hidraulica: false,
