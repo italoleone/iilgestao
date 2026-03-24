@@ -113,7 +113,6 @@ export default function Tarefas() {
   const [filterResponsible, setFilterResponsible] = useState<string>("all");
   const [filterStage, setFilterStage] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [calYear, setCalYear] = useState(new Date().getFullYear());
