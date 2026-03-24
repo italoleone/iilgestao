@@ -674,6 +674,18 @@ export default function TarefaDetalhe() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* PDF Viewer */}
+      {pdfViewer && (
+        <PdfViewer
+          fileUrl={pdfViewer.url}
+          attachmentId={pdfViewer.attachmentId}
+          taskId={task.id}
+          fileName={pdfViewer.fileName}
+          sheetTitle={pdfViewer.sheetTitle}
+          onClose={() => setPdfViewer(null)}
+        />
+      )}
     </AppLayout>
   );
 }
