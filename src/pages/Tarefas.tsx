@@ -150,11 +150,20 @@ export default function Tarefas() {
     name: "", projectId: "", stageName: "", responsible: "", startDate: "", endDate: "", estimatedHours: "",
   });
 
+  // For managers: default to showing only tasks with active timers (no project filter)
+  // For projetistas: show only their own tasks
   const visibleTasks = useMemo(() => {
     let filtered = allTasks;
+
+    // Projetista: only their tasks
     if (isProjetista && profile) {
       filtered = filtered.filter(t => t.responsible === profile.id);
+    } else if (!isProjetista && filterProject === "all") {
+      // Managers with no project selected: show only tasks with active play
+      const activeTaskIds = new Set(activeTimers.map(t => t.task_id));
+      filtered = filtered.filter(t => activeTaskIds.has(t.id));
     }
+
     if (search) {
       const q = search.toLowerCase();
       filtered = filtered.filter(t =>
@@ -173,7 +182,7 @@ export default function Tarefas() {
       if (so !== 0) return so;
       return new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
     });
-  }, [allTasks, search, filterProject, filterDiscipline, filterStatus, filterResponsible, filterStage, isProjetista, profile, projects]);
+  }, [allTasks, search, filterProject, filterDiscipline, filterStatus, filterResponsible, filterStage, isProjetista, profile, projects, activeTimers]);
 
   const handleCreate = async () => {
     if (!form.name || !form.projectId || !form.stageName || !form.responsible || !form.startDate || !form.endDate) {
@@ -224,7 +233,11 @@ export default function Tarefas() {
         <div className="flex items-center justify-between animate-reveal-up" style={{ animationFillMode: "backwards" }}>
           <div>
             <h1 className="text-2xl font-bold">Tarefas</h1>
-            <p className="text-muted-foreground mt-1">{visibleTasks.length} tarefa{visibleTasks.length !== 1 ? "s" : ""}</p>
+            <p className="text-muted-foreground mt-1">
+              {!isProjetista && filterProject === "all"
+                ? `${visibleTasks.length} tarefa${visibleTasks.length !== 1 ? "s" : ""} com play ativo`
+                : `${visibleTasks.length} tarefa${visibleTasks.length !== 1 ? "s" : ""}`}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center border rounded-md">

@@ -119,15 +119,48 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
       };
     });
 
-    const { error } = await supabase.from("projects").insert(projectRows);
-
-    setSaving(false);
+    const { data: insertedProjects, error } = await supabase.from("projects").insert(projectRows).select("id, discipline, responsible, start_date, deadline");
 
     if (error) {
+      setSaving(false);
       toast.error("Erro ao criar projeto: " + error.message);
       return;
     }
 
+    // Auto-create default tasks for each project
+    if (insertedProjects && insertedProjects.length > 0) {
+      const defaultTasksByStage: Record<string, string[]> = {
+        "Estudo Preliminar": ["Tarefa Teste 1", "Tarefa Teste 2"],
+        "Anteprojeto": ["Tarefa Teste 3"],
+        "Pré-executivo": ["Tarefa Teste 4"],
+        "Executivo": ["Tarefa Teste 5"],
+        "Liberação para Obra": ["Tarefa Teste 6"],
+        "Revisão": ["Tarefa Teste 7"],
+      };
+
+      const taskRows = insertedProjects.flatMap((proj: any) =>
+        STAGE_NAMES.flatMap((stageName) =>
+          (defaultTasksByStage[stageName] || []).map((taskName) => ({
+            name: taskName,
+            project_id: proj.id,
+            discipline: proj.discipline,
+            stage_name: stageName,
+            responsible: proj.responsible,
+            start_date: proj.start_date,
+            end_date: proj.deadline,
+            estimated_hours: 0,
+            hours_worked: 0,
+            status: "nao_iniciada",
+          }))
+        )
+      );
+
+      if (taskRows.length > 0) {
+        await supabase.from("tasks").insert(taskRows);
+      }
+    }
+
+    setSaving(false);
     onProjectsCreated();
     onOpenChange(false);
     resetForm();

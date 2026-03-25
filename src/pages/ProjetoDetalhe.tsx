@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveProfiles, getProfileById, useTasks } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
-import { DISCIPLINE_SHORT, STATUS_LABELS, TASK_STATUS_LABELS, type ProjectStatus, type TaskStatus, type Discipline, type Project, type Stage } from "@/types";
-import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks, Loader2, Trash2 } from "lucide-react";
+import { DISCIPLINE_SHORT, STATUS_LABELS, TASK_STATUS_LABELS, STAGE_NAMES, type ProjectStatus, type TaskStatus, type Discipline, type Project, type Stage } from "@/types";
+import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks, Loader2, Trash2, ChevronDown } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { formatBRL } from "@/lib/utils";
@@ -190,51 +191,49 @@ export default function ProjetoDetalhe() {
         </div>
 
         <Card className="shadow-sm animate-reveal-up delay-4" style={{ animationFillMode: "backwards" }}>
-          <CardHeader><CardTitle className="text-base flex items-center gap-2"><ListChecks className="h-4 w-4" /> Tarefas ({projectTasks.length})</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><ListChecks className="h-4 w-4" /> Tarefas do Projeto ({projectTasks.length})</CardTitle></CardHeader>
           <CardContent>
             {projectTasks.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma tarefa cadastrada.</p> : (
-              <div className="space-y-2">
-                {projectTasks.map(task => {
-                  const taskResp = getProfileById(profiles, task.responsible);
-                  const hp = task.estimatedHours > 0 ? Math.round((task.hoursWorked / task.estimatedHours) * 100) : 0;
-                  const isOverdue = new Date(task.endDate) < new Date() && task.status !== "concluida";
+              <Accordion type="multiple" className="w-full">
+                {STAGE_NAMES.map((stageName) => {
+                  const stageTasks = projectTasks.filter(t => t.stageName === stageName);
+                  if (stageTasks.length === 0) return null;
+                  const completedCount = stageTasks.filter(t => ["concluida", "aprovada"].includes(t.status)).length;
                   return (
-                    <div key={task.id} className={`flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/30 transition-colors cursor-pointer ${isOverdue ? "border-destructive/40" : ""}`} onClick={() => navigate(`/tarefas/${task.id}`)}>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{task.name}</p>
-                        <p className="text-xs text-muted-foreground">{task.stageName} · {taskResp?.name}</p>
-                      </div>
-                      <div className="hidden sm:flex items-center gap-2 w-24">
-                        <Progress value={Math.min(hp, 100)} className={`h-1.5 flex-1 ${hp > 100 ? "[&>div]:bg-destructive" : ""}`} />
-                        <span className="text-xs tabular-nums text-muted-foreground">{task.hoursWorked}/{task.estimatedHours}h</span>
-                      </div>
-                      <Badge variant="secondary" className={taskStatusColors[task.status]}>{TASK_STATUS_LABELS[task.status]}</Badge>
-                    </div>
+                    <AccordionItem key={stageName} value={stageName}>
+                      <AccordionTrigger className="hover:no-underline px-1">
+                        <div className="flex items-center gap-3">
+                          <span className="font-medium text-sm">{stageName}</span>
+                          <Badge variant="secondary" className="text-xs">{completedCount}/{stageTasks.length}</Badge>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-2 pt-1">
+                          {stageTasks.map(task => {
+                            const taskResp = getProfileById(profiles, task.responsible);
+                            const hp = task.estimatedHours > 0 ? Math.round((task.hoursWorked / task.estimatedHours) * 100) : 0;
+                            const isOverdue = new Date(task.endDate) < new Date() && !["concluida", "aprovada"].includes(task.status);
+                            return (
+                              <div key={task.id} className={`flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/30 transition-colors cursor-pointer ${isOverdue ? "border-destructive/40" : ""}`} onClick={() => navigate(`/tarefas/${task.id}`)}>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium">{task.name}</p>
+                                  <p className="text-xs text-muted-foreground">{taskResp?.name || "—"}</p>
+                                </div>
+                                <div className="hidden sm:flex items-center gap-2 w-24">
+                                  <Progress value={Math.min(hp, 100)} className={`h-1.5 flex-1 ${hp > 100 ? "[&>div]:bg-destructive" : ""}`} />
+                                  <span className="text-xs tabular-nums text-muted-foreground">{task.hoursWorked}/{task.estimatedHours}h</span>
+                                </div>
+                                <Badge variant="secondary" className={taskStatusColors[task.status]}>{TASK_STATUS_LABELS[task.status]}</Badge>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
                   );
                 })}
-              </div>
+              </Accordion>
             )}
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm animate-reveal-up delay-5" style={{ animationFillMode: "backwards" }}>
-          <CardHeader><CardTitle className="text-base">Etapas do Projeto</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {project.stages.map((stage, i) => {
-                const stageResp = getProfileById(profiles, stage.responsible);
-                return (
-                  <div key={stage.id} className="flex items-center gap-4 p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-medium">{i + 1}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{stage.name}</p>
-                      <p className="text-xs text-muted-foreground">{stageResp?.name}</p>
-                    </div>
-                    <Badge variant="secondary" className={stageStatusColors[stage.status]}>{stageStatusLabels[stage.status]}</Badge>
-                  </div>
-                );
-              })}
-            </div>
           </CardContent>
         </Card>
       </div>
