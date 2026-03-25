@@ -181,7 +181,7 @@ export default function Tarefas() {
     return filtered.sort((a, b) => {
       const so = (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1);
       if (so !== 0) return so;
-      return new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
+      return parseLocalDate(a.endDate).getTime() - parseLocalDate(b.endDate).getTime();
     });
   }, [allTasks, search, filterProject, filterDiscipline, filterStatus, filterResponsible, filterStage, isProjetista, profile, projects, activeTimers]);
 
@@ -322,7 +322,7 @@ export default function Tarefas() {
                 const project = projects.find(p => p.id === task.projectId);
                 const responsible = getProfileById(profiles, task.responsible);
                 const hoursProgress = task.estimatedHours > 0 ? Math.round((task.hoursWorked / task.estimatedHours) * 100) : 0;
-                const isOverdue = new Date(task.endDate) < new Date() && !["concluida", "aprovada"].includes(task.status);
+                const isOverdue = parseLocalDate(task.endDate) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "aprovada"].includes(task.status);
                 const taskActiveTimers = getTimerForTask(activeTimers, task.id);
                 const hasActiveUsers = taskActiveTimers.length > 0;
                 return (
@@ -364,7 +364,7 @@ export default function Tarefas() {
                             </Button>
                           )}
                           <div className="hidden sm:block text-xs text-muted-foreground tabular-nums w-20 text-right">
-                            {new Date(task.endDate).toLocaleDateString("pt-BR")}
+                            {formatDateBR(task.endDate)}
                           </div>
                           <Badge variant="secondary" className={`${taskStatusColors[task.status]} shrink-0`}>{TASK_STATUS_LABELS[task.status]}</Badge>
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
