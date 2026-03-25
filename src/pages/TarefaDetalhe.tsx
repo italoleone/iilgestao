@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { parseLocalDate, formatDateBR } from "@/lib/utils";
 import { AppLayout } from "@/components/AppLayout";
 import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -324,7 +325,7 @@ export default function TarefaDetalhe() {
   }
 
   const responsible = getProfileById(profiles, task.responsible);
-  const isOverdue = new Date(task.end_date) < new Date() && !["concluida", "aprovada"].includes(task.status);
+  const isOverdue = parseLocalDate(task.end_date) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "aprovada"].includes(task.status);
   const canDelete = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
   const canEdit = !isProjetista && task.status !== "aprovada";
 
@@ -560,8 +561,8 @@ export default function TarefaDetalhe() {
           <Card className="shadow-sm">
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium text-muted-foreground">Prazos e Horas</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Início</span><span className="font-medium tabular-nums">{new Date(task.start_date).toLocaleDateString("pt-BR")}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Término</span><span className={`font-medium tabular-nums ${isOverdue ? "text-destructive" : ""}`}>{new Date(task.end_date).toLocaleDateString("pt-BR")}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Início</span><span className="font-medium tabular-nums">{formatDateBR(task.start_date)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground flex items-center gap-1"><CalendarDays className="h-3 w-3" /> Término</span><span className={`font-medium tabular-nums ${isOverdue ? "text-destructive" : ""}`}>{formatDateBR(task.end_date)}</span></div>
               <div>
                 <div className="flex justify-between mb-1">
                   <span className="text-muted-foreground">Progresso</span>
