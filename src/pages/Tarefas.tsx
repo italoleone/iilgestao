@@ -177,9 +177,9 @@ export default function Tarefas() {
   const visibleTasks = useMemo(() => {
     let filtered = allTasks;
 
-    // Projetista: only their tasks
+    // Projetista: only their tasks, exclude concluída/aprovada
     if (isProjetista && profile) {
-      filtered = filtered.filter(t => t.responsible === profile.id);
+      filtered = filtered.filter(t => t.responsible === profile.id && !["concluida", "aprovada"].includes(t.status));
     } else if (!isProjetista && filterProject === "all") {
       // Managers with no project selected: show only tasks with active play
       const activeTaskIds = new Set(activeTimers.map(t => t.task_id));
