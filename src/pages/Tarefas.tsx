@@ -150,11 +150,20 @@ export default function Tarefas() {
     name: "", projectId: "", stageName: "", responsible: "", startDate: "", endDate: "", estimatedHours: "",
   });
 
+  // For managers: default to showing only tasks with active timers (no project filter)
+  // For projetistas: show only their own tasks
   const visibleTasks = useMemo(() => {
     let filtered = allTasks;
+
+    // Projetista: only their tasks
     if (isProjetista && profile) {
       filtered = filtered.filter(t => t.responsible === profile.id);
+    } else if (!isProjetista && filterProject === "all") {
+      // Managers with no project selected: show only tasks with active play
+      const activeTaskIds = new Set(activeTimers.map(t => t.task_id));
+      filtered = filtered.filter(t => activeTaskIds.has(t.id));
     }
+
     if (search) {
       const q = search.toLowerCase();
       filtered = filtered.filter(t =>
@@ -173,7 +182,7 @@ export default function Tarefas() {
       if (so !== 0) return so;
       return new Date(a.endDate).getTime() - new Date(b.endDate).getTime();
     });
-  }, [allTasks, search, filterProject, filterDiscipline, filterStatus, filterResponsible, filterStage, isProjetista, profile, projects]);
+  }, [allTasks, search, filterProject, filterDiscipline, filterStatus, filterResponsible, filterStage, isProjetista, profile, projects, activeTimers]);
 
   const handleCreate = async () => {
     if (!form.name || !form.projectId || !form.stageName || !form.responsible || !form.startDate || !form.endDate) {
