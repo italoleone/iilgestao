@@ -147,7 +147,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
             stage_name: stageName,
             responsible: proj.responsible,
             start_date: proj.start_date,
-            end_date: proj.deadline,
+            end_date: proj.start_date,
             estimated_hours: 0,
             hours_worked: 0,
             status: "nao_iniciada",
