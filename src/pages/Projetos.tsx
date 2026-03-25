@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { formatDateBR } from "@/lib/utils";
 import { AppLayout } from "@/components/AppLayout";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -151,7 +152,7 @@ export default function Projetos() {
                         </div>
                       </td>
                       <td className="py-3 px-3 text-muted-foreground">{responsible?.name || "—"}</td>
-                      <td className="py-3 px-3 tabular-nums text-muted-foreground">{new Date(p.deadline).toLocaleDateString("pt-BR")}</td>
+                      <td className="py-3 px-3 tabular-nums text-muted-foreground">{formatDateBR(p.deadline)}</td>
                       <td className="py-3 px-3 w-32">
                         <div className="flex items-center gap-2">
                           <Progress value={progress} className="h-1.5 flex-1" />

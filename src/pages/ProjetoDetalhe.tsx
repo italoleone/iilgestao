@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { formatDateBR, parseLocalDate } from "@/lib/utils";
 import { useState, useEffect, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -161,7 +162,7 @@ export default function ProjetoDetalhe() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-reveal-up delay-1" style={{ animationFillMode: "backwards" }}>
           <Card className="shadow-sm"><CardContent className="pt-4"><p className="text-xs text-muted-foreground mb-1">Disciplina</p><p className="font-medium">{DISCIPLINE_SHORT[project.discipline]}</p></CardContent></Card>
           <Card className="shadow-sm"><CardContent className="pt-4"><p className="text-xs text-muted-foreground mb-1">Coordenador</p><p className="font-medium">{responsible?.name || "—"}</p></CardContent></Card>
-          <Card className="shadow-sm"><CardContent className="pt-4"><p className="text-xs text-muted-foreground mb-1">Prazo</p><p className="font-medium tabular-nums">{new Date(project.deadline).toLocaleDateString("pt-BR")}</p></CardContent></Card>
+          <Card className="shadow-sm"><CardContent className="pt-4"><p className="text-xs text-muted-foreground mb-1">Prazo</p><p className="font-medium tabular-nums">{formatDateBR(project.deadline)}</p></CardContent></Card>
           <Card className="shadow-sm"><CardContent className="pt-4"><p className="text-xs text-muted-foreground mb-1">Tarefas</p><p className="font-medium tabular-nums">{projectTasks.filter(t => t.status === "concluida").length}/{projectTasks.length}</p></CardContent></Card>
         </div>
 
@@ -212,7 +213,7 @@ export default function ProjetoDetalhe() {
                           {stageTasks.map(task => {
                             const taskResp = getProfileById(profiles, task.responsible);
                             const hp = task.estimatedHours > 0 ? Math.round((task.hoursWorked / task.estimatedHours) * 100) : 0;
-                            const isOverdue = new Date(task.endDate) < new Date() && !["concluida", "aprovada"].includes(task.status);
+                            const isOverdue = parseLocalDate(task.endDate) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "aprovada"].includes(task.status);
                             return (
                               <div key={task.id} className={`flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/30 transition-colors cursor-pointer ${isOverdue ? "border-destructive/40" : ""}`} onClick={() => navigate(`/tarefas/${task.id}`)}>
                                 <div className="flex-1 min-w-0">

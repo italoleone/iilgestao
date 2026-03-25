@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatBRL } from "@/lib/utils";
+import { formatBRL, formatDateBR } from "@/lib/utils";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -160,7 +160,7 @@ export default function Dashboard() {
                         <td className="py-3 px-2"><div><p className="font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{responsible?.name}</p></div></td>
                         <td className="py-3 px-2 text-muted-foreground">{p.client}</td>
                         <td className="py-3 px-2"><span className="inline-block h-2 w-2 rounded-full mr-1.5" style={{ backgroundColor: disciplineColors[p.discipline] }} />{DISCIPLINE_SHORT[p.discipline]}</td>
-                        <td className="py-3 px-2 tabular-nums text-muted-foreground">{new Date(p.deadline).toLocaleDateString("pt-BR")}</td>
+                        <td className="py-3 px-2 tabular-nums text-muted-foreground">{formatDateBR(p.deadline)}</td>
                         <td className="py-3 px-2"><Badge variant="secondary" className={statusColors[p.status]}>{STATUS_LABELS[p.status]}</Badge></td>
                       </tr>
                     );

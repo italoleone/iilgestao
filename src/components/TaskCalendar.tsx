@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { type Task, type Project } from "@/types";
+import { parseLocalDate } from "@/lib/utils";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -38,8 +39,8 @@ export function TaskCalendar({ tasks, projects = [], month, year, onMonthChange 
       const date = new Date(year, month, d);
       const dayTasks: Task[] = [];
       tasks.forEach((task) => {
-        const start = new Date(task.startDate);
-        const end = new Date(task.endDate);
+        const start = parseLocalDate(task.startDate);
+        const end = parseLocalDate(task.endDate);
         if (date >= start && date <= end) {
           dayTasks.push(task);
         }
