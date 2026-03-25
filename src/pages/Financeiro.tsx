@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { formatDateBR } from "@/lib/utils";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectCombobox } from "@/components/ProjectCombobox";
@@ -191,7 +192,7 @@ export default function Financeiro() {
                   {selectedProjectEntries.map((entry) => {
                     const hours = Math.floor(entry.duration_minutes / 60);
                     const mins = entry.duration_minutes % 60;
-                    const dateFormatted = new Date(entry.date + "T00:00:00").toLocaleDateString("pt-BR");
+                    const dateFormatted = formatDateBR(entry.date);
                     return (
                       <div key={entry.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border gap-2">
                         <div className="space-y-0.5">

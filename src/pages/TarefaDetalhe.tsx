@@ -601,7 +601,7 @@ export default function TarefaDetalhe() {
                           <p className="text-sm font-semibold">{att.sheet_title || att.file_name}</p>
                           <p className="text-xs text-muted-foreground">{att.file_name}</p>
                           <p className="text-xs text-muted-foreground">
-                            Enviado por: {uploader?.name || "—"} · {new Date(att.created_at).toLocaleDateString("pt-BR")}
+                            Enviado por: {uploader?.name || "—"} · {formatDateBR(att.created_at?.split("T")[0] || "")}
                             {att.file_size > 0 && ` · ${(att.file_size / 1024).toFixed(0)} KB`}
                           </p>
                         </div>
