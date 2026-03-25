@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { formatBRL } from "@/lib/utils";
+import { formatBRL, formatDateBR } from "@/lib/utils";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
