@@ -233,7 +233,11 @@ export default function Tarefas() {
         <div className="flex items-center justify-between animate-reveal-up" style={{ animationFillMode: "backwards" }}>
           <div>
             <h1 className="text-2xl font-bold">Tarefas</h1>
-            <p className="text-muted-foreground mt-1">{visibleTasks.length} tarefa{visibleTasks.length !== 1 ? "s" : ""}</p>
+            <p className="text-muted-foreground mt-1">
+              {!isProjetista && filterProject === "all"
+                ? `${visibleTasks.length} tarefa${visibleTasks.length !== 1 ? "s" : ""} com play ativo`
+                : `${visibleTasks.length} tarefa${visibleTasks.length !== 1 ? "s" : ""}`}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center border rounded-md">
