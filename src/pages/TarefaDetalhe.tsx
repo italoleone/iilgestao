@@ -73,6 +73,7 @@ export default function TarefaDetalhe() {
   const [loading, setLoading] = useState(true);
   const [timerStart, setTimerStart] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState(0);
+  const [timerRestoredRef] = useState({ done: false });
   const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
