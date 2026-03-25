@@ -691,7 +691,7 @@ export default function TarefaDetalhe() {
                     <div>
                       <p className="text-sm font-medium">{record.user_name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(record.date + "T00:00:00").toLocaleDateString("pt-BR")} — {record.start_time} → {record.end_time}
+                        {formatDateBR(record.date)} — {record.start_time} → {record.end_time}
                       </p>
                     </div>
                     <div className="text-right">
