@@ -84,8 +84,10 @@ export type Database = {
           id: string
           minutes_text: string | null
           name: string
+          pdf_path: string | null
           processing_status: string
           project_id: string
+          speaker_map: Json | null
           start_time: string
           transcription: string | null
         }
@@ -98,8 +100,10 @@ export type Database = {
           id?: string
           minutes_text?: string | null
           name: string
+          pdf_path?: string | null
           processing_status?: string
           project_id: string
+          speaker_map?: Json | null
           start_time: string
           transcription?: string | null
         }
@@ -112,8 +116,10 @@ export type Database = {
           id?: string
           minutes_text?: string | null
           name?: string
+          pdf_path?: string | null
           processing_status?: string
           project_id?: string
+          speaker_map?: Json | null
           start_time?: string
           transcription?: string | null
         }
