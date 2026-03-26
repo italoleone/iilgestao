@@ -154,7 +154,7 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
     const map = meeting.speaker_map || {};
     Object.entries(map).forEach(([key, name]) => {
       if (name && name !== key) {
-        text = text.replaceAll(key, `[${name}]`);
+        text = text.split(key).join(`[${name}]`);
       }
     });
     return text;
