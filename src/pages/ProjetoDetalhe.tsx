@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DISCIPLINE_SHORT, STATUS_LABELS, TASK_STATUS_LABELS, STAGE_NAMES, type ProjectStatus, type TaskStatus, type Discipline, type Project, type Stage } from "@/types";
 import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks, Loader2, Trash2, ChevronDown } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { MeetingsSection } from "@/components/meetings/MeetingsSection";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { formatBRL } from "@/lib/utils";
@@ -237,6 +238,8 @@ export default function ProjetoDetalhe() {
             )}
           </CardContent>
         </Card>
+
+        <MeetingsSection projectId={project.id} />
       </div>
     </AppLayout>
   );
