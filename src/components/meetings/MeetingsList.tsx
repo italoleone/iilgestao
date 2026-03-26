@@ -8,8 +8,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Play, FileText, Loader2, AlertCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Play, FileText, Loader2, AlertCircle, Download, Users, Eye } from "lucide-react";
 import { formatDateBR } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Meeting {
   id: string;
@@ -24,6 +26,8 @@ interface Meeting {
   processing_status: string;
   created_by: string;
   created_at: string;
+  speaker_map: Record<string, string> | null;
+  pdf_path: string | null;
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -43,7 +47,9 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
-  const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const [dialogMode, setDialogMode] = useState<"minutes" | "transcription" | "speakers">("minutes");
+  const [editingSpeakers, setEditingSpeakers] = useState<Record<string, string>>({});
+  const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
 
   const fetchMeetings = useCallback(async () => {
     const { data } = await (supabase as any)
@@ -59,7 +65,6 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
     fetchMeetings();
   }, [fetchMeetings, refreshKey]);
 
-  // Realtime subscription for processing updates
   useEffect(() => {
     const channel = supabase
       .channel(`meetings-${projectId}`)
@@ -71,15 +76,11 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
           table: "meetings",
           filter: `project_id=eq.${projectId}`,
         },
-        () => {
-          fetchMeetings();
-        }
+        () => fetchMeetings()
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [projectId, fetchMeetings]);
 
   const getAudioUrl = (path: string) => {
@@ -96,6 +97,73 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
     supabase.functions.invoke("process-meeting", {
       body: { meeting_id: meetingId },
     });
+  };
+
+  const handleSaveSpeakers = async () => {
+    if (!selectedMeeting) return;
+    await (supabase as any)
+      .from("meetings")
+      .update({ speaker_map: editingSpeakers })
+      .eq("id", selectedMeeting.id);
+
+    toast.success("Participantes atualizados!");
+    setSelectedMeeting({ ...selectedMeeting, speaker_map: editingSpeakers });
+    fetchMeetings();
+  };
+
+  const handleDownloadPdf = async (meeting: Meeting) => {
+    setGeneratingPdf(meeting.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-meeting-pdf", {
+        body: { meeting_id: meeting.id },
+      });
+
+      if (error || !data?.html) {
+        toast.error("Erro ao gerar PDF");
+        return;
+      }
+
+      // Open HTML content in a new window for printing as PDF
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(data.html);
+        printWindow.document.close();
+        // Auto-trigger print dialog for PDF save
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      }
+    } catch {
+      toast.error("Erro ao gerar PDF");
+    } finally {
+      setGeneratingPdf(null);
+    }
+  };
+
+  const openDialog = (meeting: Meeting, mode: "minutes" | "transcription" | "speakers") => {
+    setSelectedMeeting(meeting);
+    setDialogMode(mode);
+    if (mode === "speakers") {
+      setEditingSpeakers(meeting.speaker_map || {});
+    }
+  };
+
+  // Apply speaker names to transcription text
+  const getFormattedTranscription = (meeting: Meeting) => {
+    let text = meeting.transcription || "";
+    const map = meeting.speaker_map || {};
+    Object.entries(map).forEach(([key, name]) => {
+      if (name && name !== key) {
+        text = text.split(key).join(`[${name}]`);
+      }
+    });
+    return text;
+  };
+
+  const getSpeakerNames = (meeting: Meeting) => {
+    const map = meeting.speaker_map || {};
+    const names = Object.values(map).filter((v) => v && !v.startsWith("[Voz"));
+    return names.length > 0 ? names.join(", ") : null;
   };
 
   if (loading) {
@@ -122,6 +190,7 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
           const isProcessing = meeting.processing_status === "processando";
           const isError = meeting.processing_status === "erro" || meeting.processing_status === "erro_ata";
           const isDone = meeting.processing_status === "concluido";
+          const speakerNames = getSpeakerNames(meeting);
 
           return (
             <div
@@ -134,6 +203,11 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
                   {formatDateBR(meeting.date)} • {meeting.start_time}
                   {meeting.end_time ? ` - ${meeting.end_time}` : ""}
                 </p>
+                {speakerNames && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <Users className="h-3 w-3" /> {speakerNames}
+                  </p>
+                )}
               </div>
 
               <Badge variant="secondary" className={`${status.className} shrink-0`}>
@@ -141,51 +215,88 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
                 {status.label}
               </Badge>
 
-              {meeting.audio_path && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  title="Ouvir áudio"
-                  onClick={() => {
-                    const url = getAudioUrl(meeting.audio_path!);
-                    if (playingAudio === meeting.id) {
-                      setPlayingAudio(null);
-                    } else {
-                      setPlayingAudio(meeting.id);
+              <div className="flex items-center gap-1 shrink-0">
+                {meeting.audio_path && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="Ouvir áudio"
+                    onClick={() => {
+                      const url = getAudioUrl(meeting.audio_path!);
                       const audio = new Audio(url);
                       audio.play();
-                      audio.onended = () => setPlayingAudio(null);
-                    }
-                  }}
-                >
-                  <Play className="h-4 w-4" />
-                </Button>
-              )}
+                    }}
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
+                )}
 
-              {isDone && meeting.minutes_text && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  title="Ver ata"
-                  onClick={() => setSelectedMeeting(meeting)}
-                >
-                  <FileText className="h-4 w-4" />
-                </Button>
-              )}
+                {isDone && meeting.transcription && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="Ver transcrição"
+                    onClick={() => openDialog(meeting, "transcription")}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                )}
 
-              {isError && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 text-destructive"
-                  title="Tentar novamente"
-                  onClick={() => handleRetryProcessing(meeting.id)}
-                >
-                  <AlertCircle className="h-4 w-4" />
-                </Button>
-              )}
+                {isDone && meeting.minutes_text && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="Ver ata"
+                    onClick={() => openDialog(meeting, "minutes")}
+                  >
+                    <FileText className="h-4 w-4" />
+                  </Button>
+                )}
+
+                {isDone && meeting.minutes_text && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="Baixar PDF"
+                    disabled={generatingPdf === meeting.id}
+                    onClick={() => handleDownloadPdf(meeting)}
+                  >
+                    {generatingPdf === meeting.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
+
+                {isDone && meeting.speaker_map && Object.keys(meeting.speaker_map).length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="Editar participantes"
+                    onClick={() => openDialog(meeting, "speakers")}
+                  >
+                    <Users className="h-4 w-4" />
+                  </Button>
+                )}
+
+                {isError && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive"
+                    title="Tentar novamente"
+                    onClick={() => handleRetryProcessing(meeting.id)}
+                  >
+                    <AlertCircle className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           );
         })}
@@ -194,12 +305,50 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
       <Dialog open={!!selectedMeeting} onOpenChange={() => setSelectedMeeting(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedMeeting?.name} — Ata</DialogTitle>
+            <DialogTitle>
+              {selectedMeeting?.name} —{" "}
+              {dialogMode === "minutes" ? "Ata" : dialogMode === "transcription" ? "Transcrição" : "Participantes"}
+            </DialogTitle>
           </DialogHeader>
-          <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
-            {selectedMeeting?.minutes_text}
-          </div>
-          {selectedMeeting?.audio_path && (
+
+          {dialogMode === "minutes" && (
+            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+              {selectedMeeting?.minutes_text}
+            </div>
+          )}
+
+          {dialogMode === "transcription" && selectedMeeting && (
+            <div className="whitespace-pre-wrap text-sm leading-relaxed font-mono bg-muted/30 p-4 rounded-lg">
+              {getFormattedTranscription(selectedMeeting)}
+            </div>
+          )}
+
+          {dialogMode === "speakers" && (
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Associe cada voz identificada ao nome do participante:
+              </p>
+              {Object.entries(editingSpeakers).map(([key, value]) => (
+                <div key={key} className="flex items-center gap-3">
+                  <span className="text-sm font-medium w-24 shrink-0">{key}</span>
+                  <span className="text-muted-foreground">→</span>
+                  <Input
+                    value={value}
+                    onChange={(e) =>
+                      setEditingSpeakers((prev) => ({ ...prev, [key]: e.target.value }))
+                    }
+                    placeholder="Nome do participante"
+                    className="flex-1"
+                  />
+                </div>
+              ))}
+              <Button onClick={handleSaveSpeakers} className="w-full mt-2">
+                Salvar Participantes
+              </Button>
+            </div>
+          )}
+
+          {selectedMeeting?.audio_path && dialogMode !== "speakers" && (
             <div className="pt-4 border-t">
               <p className="text-xs text-muted-foreground mb-2">Áudio da reunião:</p>
               <audio
