@@ -74,6 +74,51 @@ export type Database = {
         }
         Relationships: []
       }
+      meetings: {
+        Row: {
+          audio_path: string | null
+          created_at: string
+          created_by: string
+          date: string
+          end_time: string | null
+          id: string
+          minutes_text: string | null
+          name: string
+          processing_status: string
+          project_id: string
+          start_time: string
+          transcription: string | null
+        }
+        Insert: {
+          audio_path?: string | null
+          created_at?: string
+          created_by: string
+          date?: string
+          end_time?: string | null
+          id?: string
+          minutes_text?: string | null
+          name: string
+          processing_status?: string
+          project_id: string
+          start_time: string
+          transcription?: string | null
+        }
+        Update: {
+          audio_path?: string | null
+          created_at?: string
+          created_by?: string
+          date?: string
+          end_time?: string | null
+          id?: string
+          minutes_text?: string | null
+          name?: string
+          processing_status?: string
+          project_id?: string
+          start_time?: string
+          transcription?: string | null
+        }
+        Relationships: []
+      }
       pdf_annotations: {
         Row: {
           annotation_data: Json
