@@ -166,40 +166,35 @@ export default function TarefaDetalhe() {
   const toggleTimer = async () => {
     if (!task || !profile) return;
     if (timerStart) {
-      const now = new Date();
-      const durationMinutes = Math.max(1, Math.round(elapsed / 60));
-      const hoursWorked = elapsed / 3600;
-      const pad = (n: number) => n.toString().padStart(2, "0");
-
-      await supabase.from("time_entries").insert({
-        task_id: task.id,
-        project_id: task.project_id,
-        user_id: profile.id,
-        user_name: profile.name,
-        date: now.toISOString().slice(0, 10),
-        start_time: `${pad(timerStart.getHours())}:${pad(timerStart.getMinutes())}`,
-        end_time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
-        duration_minutes: durationMinutes,
-      });
-
-      const newHours = Math.round((Number(task.hours_worked) + hoursWorked) * 100) / 100;
-      const newStatus = task.status === "reprovada" ? "em_andamento" : (task.status === "nao_iniciada" ? "em_andamento" : task.status);
-      await supabase.from("tasks").update({ hours_worked: newHours, status: newStatus }).eq("id", task.id);
-
-      await stopActiveTimer(profile.id);
-
-      setTask(prev => prev ? { ...prev, hours_worked: newHours, status: newStatus } : prev);
-      setTimerStart(null);
-      setElapsed(0);
-      refetchEntries();
-      toast.success("Atividade registrada!");
+      // Stop timer - all logic handled atomically by backend
+      try {
+        const result = await stopActiveTimer();
+        if (result.stopped) {
+          setTask(prev => prev ? {
+            ...prev,
+            hours_worked: result.new_hours_worked ?? prev.hours_worked,
+            status: prev.status === "nao_iniciada" || prev.status === "reprovada" ? "em_andamento" : prev.status,
+          } : prev);
+          setTimerStart(null);
+          setElapsed(0);
+          timerRestoredRef.current = false;
+          refetchEntries();
+          toast.success("Atividade registrada!");
+        }
+      } catch (err: any) {
+        toast.error("Erro ao parar timer: " + err.message);
+      }
     } else {
-      await startActiveTimer(task.id, task.project_id, profile.id, profile.name);
-      setTimerStart(new Date());
-      setElapsed(0);
-      if (task.status === "nao_iniciada" || task.status === "reprovada") {
-        await supabase.from("tasks").update({ status: "em_andamento" }).eq("id", task.id);
-        setTask(prev => prev ? { ...prev, status: "em_andamento" } : prev);
+      // Start timer - all logic handled atomically by backend
+      try {
+        await startActiveTimer(task.id, task.project_id);
+        setTimerStart(new Date());
+        setElapsed(0);
+        if (task.status === "nao_iniciada" || task.status === "reprovada") {
+          setTask(prev => prev ? { ...prev, status: "em_andamento" } : prev);
+        }
+      } catch (err: any) {
+        toast.error("Erro ao iniciar timer: " + err.message);
       }
     }
   };

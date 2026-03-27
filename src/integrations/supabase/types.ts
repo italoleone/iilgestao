@@ -447,6 +447,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      fn_start_timer: {
+        Args: { _project_id: string; _task_id: string }
+        Returns: undefined
+      }
+      fn_stop_timer: { Args: never; Returns: Json }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
