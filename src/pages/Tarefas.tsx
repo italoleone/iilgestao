@@ -262,7 +262,7 @@ export default function Tarefas() {
             <h1 className="text-2xl font-bold">Tarefas</h1>
             <p className="text-muted-foreground mt-1">
               {!isProjetista && filterProject === "all"
-                ? `${visibleTasks.length} tarefa${visibleTasks.length !== 1 ? "s" : ""} com play ativo`
+                ? `${visibleTasks.length} tarefa${visibleTasks.length !== 1 ? "s" : ""} com play ativo ou aguardando validação`
                 : `${visibleTasks.length} tarefa${visibleTasks.length !== 1 ? "s" : ""}`}
             </p>
           </div>
