@@ -65,7 +65,8 @@ export default function TarefaDetalhe() {
   const { profiles } = useActiveProfiles();
   const { projects: allProjects } = useProjects();
   const { entries: timeEntries, refetch: refetchEntries } = useTimeEntries(id);
-  const { activeTimers } = useActiveTimers();
+  const { activeTimers, loaded: timersLoaded } = useActiveTimers();
+  const timerRestoredRef = useRef(false);
 
   const [task, setTask] = useState<DbTask | null>(null);
   const [project, setProject] = useState<DbProject | null>(null);
