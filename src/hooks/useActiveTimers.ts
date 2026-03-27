@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ActiveTimer {
@@ -48,19 +48,39 @@ export function useActiveTimers() {
   return { activeTimers, loaded, refetch: fetchTimers };
 }
 
-export async function startActiveTimer(taskId: string, projectId: string, userId: string, userName: string) {
-  // Delete any existing timer for this user first
-  await supabase.from("active_timers").delete().eq("user_id", userId);
-  await supabase.from("active_timers").insert({
-    task_id: taskId,
-    project_id: projectId,
-    user_id: userId,
-    user_name: userName,
+/**
+ * Start a timer using atomic backend function.
+ * Automatically stops any existing timer for the user (saving time entry).
+ * Updates task status to em_andamento if needed.
+ */
+export async function startActiveTimer(taskId: string, projectId: string, _userId?: string, _userName?: string) {
+  const { error } = await supabase.rpc("fn_start_timer", {
+    _task_id: taskId,
+    _project_id: projectId,
   });
+  if (error) {
+    console.error("Error starting timer:", error);
+    throw error;
+  }
 }
 
-export async function stopActiveTimer(userId: string) {
-  await supabase.from("active_timers").delete().eq("user_id", userId);
+/**
+ * Stop the current user's timer using atomic backend function.
+ * Calculates duration server-side, creates time entry, updates task hours.
+ * Returns info about the stopped timer.
+ */
+export async function stopActiveTimer(_userId?: string): Promise<{
+  stopped: boolean;
+  task_id?: string;
+  duration_minutes?: number;
+  new_hours_worked?: number;
+}> {
+  const { data, error } = await supabase.rpc("fn_stop_timer");
+  if (error) {
+    console.error("Error stopping timer:", error);
+    throw error;
+  }
+  return data as any || { stopped: false };
 }
 
 export function getTimerForTask(activeTimers: ActiveTimer[], taskId: string): ActiveTimer[] {
