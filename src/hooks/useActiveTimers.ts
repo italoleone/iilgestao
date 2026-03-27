@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ActiveTimer {
@@ -12,12 +12,14 @@ export interface ActiveTimer {
 
 export function useActiveTimers() {
   const [activeTimers, setActiveTimers] = useState<ActiveTimer[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   const fetchTimers = useCallback(async () => {
     const { data } = await supabase
       .from("active_timers")
       .select("*");
     if (data) setActiveTimers(data as unknown as ActiveTimer[]);
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -34,12 +36,16 @@ export function useActiveTimers() {
       )
       .subscribe();
 
+    // Poll every 30s as fallback for realtime issues
+    const poll = setInterval(fetchTimers, 30000);
+
     return () => {
+      clearInterval(poll);
       supabase.removeChannel(channel);
     };
   }, [fetchTimers]);
 
-  return { activeTimers, refetch: fetchTimers };
+  return { activeTimers, loaded, refetch: fetchTimers };
 }
 
 export async function startActiveTimer(taskId: string, projectId: string, userId: string, userName: string) {
