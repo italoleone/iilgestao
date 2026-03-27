@@ -403,7 +403,8 @@ export default function TarefaDetalhe() {
   const showTimer = canExecuteTimer;
   const showCompleteButton = (isTaskResponsible || isManager) && task.status === "em_andamento";
   const showSendValidation = (isTaskResponsible || isManager) && task.status === "concluida";
-  const showValidationActions = (isCoordinator || isManager) && task.status === "aguardando_validacao";
+  // Coordinator or manager can validate, but NOT the task executor (prevent self-approval)
+  const showValidationActions = (isCoordinator || isManager) && !isTaskResponsible && task.status === "aguardando_validacao";
 
   return (
     <AppLayout>

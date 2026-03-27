@@ -177,13 +177,18 @@ export default function Tarefas() {
   const visibleTasks = useMemo(() => {
     let filtered = allTasks;
 
-    // Projetista: only their tasks, hide only concluded tasks
+    // Projetista: only their tasks, hide concluded/approved
     if (isProjetista && profile) {
       filtered = filtered.filter(t => t.responsible === profile.id && t.status !== "concluida");
-    } else if (!isProjetista && filterProject === "all") {
-      // Managers with no project selected: show only tasks with active play
+    } else if (!isProjetista && profile && filterProject === "all") {
+      // Managers with no project filter: show tasks with active timers
+      // PLUS tasks awaiting validation for projects where the user is coordinator
       const activeTaskIds = new Set(activeTimers.map(t => t.task_id));
-      filtered = filtered.filter(t => activeTaskIds.has(t.id));
+      const coordinatedProjectIds = new Set(projects.filter(p => p.responsible === profile.id).map(p => p.id));
+      filtered = filtered.filter(t =>
+        activeTaskIds.has(t.id) ||
+        (t.status === "aguardando_validacao" && coordinatedProjectIds.has(t.projectId))
+      );
     }
 
     if (search) {
@@ -257,7 +262,7 @@ export default function Tarefas() {
             <h1 className="text-2xl font-bold">Tarefas</h1>
             <p className="text-muted-foreground mt-1">
               {!isProjetista && filterProject === "all"
-                ? `${visibleTasks.length} tarefa${visibleTasks.length !== 1 ? "s" : ""} com play ativo`
+                ? `${visibleTasks.length} tarefa${visibleTasks.length !== 1 ? "s" : ""} com play ativo ou aguardando validação`
                 : `${visibleTasks.length} tarefa${visibleTasks.length !== 1 ? "s" : ""}`}
             </p>
           </div>
