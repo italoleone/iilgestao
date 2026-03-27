@@ -79,76 +79,33 @@ export default function Tarefas() {
   const toggleTimer = async (taskId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (activeTimerTaskId === taskId && timerStart) {
-      // Stop timer - save time entry
-      const now = new Date();
-      const durationMinutes = Math.max(1, Math.round(elapsed / 60));
-      const hoursWorked = elapsed / 3600;
-      const pad = (n: number) => n.toString().padStart(2, "0");
-      const task = allTasks.find(t => t.id === taskId);
-
-      if (task && profile) {
-        await supabase.from("time_entries").insert({
-          task_id: taskId,
-          project_id: task.projectId,
-          user_id: profile.id,
-          user_name: profile.name,
-          date: now.toISOString().slice(0, 10),
-          start_time: `${pad(timerStart.getHours())}:${pad(timerStart.getMinutes())}`,
-          end_time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
-          duration_minutes: durationMinutes,
-        });
-
-        await supabase.from("tasks").update({
-          hours_worked: Math.round((task.hoursWorked + hoursWorked) * 100) / 100,
-          status: "em_andamento",
-        }).eq("id", taskId);
-
-        await stopActiveTimer(profile.id);
-      }
-
-      setActiveTimerTaskId(null);
-      setTimerStart(null);
-      setElapsed(0);
-      refetchTasks();
-      toast.success("Atividade registrada!");
-    } else {
-      // Stop any existing timer first
-      if (activeTimerTaskId && timerStart) {
-        const prevTask = allTasks.find(t => t.id === activeTimerTaskId);
-        if (prevTask && profile) {
-          const now = new Date();
-          const durationMinutes = Math.max(1, Math.round(elapsed / 60));
-          const hoursWorked = elapsed / 3600;
-          const pad = (n: number) => n.toString().padStart(2, "0");
-          await supabase.from("time_entries").insert({
-            task_id: activeTimerTaskId,
-            project_id: prevTask.projectId,
-            user_id: profile.id,
-            user_name: profile.name,
-            date: now.toISOString().slice(0, 10),
-            start_time: `${pad(timerStart.getHours())}:${pad(timerStart.getMinutes())}`,
-            end_time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
-            duration_minutes: durationMinutes,
-          });
-          await supabase.from("tasks").update({
-            hours_worked: Math.round((prevTask.hoursWorked + hoursWorked) * 100) / 100,
-          }).eq("id", activeTimerTaskId);
-          await stopActiveTimer(profile.id);
+      // Stop timer - all logic handled atomically by backend
+      try {
+        const result = await stopActiveTimer();
+        if (result.stopped) {
+          setActiveTimerTaskId(null);
+          setTimerStart(null);
+          setElapsed(0);
+          refetchTasks();
+          toast.success("Atividade registrada!");
         }
+      } catch (err: any) {
+        toast.error("Erro ao parar timer: " + err.message);
       }
-
-      // Start new timer
-      const task = allTasks.find(t => t.id === taskId);
-      if (task && profile) {
-        await startActiveTimer(taskId, task.projectId, profile.id, profile.name);
-      }
-      setActiveTimerTaskId(taskId);
-      setTimerStart(new Date());
-      setElapsed(0);
-
-      if (task && task.status === "nao_iniciada") {
-        await supabase.from("tasks").update({ status: "em_andamento" }).eq("id", taskId);
-        refetchTasks();
+    } else {
+      // Start new timer - backend atomically stops any existing timer
+      try {
+        const task = allTasks.find(t => t.id === taskId);
+        if (!task || !profile) return;
+        await startActiveTimer(taskId, task.projectId);
+        setActiveTimerTaskId(taskId);
+        setTimerStart(new Date());
+        setElapsed(0);
+        if (task.status === "nao_iniciada") {
+          refetchTasks();
+        }
+      } catch (err: any) {
+        toast.error("Erro ao iniciar timer: " + err.message);
       }
     }
   };
