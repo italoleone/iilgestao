@@ -39,31 +39,27 @@ export default function Tarefas() {
   const { projects } = useProjects();
   const { tasks: allTasks, loading, refetch: refetchTasks } = useTasks();
   const { profiles } = useActiveProfiles();
-  const { activeTimers } = useActiveTimers();
+  const { activeTimers, loaded: timersLoaded } = useActiveTimers();
   const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
   const [timerStart, setTimerStart] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
   // Restore timer state from backend on mount / when activeTimers change
   useEffect(() => {
-    if (!profile) return;
+    if (!profile || !timersLoaded) return;
     const myTimer = activeTimers.find(t => t.user_id === profile.id);
     if (myTimer) {
       setActiveTimerTaskId(myTimer.task_id);
       const startedAt = new Date(myTimer.started_at);
       setTimerStart(startedAt);
       setElapsed(Math.floor((Date.now() - startedAt.getTime()) / 1000));
-    } else {
-      // Only clear if we had one before and it was removed (user clicked stop)
-      setActiveTimerTaskId(prev => {
-        if (prev) {
-          setTimerStart(null);
-          setElapsed(0);
-        }
-        return null;
-      });
+    } else if (activeTimerTaskId) {
+      // Only clear if we previously had a timer (it was stopped)
+      setActiveTimerTaskId(null);
+      setTimerStart(null);
+      setElapsed(0);
     }
-  }, [activeTimers, profile]);
+  }, [activeTimers, profile, timersLoaded]);
 
   useEffect(() => {
     if (!timerStart) return;

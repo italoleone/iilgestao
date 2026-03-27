@@ -73,7 +73,6 @@ export default function TarefaDetalhe() {
   const [loading, setLoading] = useState(true);
   const [timerStart, setTimerStart] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState(0);
-  const [timerRestoredRef] = useState({ done: false });
   const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -113,19 +112,19 @@ export default function TarefaDetalhe() {
 
   // Restore timer state from backend on mount
   useEffect(() => {
-    if (!profile || !id) return;
+    if (!profile || !id || !timersLoaded) return;
     const myTimer = activeTimers.find(t => t.user_id === profile.id && t.task_id === id);
-    if (myTimer && !timerRestoredRef.done) {
-      timerRestoredRef.done = true;
+    if (myTimer) {
       const startedAt = new Date(myTimer.started_at);
       setTimerStart(startedAt);
       setElapsed(Math.floor((Date.now() - startedAt.getTime()) / 1000));
-    } else if (!myTimer && timerRestoredRef.done) {
+      timerRestoredRef.current = true;
+    } else if (timerRestoredRef.current) {
       // Timer was stopped externally
       setTimerStart(null);
       setElapsed(0);
     }
-  }, [activeTimers, profile, id]);
+  }, [activeTimers, profile, id, timersLoaded]);
 
   useEffect(() => {
     if (!timerStart) return;
