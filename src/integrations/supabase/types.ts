@@ -308,7 +308,7 @@ export type Database = {
         Row: {
           created_at: string
           discipline: string
-          end_date: string
+          end_date: string | null
           estimated_hours: number
           hours_worked: number
           id: string
@@ -316,15 +316,15 @@ export type Database = {
           parent_task_id: string | null
           project_id: string
           rejection_reason: string | null
-          responsible: string
+          responsible: string | null
           stage_name: string
-          start_date: string
+          start_date: string | null
           status: string
         }
         Insert: {
           created_at?: string
           discipline: string
-          end_date: string
+          end_date?: string | null
           estimated_hours?: number
           hours_worked?: number
           id?: string
@@ -332,15 +332,15 @@ export type Database = {
           parent_task_id?: string | null
           project_id: string
           rejection_reason?: string | null
-          responsible: string
+          responsible?: string | null
           stage_name: string
-          start_date: string
+          start_date?: string | null
           status?: string
         }
         Update: {
           created_at?: string
           discipline?: string
-          end_date?: string
+          end_date?: string | null
           estimated_hours?: number
           hours_worked?: number
           id?: string
@@ -348,9 +348,9 @@ export type Database = {
           parent_task_id?: string | null
           project_id?: string
           rejection_reason?: string | null
-          responsible?: string
+          responsible?: string | null
           stage_name?: string
-          start_date?: string
+          start_date?: string | null
           status?: string
         }
         Relationships: [

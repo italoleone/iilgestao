@@ -1,0 +1,3 @@
+ALTER TABLE public.tasks ALTER COLUMN responsible DROP NOT NULL;
+ALTER TABLE public.tasks ALTER COLUMN start_date DROP NOT NULL;
+ALTER TABLE public.tasks ALTER COLUMN end_date DROP NOT NULL;
