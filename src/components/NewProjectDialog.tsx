@@ -153,7 +153,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
       );
 
       if (taskRows.length > 0) {
-        await supabase.from("tasks").insert(taskRows);
+        await supabase.from("tasks").insert(taskRows as any);
       }
     }
 
