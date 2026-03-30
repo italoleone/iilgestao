@@ -130,15 +130,16 @@ export default function Tarefas() {
   const visibleTasks = useMemo(() => {
     let filtered = allTasks;
 
-    // Projetista: only their tasks, hide concluded/approved
+    // Projetista: show all tasks assigned to them (hide concluded/approved)
     if (isProjetista && profile) {
-      filtered = filtered.filter(t => t.responsible === profile.id && t.status !== "concluida");
+      filtered = filtered.filter(t => t.responsible === profile.id && !["concluida", "aprovada"].includes(t.status));
     } else if (!isProjetista && profile && filterProject === "all") {
-      // Managers with no project filter: show tasks with active timers
-      // PLUS tasks awaiting validation for projects where the user is coordinator
+      // Managers without project filter: show tasks that have dates defined,
+      // tasks with active timers, or tasks awaiting validation for their projects
       const activeTaskIds = new Set(activeTimers.map(t => t.task_id));
       const coordinatedProjectIds = new Set(projects.filter(p => p.responsible === profile.id).map(p => p.id));
       filtered = filtered.filter(t =>
+        t.startDate || t.endDate ||
         activeTaskIds.has(t.id) ||
         (t.status === "aguardando_validacao" && coordinatedProjectIds.has(t.projectId))
       );
