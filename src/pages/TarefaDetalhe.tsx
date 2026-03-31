@@ -338,9 +338,9 @@ export default function TarefaDetalhe() {
   }
 
   const responsible = getProfileById(profiles, task.responsible);
-  const isOverdue = parseLocalDate(task.end_date) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "aprovada"].includes(task.status);
+  const isOverdue = parseLocalDate(task.end_date) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "aprovada", "enviado_cliente"].includes(task.status);
   const canDelete = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
-  const canEdit = !isProjetista && task.status !== "aprovada";
+  const canEdit = !isProjetista && !["aprovada", "enviado_cliente"].includes(task.status);
 
   const openEditDialog = () => {
     setEditData({
