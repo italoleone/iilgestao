@@ -19,7 +19,7 @@ import {
   type Discipline, type TaskStatus, type Task,
 } from "@/types";
 import {
-  Search, Plus, Clock, User, ChevronRight, ListChecks, List, Calendar, Play, Square, Loader2, Radio, CheckCircle2, AlertTriangle,
+  Search, Plus, Clock, User, ChevronRight, ListChecks, List, Calendar, Play, Square, Loader2, Radio, CheckCircle2, AlertTriangle, Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useActiveTimers, startActiveTimer, stopActiveTimer, getTimerForTask } from "@/hooks/useActiveTimers";
