@@ -31,6 +31,7 @@ const taskStatusColors: Record<TaskStatus, string> = {
   aguardando_validacao: "bg-warning text-warning-foreground",
   aprovada: "bg-success text-success-foreground",
   reprovada: "bg-destructive text-destructive-foreground",
+  enviado_cliente: "bg-primary text-primary-foreground",
 };
 
 export default function Tarefas() {
