@@ -561,7 +561,7 @@ export default function TarefaDetalhe() {
         )}
 
         {/* Action buttons */}
-        {(showCompleteButton || showSendValidation || showValidationActions) && (
+        {(showCompleteButton || showSendValidation || showValidationActions || showSendToClient) && (
           <div className="flex flex-wrap gap-3 animate-reveal-up delay-1" style={{ animationFillMode: "backwards" }}>
             {showCompleteButton && (
               <Button className="gap-2" onClick={handleMarkComplete}>
@@ -582,6 +582,11 @@ export default function TarefaDetalhe() {
                   <ThumbsDown className="h-4 w-4" /> Reprovar
                 </Button>
               </>
+            )}
+            {showSendToClient && (
+              <Button className="gap-2 bg-primary" onClick={handleSendToClient}>
+                <Send className="h-4 w-4" /> Enviar para o Cliente
+              </Button>
             )}
           </div>
         )}
