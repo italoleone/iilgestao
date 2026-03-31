@@ -489,7 +489,24 @@ export default function TarefaDetalhe() {
                 <div>
                   <p className="text-sm font-semibold text-success">Tarefa Aprovada</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Esta tarefa foi aprovada pelo coordenador. Pronta para enviar ao cliente.
+                    Esta tarefa foi aprovada pelo coordenador. Clique em "Enviar para o Cliente" para finalizar.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Sent to client */}
+        {task.status === "enviado_cliente" && (
+          <Card className="border-primary/30 bg-primary/5 shadow-sm animate-reveal-up" style={{ animationFillMode: "backwards" }}>
+            <CardContent className="py-4">
+              <div className="flex items-start gap-3">
+                <Send className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-primary">Enviado ao Cliente</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Esta tarefa foi enviada ao cliente com sucesso.
                   </p>
                 </div>
               </div>
