@@ -19,7 +19,7 @@ import {
   type Discipline, type TaskStatus, type Task,
 } from "@/types";
 import {
-  Search, Plus, Clock, User, ChevronRight, ListChecks, List, Calendar, Play, Square, Loader2, Radio,
+  Search, Plus, Clock, User, ChevronRight, ListChecks, List, Calendar, Play, Square, Loader2, Radio, CheckCircle2, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useActiveTimers, startActiveTimer, stopActiveTimer, getTimerForTask } from "@/hooks/useActiveTimers";
@@ -132,7 +132,7 @@ export default function Tarefas() {
 
     // Projetista: show all tasks assigned to them (hide concluded/approved)
     if (isProjetista && profile) {
-      filtered = filtered.filter(t => t.responsible === profile.id && !["concluida", "aprovada"].includes(t.status));
+      filtered = filtered.filter(t => t.responsible === profile.id && t.status !== "concluida");
     } else if (!isProjetista && profile && filterProject === "all") {
       // Managers without project filter: show tasks that have dates defined,
       // tasks with active timers, or tasks awaiting validation for their projects
@@ -313,6 +313,16 @@ export default function Tarefas() {
                           <div className="flex items-center gap-2 mb-1">
                             <p className="text-sm font-medium truncate">{task.name}</p>
                             {isOverdue && <Badge variant="destructive" className="text-xs shrink-0">Atrasada</Badge>}
+                            {task.status === "aprovada" && (
+                              <Badge variant="outline" className="text-xs shrink-0 bg-success/10 text-success border-success/30 gap-1">
+                                <CheckCircle2 className="h-3 w-3" /> Enviar para cliente
+                              </Badge>
+                            )}
+                            {task.status === "reprovada" && (
+                              <Badge variant="destructive" className="text-xs shrink-0 gap-1">
+                                <AlertTriangle className="h-3 w-3" /> Reprovada
+                              </Badge>
+                            )}
                             {hasActiveUsers ? (
                               <Badge variant="outline" className="text-xs shrink-0 bg-success/10 text-success border-success/30 gap-1 animate-pulse">
                                 <Radio className="h-3 w-3" />
