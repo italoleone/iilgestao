@@ -471,6 +471,23 @@ export default function TarefaDetalhe() {
           </Card>
         )}
 
+        {/* Approved - send to client */}
+        {task.status === "aprovada" && (
+          <Card className="border-success/30 bg-success/5 shadow-sm animate-reveal-up" style={{ animationFillMode: "backwards" }}>
+            <CardContent className="py-4">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="h-5 w-5 text-success mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-success">Tarefa Aprovada</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Esta tarefa foi aprovada pelo coordenador. Pronta para enviar ao cliente.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Awaiting validation info */}
         {task.status === "aguardando_validacao" && (
           <Card className="border-warning/30 bg-warning/5 shadow-sm animate-reveal-up" style={{ animationFillMode: "backwards" }}>
