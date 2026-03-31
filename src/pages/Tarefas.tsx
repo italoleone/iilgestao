@@ -320,6 +320,11 @@ export default function Tarefas() {
                                 <CheckCircle2 className="h-3 w-3" /> Enviar para cliente
                               </Badge>
                             )}
+                            {task.status === "enviado_cliente" && (
+                              <Badge variant="outline" className="text-xs shrink-0 bg-primary/10 text-primary border-primary/30 gap-1">
+                                <Send className="h-3 w-3" /> Enviado
+                              </Badge>
+                            )}
                             {task.status === "reprovada" && (
                               <Badge variant="destructive" className="text-xs shrink-0 gap-1">
                                 <AlertTriangle className="h-3 w-3" /> Reprovada
