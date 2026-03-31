@@ -132,7 +132,7 @@ export default function Tarefas() {
 
     // Projetista: show all tasks assigned to them (hide concluded/approved)
     if (isProjetista && profile) {
-      filtered = filtered.filter(t => t.responsible === profile.id && !["concluida", "aprovada"].includes(t.status));
+      filtered = filtered.filter(t => t.responsible === profile.id && t.status !== "concluida");
     } else if (!isProjetista && profile && filterProject === "all") {
       // Managers without project filter: show tasks that have dates defined,
       // tasks with active timers, or tasks awaiting validation for their projects
