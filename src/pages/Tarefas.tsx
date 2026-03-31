@@ -304,7 +304,7 @@ export default function Tarefas() {
                 const project = projects.find(p => p.id === task.projectId);
                 const responsible = getProfileById(profiles, task.responsible);
                 const hoursProgress = task.estimatedHours > 0 ? Math.round((task.hoursWorked / task.estimatedHours) * 100) : 0;
-                const isOverdue = parseLocalDate(task.endDate) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "aprovada"].includes(task.status);
+                const isOverdue = parseLocalDate(task.endDate) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "aprovada", "enviado_cliente"].includes(task.status);
                 const taskActiveTimers = getTimerForTask(activeTimers, task.id);
                 const hasActiveUsers = taskActiveTimers.length > 0;
                 return (

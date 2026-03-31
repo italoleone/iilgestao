@@ -314,7 +314,7 @@ export default function TarefaDetalhe() {
 
   const canDeleteAttachment = (att: TaskAttachment) => {
     if (!profile) return false;
-    if (task?.status === "aprovada") return false;
+    if (task?.status === "aprovada" || task?.status === "enviado_cliente") return false;
     return att.uploaded_by === profile.id || isManager || isCoordinator;
   };
 
