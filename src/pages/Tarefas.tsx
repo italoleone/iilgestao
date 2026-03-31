@@ -281,6 +281,7 @@ export default function Tarefas() {
             <option value="aguardando_validacao">Aguardando Validação</option>
             <option value="aprovada">Aprovada</option>
             <option value="reprovada">Reprovada</option>
+            <option value="enviado_cliente">Enviado ao Cliente</option>
           </select>
           <select value={filterStage} onChange={(e) => setFilterStage(e.target.value)} className="h-10 rounded-md border bg-card px-3 text-sm">
             <option value="all">Todas etapas</option>
