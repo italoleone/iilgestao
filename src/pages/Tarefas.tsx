@@ -158,7 +158,7 @@ export default function Tarefas() {
     if (filterResponsible !== "all") filtered = filtered.filter(t => t.responsible === filterResponsible);
     if (filterStage !== "all") filtered = filtered.filter(t => t.stageName === filterStage);
 
-    const statusOrder: Record<string, number> = { em_andamento: 0, nao_iniciada: 1, aguardando_validacao: 2, reprovada: 3, concluida: 4, aprovada: 5 };
+    const statusOrder: Record<string, number> = { em_andamento: 0, nao_iniciada: 1, aguardando_validacao: 2, reprovada: 3, aprovada: 4, concluida: 5, enviado_cliente: 6 };
     return filtered.sort((a, b) => {
       const so = (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1);
       if (so !== 0) return so;
