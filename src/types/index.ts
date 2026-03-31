@@ -130,6 +130,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   aguardando_validacao: 'Aguardando Validação',
   aprovada: 'Aprovada',
   reprovada: 'Reprovada',
+  enviado_cliente: 'Enviado ao Cliente',
 };
 
 export const STAGE_NAMES = [
