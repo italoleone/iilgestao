@@ -401,6 +401,14 @@ export default function TarefaDetalhe() {
   const showSendValidation = (isTaskResponsible || isManager) && task.status === "concluida";
   // Coordinator or manager can validate, but NOT the task executor (prevent self-approval)
   const showValidationActions = (isCoordinator || isManager) && !isTaskResponsible && task.status === "aguardando_validacao";
+  const showSendToClient = (isTaskResponsible || isManager) && task.status === "aprovada";
+
+  const handleSendToClient = async () => {
+    if (!task) return;
+    await supabase.from("tasks").update({ status: "enviado_cliente" }).eq("id", task.id);
+    setTask(prev => prev ? { ...prev, status: "enviado_cliente" } : prev);
+    toast.success("Tarefa marcada como enviada ao cliente!");
+  };
 
   return (
     <AppLayout>
