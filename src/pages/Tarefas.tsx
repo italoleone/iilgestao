@@ -19,7 +19,7 @@ import {
   type Discipline, type TaskStatus, type Task,
 } from "@/types";
 import {
-  Search, Plus, Clock, User, ChevronRight, ListChecks, List, Calendar, Play, Square, Loader2, Radio, CheckCircle2, AlertTriangle,
+  Search, Plus, Clock, User, ChevronRight, ListChecks, List, Calendar, Play, Square, Loader2, Radio, CheckCircle2, AlertTriangle, Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useActiveTimers, startActiveTimer, stopActiveTimer, getTimerForTask } from "@/hooks/useActiveTimers";
@@ -31,6 +31,7 @@ const taskStatusColors: Record<TaskStatus, string> = {
   aguardando_validacao: "bg-warning text-warning-foreground",
   aprovada: "bg-success text-success-foreground",
   reprovada: "bg-destructive text-destructive-foreground",
+  enviado_cliente: "bg-primary text-primary-foreground",
 };
 
 export default function Tarefas() {
@@ -132,7 +133,7 @@ export default function Tarefas() {
 
     // Projetista: show all tasks assigned to them (hide concluded/approved)
     if (isProjetista && profile) {
-      filtered = filtered.filter(t => t.responsible === profile.id && t.status !== "concluida");
+      filtered = filtered.filter(t => t.responsible === profile.id && !["concluida", "enviado_cliente"].includes(t.status));
     } else if (!isProjetista && profile && filterProject === "all") {
       // Managers without project filter: show tasks that have dates defined,
       // tasks with active timers, or tasks awaiting validation for their projects
@@ -157,7 +158,7 @@ export default function Tarefas() {
     if (filterResponsible !== "all") filtered = filtered.filter(t => t.responsible === filterResponsible);
     if (filterStage !== "all") filtered = filtered.filter(t => t.stageName === filterStage);
 
-    const statusOrder: Record<string, number> = { em_andamento: 0, nao_iniciada: 1, aguardando_validacao: 2, reprovada: 3, concluida: 4, aprovada: 5 };
+    const statusOrder: Record<string, number> = { em_andamento: 0, nao_iniciada: 1, aguardando_validacao: 2, reprovada: 3, aprovada: 4, concluida: 5, enviado_cliente: 6 };
     return filtered.sort((a, b) => {
       const so = (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1);
       if (so !== 0) return so;
@@ -280,6 +281,7 @@ export default function Tarefas() {
             <option value="aguardando_validacao">Aguardando Validação</option>
             <option value="aprovada">Aprovada</option>
             <option value="reprovada">Reprovada</option>
+            <option value="enviado_cliente">Enviado ao Cliente</option>
           </select>
           <select value={filterStage} onChange={(e) => setFilterStage(e.target.value)} className="h-10 rounded-md border bg-card px-3 text-sm">
             <option value="all">Todas etapas</option>
@@ -302,7 +304,7 @@ export default function Tarefas() {
                 const project = projects.find(p => p.id === task.projectId);
                 const responsible = getProfileById(profiles, task.responsible);
                 const hoursProgress = task.estimatedHours > 0 ? Math.round((task.hoursWorked / task.estimatedHours) * 100) : 0;
-                const isOverdue = parseLocalDate(task.endDate) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "aprovada"].includes(task.status);
+                const isOverdue = parseLocalDate(task.endDate) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "aprovada", "enviado_cliente"].includes(task.status);
                 const taskActiveTimers = getTimerForTask(activeTimers, task.id);
                 const hasActiveUsers = taskActiveTimers.length > 0;
                 return (
@@ -316,6 +318,11 @@ export default function Tarefas() {
                             {task.status === "aprovada" && (
                               <Badge variant="outline" className="text-xs shrink-0 bg-success/10 text-success border-success/30 gap-1">
                                 <CheckCircle2 className="h-3 w-3" /> Enviar para cliente
+                              </Badge>
+                            )}
+                            {task.status === "enviado_cliente" && (
+                              <Badge variant="outline" className="text-xs shrink-0 bg-primary/10 text-primary border-primary/30 gap-1">
+                                <Send className="h-3 w-3" /> Enviado
                               </Badge>
                             )}
                             {task.status === "reprovada" && (

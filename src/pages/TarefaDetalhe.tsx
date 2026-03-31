@@ -31,6 +31,7 @@ const taskStatusColors: Record<TaskStatus, string> = {
   aguardando_validacao: "bg-warning text-warning-foreground",
   aprovada: "bg-success text-success-foreground",
   reprovada: "bg-destructive text-destructive-foreground",
+  enviado_cliente: "bg-primary text-primary-foreground",
 };
 
 function formatDuration(minutes: number) {
@@ -313,7 +314,7 @@ export default function TarefaDetalhe() {
 
   const canDeleteAttachment = (att: TaskAttachment) => {
     if (!profile) return false;
-    if (task?.status === "aprovada") return false;
+    if (task?.status === "aprovada" || task?.status === "enviado_cliente") return false;
     return att.uploaded_by === profile.id || isManager || isCoordinator;
   };
 
@@ -337,9 +338,9 @@ export default function TarefaDetalhe() {
   }
 
   const responsible = getProfileById(profiles, task.responsible);
-  const isOverdue = parseLocalDate(task.end_date) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "aprovada"].includes(task.status);
+  const isOverdue = parseLocalDate(task.end_date) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "aprovada", "enviado_cliente"].includes(task.status);
   const canDelete = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
-  const canEdit = !isProjetista && task.status !== "aprovada";
+  const canEdit = !isProjetista && !["aprovada", "enviado_cliente"].includes(task.status);
 
   const openEditDialog = () => {
     setEditData({
@@ -400,6 +401,14 @@ export default function TarefaDetalhe() {
   const showSendValidation = (isTaskResponsible || isManager) && task.status === "concluida";
   // Coordinator or manager can validate, but NOT the task executor (prevent self-approval)
   const showValidationActions = (isCoordinator || isManager) && !isTaskResponsible && task.status === "aguardando_validacao";
+  const showSendToClient = (isTaskResponsible || isManager) && task.status === "aprovada";
+
+  const handleSendToClient = async () => {
+    if (!task) return;
+    await supabase.from("tasks").update({ status: "enviado_cliente" }).eq("id", task.id);
+    setTask(prev => prev ? { ...prev, status: "enviado_cliente" } : prev);
+    toast.success("Tarefa marcada como enviada ao cliente!");
+  };
 
   return (
     <AppLayout>
@@ -480,7 +489,24 @@ export default function TarefaDetalhe() {
                 <div>
                   <p className="text-sm font-semibold text-success">Tarefa Aprovada</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Esta tarefa foi aprovada pelo coordenador. Pronta para enviar ao cliente.
+                    Esta tarefa foi aprovada pelo coordenador. Clique em "Enviar para o Cliente" para finalizar.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Sent to client */}
+        {task.status === "enviado_cliente" && (
+          <Card className="border-primary/30 bg-primary/5 shadow-sm animate-reveal-up" style={{ animationFillMode: "backwards" }}>
+            <CardContent className="py-4">
+              <div className="flex items-start gap-3">
+                <Send className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-primary">Enviado ao Cliente</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Esta tarefa foi enviada ao cliente com sucesso.
                   </p>
                 </div>
               </div>
@@ -552,7 +578,7 @@ export default function TarefaDetalhe() {
         )}
 
         {/* Action buttons */}
-        {(showCompleteButton || showSendValidation || showValidationActions) && (
+        {(showCompleteButton || showSendValidation || showValidationActions || showSendToClient) && (
           <div className="flex flex-wrap gap-3 animate-reveal-up delay-1" style={{ animationFillMode: "backwards" }}>
             {showCompleteButton && (
               <Button className="gap-2" onClick={handleMarkComplete}>
@@ -573,6 +599,11 @@ export default function TarefaDetalhe() {
                   <ThumbsDown className="h-4 w-4" /> Reprovar
                 </Button>
               </>
+            )}
+            {showSendToClient && (
+              <Button className="gap-2 bg-primary" onClick={handleSendToClient}>
+                <Send className="h-4 w-4" /> Enviar para o Cliente
+              </Button>
             )}
           </div>
         )}
