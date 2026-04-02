@@ -17,6 +17,11 @@ import Cadastro from "./pages/Cadastro";
 import Perfil from "./pages/Perfil";
 import Usuarios from "./pages/Usuarios";
 import DashboardPlanejamento from "./pages/DashboardPlanejamento";
+import ComercialDashboard from "./pages/comercial/ComercialDashboard";
+import ComercialClientes from "./pages/comercial/ComercialClientes";
+import ComercialPropostas from "./pages/comercial/ComercialPropostas";
+import ComercialPipeline from "./pages/comercial/ComercialPipeline";
+import ComercialRelatorios from "./pages/comercial/ComercialRelatorios";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
