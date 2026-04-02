@@ -75,6 +75,11 @@ function AppRoutes() {
       <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><Financeiro /></ProtectedRoute>} />
       <Route path="/usuarios" element={<ProtectedRoute allowedRoles={["admin_geral"]}><Usuarios /></ProtectedRoute>} />
       <Route path="/alertas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Alertas /></ProtectedRoute>} />
+      <Route path="/comercial" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialDashboard /></ProtectedRoute>} />
+      <Route path="/comercial/clientes" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialClientes /></ProtectedRoute>} />
+      <Route path="/comercial/propostas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialPropostas /></ProtectedRoute>} />
+      <Route path="/comercial/pipeline" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialPipeline /></ProtectedRoute>} />
+      <Route path="/comercial/relatorios" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialRelatorios /></ProtectedRoute>} />
       <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
