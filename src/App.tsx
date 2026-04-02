@@ -17,6 +17,11 @@ import Cadastro from "./pages/Cadastro";
 import Perfil from "./pages/Perfil";
 import Usuarios from "./pages/Usuarios";
 import DashboardPlanejamento from "./pages/DashboardPlanejamento";
+import ComercialDashboard from "./pages/comercial/ComercialDashboard";
+import ComercialClientes from "./pages/comercial/ComercialClientes";
+import ComercialPropostas from "./pages/comercial/ComercialPropostas";
+import ComercialPipeline from "./pages/comercial/ComercialPipeline";
+import ComercialRelatorios from "./pages/comercial/ComercialRelatorios";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -70,6 +75,11 @@ function AppRoutes() {
       <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><Financeiro /></ProtectedRoute>} />
       <Route path="/usuarios" element={<ProtectedRoute allowedRoles={["admin_geral"]}><Usuarios /></ProtectedRoute>} />
       <Route path="/alertas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Alertas /></ProtectedRoute>} />
+      <Route path="/comercial" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialDashboard /></ProtectedRoute>} />
+      <Route path="/comercial/clientes" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialClientes /></ProtectedRoute>} />
+      <Route path="/comercial/propostas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialPropostas /></ProtectedRoute>} />
+      <Route path="/comercial/pipeline" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialPipeline /></ProtectedRoute>} />
+      <Route path="/comercial/relatorios" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialRelatorios /></ProtectedRoute>} />
       <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>

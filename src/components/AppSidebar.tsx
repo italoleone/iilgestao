@@ -9,6 +9,10 @@ import {
   Briefcase,
   ChevronRight,
   ClipboardList,
+  UserRound,
+  FileText,
+  Kanban,
+  PieChart,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -58,8 +62,14 @@ const modules: NavModule[] = [
   {
     title: "Comercial",
     icon: Briefcase,
-    url: "#",
     roles: ["admin_geral", "admin"],
+    children: [
+      { title: "Dashboard", url: "/comercial", icon: LayoutDashboard },
+      { title: "Clientes", url: "/comercial/clientes", icon: UserRound },
+      { title: "Propostas", url: "/comercial/propostas", icon: FileText },
+      { title: "Pipeline", url: "/comercial/pipeline", icon: Kanban },
+      { title: "Relatórios", url: "/comercial/relatorios", icon: PieChart },
+    ],
   },
   {
     title: "Usuários",

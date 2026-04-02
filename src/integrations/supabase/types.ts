@@ -74,6 +74,102 @@ export type Database = {
         }
         Relationships: []
       }
+      commercial_clients: {
+        Row: {
+          city: string | null
+          contact_name: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+        }
+        Insert: {
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+        }
+        Update: {
+          city?: string | null
+          contact_name?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+        }
+        Relationships: []
+      }
+      commercial_proposals: {
+        Row: {
+          area_m2: number
+          client_id: string
+          created_at: string
+          disciplines: Json
+          id: string
+          linked_project_id: string | null
+          notes: string | null
+          project_name: string
+          proposal_date: string
+          responsible_id: string
+          status: string
+          total_value: number
+          updated_at: string
+        }
+        Insert: {
+          area_m2: number
+          client_id: string
+          created_at?: string
+          disciplines?: Json
+          id?: string
+          linked_project_id?: string | null
+          notes?: string | null
+          project_name: string
+          proposal_date?: string
+          responsible_id: string
+          status?: string
+          total_value?: number
+          updated_at?: string
+        }
+        Update: {
+          area_m2?: number
+          client_id?: string
+          created_at?: string
+          disciplines?: Json
+          id?: string
+          linked_project_id?: string | null
+          notes?: string | null
+          project_name?: string
+          proposal_date?: string
+          responsible_id?: string
+          status?: string
+          total_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_proposals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_proposals_linked_project_id_fkey"
+            columns: ["linked_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meetings: {
         Row: {
           audio_path: string | null
