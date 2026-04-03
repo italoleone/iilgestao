@@ -109,13 +109,19 @@ export type Database = {
       }
       commercial_proposals: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           area_m2: number
           client_id: string
           created_at: string
           disciplines: Json
+          discounts: Json
+          final_disciplines: Json
+          final_total_value: number
           id: string
           linked_project_id: string | null
           notes: string | null
+          price_per_m2: Json
           project_name: string
           proposal_date: string
           responsible_id: string
@@ -124,13 +130,19 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           area_m2: number
           client_id: string
           created_at?: string
           disciplines?: Json
+          discounts?: Json
+          final_disciplines?: Json
+          final_total_value?: number
           id?: string
           linked_project_id?: string | null
           notes?: string | null
+          price_per_m2?: Json
           project_name: string
           proposal_date?: string
           responsible_id: string
@@ -139,13 +151,19 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           area_m2?: number
           client_id?: string
           created_at?: string
           disciplines?: Json
+          discounts?: Json
+          final_disciplines?: Json
+          final_total_value?: number
           id?: string
           linked_project_id?: string | null
           notes?: string | null
+          price_per_m2?: Json
           project_name?: string
           proposal_date?: string
           responsible_id?: string

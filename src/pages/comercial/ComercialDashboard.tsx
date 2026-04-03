@@ -29,11 +29,12 @@ export default function ComercialDashboard() {
   const totalProposals = thisMonthProposals.length;
   const totalValue = thisMonthProposals.reduce((s, p) => s + p.total_value, 0);
   const approved = proposals.filter((p) => p.status === "aprovada");
-  const approvedValue = approved.reduce((s, p) => s + p.total_value, 0);
+
+  // Use final values for approved proposals
+  const approvedValue = approved.reduce((s, p) => s + (p.final_total_value > 0 ? p.final_total_value : p.total_value), 0);
   const conversionRate = proposals.length > 0 ? ((approved.length / proposals.length) * 100).toFixed(1) : "0";
   const avgTicket = approved.length > 0 ? approvedValue / approved.length : 0;
 
-  // Average closing time (days between proposal_date and updated_at for approved)
   const closingDays = approved.map((p) => {
     const start = new Date(p.proposal_date).getTime();
     const end = new Date(p.updated_at).getTime();
@@ -41,23 +42,28 @@ export default function ComercialDashboard() {
   });
   const avgClosingTime = closingDays.length > 0 ? Math.round(closingDays.reduce((a, b) => a + b, 0) / closingDays.length) : 0;
 
-  // Funnel data
   const funnelData = Object.entries(PROPOSAL_STATUS_LABELS).map(([key, label]) => ({
     name: label,
     value: proposals.filter((p) => p.status === key).length,
     fill: STATUS_COLORS[key] || "#94a3b8",
   }));
 
-  // Proposals by status (pie)
   const statusPie = funnelData.filter((d) => d.value > 0);
 
-  // R$/m² by discipline (approved only)
+  // R$/m² by discipline — uses FINAL values when available
   const disciplineMetrics = (["estrutural", "hidraulica", "eletrica"] as const).map((disc) => {
     const relevantProposals = approved.filter((p) => {
-      const val = (p.disciplines as ProposalDisciplines)?.[disc];
+      const finalVal = (p.final_disciplines as ProposalDisciplines)?.[disc];
+      const origVal = (p.disciplines as ProposalDisciplines)?.[disc];
+      const val = (finalVal && finalVal > 0) ? finalVal : origVal;
       return val && val > 0 && p.area_m2 > 0;
     });
-    const values = relevantProposals.map((p) => (p.disciplines as ProposalDisciplines)[disc]! / p.area_m2);
+    const values = relevantProposals.map((p) => {
+      const finalVal = (p.final_disciplines as ProposalDisciplines)?.[disc];
+      const origVal = (p.disciplines as ProposalDisciplines)?.[disc];
+      const val = (finalVal && finalVal > 0) ? finalVal : origVal!;
+      return val / p.area_m2;
+    });
     const avg = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
     const min = values.length > 0 ? Math.min(...values) : 0;
     const max = values.length > 0 ? Math.max(...values) : 0;
@@ -76,7 +82,6 @@ export default function ComercialDashboard() {
       <div className="p-6 space-y-6">
         <h1 className="text-2xl font-bold text-foreground">Dashboard Comercial</h1>
 
-        {/* KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {[
             { label: "Propostas no Mês", value: totalProposals, icon: FileText },
@@ -98,11 +103,8 @@ export default function ComercialDashboard() {
           ))}
         </div>
 
-        {/* R$/m² por Disciplina */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">R$/m² por Disciplina (Propostas Aprovadas)</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="text-base">R$/m² por Disciplina (Propostas Aprovadas)</CardTitle></CardHeader>
           <CardContent>
             {disciplineMetrics.every((d) => d.avg === 0) ? (
               <p className="text-sm text-muted-foreground">Nenhuma proposta aprovada com dados suficientes.</p>
@@ -112,14 +114,8 @@ export default function ComercialDashboard() {
                   <Card key={d.discipline} className="bg-muted/30">
                     <CardContent className="p-4 text-center">
                       <p className="text-sm font-medium text-muted-foreground">{d.discipline}</p>
-                      <p className="text-2xl font-bold text-foreground mt-1">
-                        {d.avg > 0 ? `R$ ${d.avg.toFixed(2)}/m²` : "—"}
-                      </p>
-                      {d.avg > 0 && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Mín: R$ {d.min.toFixed(2)} | Máx: R$ {d.max.toFixed(2)}
-                        </p>
-                      )}
+                      <p className="text-2xl font-bold text-foreground mt-1">{d.avg > 0 ? `R$ ${d.avg.toFixed(2)}/m²` : "—"}</p>
+                      {d.avg > 0 && <p className="text-xs text-muted-foreground mt-1">Mín: R$ {d.min.toFixed(2)} | Máx: R$ {d.max.toFixed(2)}</p>}
                     </CardContent>
                   </Card>
                 ))}
@@ -128,13 +124,9 @@ export default function ComercialDashboard() {
           </CardContent>
         </Card>
 
-        {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Funnel */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Funil de Vendas</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-base">Funil de Vendas</CardTitle></CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={funnelData} layout="vertical">
@@ -143,20 +135,15 @@ export default function ComercialDashboard() {
                   <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 12 }} />
                   <Tooltip />
                   <Bar dataKey="value" name="Propostas">
-                    {funnelData.map((entry, i) => (
-                      <Cell key={i} fill={entry.fill} />
-                    ))}
+                    {funnelData.map((entry, i) => (<Cell key={i} fill={entry.fill} />))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          {/* Status Pie */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Propostas por Status</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-base">Propostas por Status</CardTitle></CardHeader>
             <CardContent>
               {statusPie.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhuma proposta registrada.</p>
@@ -164,9 +151,7 @@ export default function ComercialDashboard() {
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie data={statusPie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
-                      {statusPie.map((entry, i) => (
-                        <Cell key={i} fill={entry.fill} />
-                      ))}
+                      {statusPie.map((entry, i) => (<Cell key={i} fill={entry.fill} />))}
                     </Pie>
                     <Tooltip />
                   </PieChart>

@@ -6,13 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useCommercialProposals, useCommercialClients, useCreateProposal, useUpdateProposal, useApproveProposal, useClientHistory, PROPOSAL_STATUS_LABELS, type ProposalStatus, type CommercialProposal, type ProposalDisciplines } from "@/hooks/useCommercialData";
+import {
+  useCommercialProposals, useCommercialClients, useCreateProposal, useUpdateProposal,
+  useApproveProposal, useClientHistory, PROPOSAL_STATUS_LABELS,
+  type ProposalStatus, type CommercialProposal, type ProposalDisciplines, type ProposalDiscounts,
+} from "@/hooks/useCommercialData";
 import { useAuth } from "@/contexts/AuthContext";
 import { Plus, Search, Eye, CheckCircle, XCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
 const STATUS_COLORS: Record<ProposalStatus, string> = {
   lead: "bg-muted text-muted-foreground",
@@ -24,29 +27,37 @@ const STATUS_COLORS: Record<ProposalStatus, string> = {
   reprovada: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
+const DISC_LABELS: Record<string, string> = { estrutural: "Estrutural", hidraulica: "Hidráulica", eletrica: "Elétrica" };
+
 export default function ComercialPropostas() {
   const { data: proposals = [] } = useCommercialProposals();
   const { data: clients = [] } = useCommercialClients();
   const createProposal = useCreateProposal();
   const updateProposal = useUpdateProposal();
   const approveProposal = useApproveProposal();
-  const { user, profile } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailProposal, setDetailProposal] = useState<CommercialProposal | null>(null);
+  const [approvalTarget, setApprovalTarget] = useState<CommercialProposal | null>(null);
 
   const [form, setForm] = useState({
     client_id: "",
     project_name: "",
     area_m2: "",
-    disc_estrutural: "",
-    disc_hidraulica: "",
-    disc_eletrica: "",
+    pm2_estrutural: "",
+    pm2_hidraulica: "",
+    pm2_eletrica: "",
     proposal_date: new Date().toISOString().split("T")[0],
     notes: "",
+  });
+
+  const [discountForm, setDiscountForm] = useState<ProposalDiscounts>({
+    estrutural: 0,
+    hidraulica: 0,
+    eletrica: 0,
   });
 
   const filtered = proposals.filter((p) => {
@@ -56,27 +67,38 @@ export default function ComercialPropostas() {
   });
 
   const openCreate = () => {
-    setForm({
-      client_id: "",
-      project_name: "",
-      area_m2: "",
-      disc_estrutural: "",
-      disc_hidraulica: "",
-      disc_eletrica: "",
-      proposal_date: new Date().toISOString().split("T")[0],
-      notes: "",
-    });
+    setForm({ client_id: "", project_name: "", area_m2: "", pm2_estrutural: "", pm2_hidraulica: "", pm2_eletrica: "", proposal_date: new Date().toISOString().split("T")[0], notes: "" });
     setDialogOpen(true);
+  };
+
+  const calcDisciplineValue = (pm2: string, area: string) => {
+    const p = parseFloat(pm2) || 0;
+    const a = parseFloat(area) || 0;
+    return p * a;
   };
 
   const handleCreate = () => {
     const area = parseFloat(form.area_m2);
     if (!form.client_id || !form.project_name || !area || area <= 0) return;
 
+    const pricePerM2: ProposalDisciplines = {};
     const disciplines: ProposalDisciplines = {};
-    if (form.disc_estrutural) disciplines.estrutural = parseFloat(form.disc_estrutural);
-    if (form.disc_hidraulica) disciplines.hidraulica = parseFloat(form.disc_hidraulica);
-    if (form.disc_eletrica) disciplines.eletrica = parseFloat(form.disc_eletrica);
+
+    if (form.pm2_estrutural) {
+      const pm2 = parseFloat(form.pm2_estrutural);
+      pricePerM2.estrutural = pm2;
+      disciplines.estrutural = pm2 * area;
+    }
+    if (form.pm2_hidraulica) {
+      const pm2 = parseFloat(form.pm2_hidraulica);
+      pricePerM2.hidraulica = pm2;
+      disciplines.hidraulica = pm2 * area;
+    }
+    if (form.pm2_eletrica) {
+      const pm2 = parseFloat(form.pm2_eletrica);
+      pricePerM2.eletrica = pm2;
+      disciplines.eletrica = pm2 * area;
+    }
 
     const total = Object.values(disciplines).reduce((s, v) => s + (v || 0), 0);
 
@@ -85,6 +107,7 @@ export default function ComercialPropostas() {
       project_name: form.project_name,
       area_m2: area,
       disciplines,
+      price_per_m2: pricePerM2,
       total_value: total,
       proposal_date: form.proposal_date,
       responsible_id: user?.id || "",
@@ -92,11 +115,23 @@ export default function ComercialPropostas() {
     }, { onSuccess: () => setDialogOpen(false) });
   };
 
-  const handleApprove = (p: CommercialProposal) => {
-    if (confirm("Aprovar proposta e criar projeto no Planejamento?")) {
-      approveProposal.mutate(p);
-      setDetailProposal(null);
-    }
+  const openApprovalModal = (p: CommercialProposal) => {
+    setApprovalTarget(p);
+    setDiscountForm({ estrutural: 0, hidraulica: 0, eletrica: 0 });
+  };
+
+  const handleApproveWithDiscount = () => {
+    if (!approvalTarget || !user) return;
+    approveProposal.mutate({
+      proposal: approvalTarget,
+      discounts: discountForm,
+      userId: user.id,
+    }, {
+      onSuccess: () => {
+        setApprovalTarget(null);
+        setDetailProposal(null);
+      },
+    });
   };
 
   const handleReject = (p: CommercialProposal) => {
@@ -108,7 +143,7 @@ export default function ComercialPropostas() {
 
   const handleStatusChange = (p: CommercialProposal, newStatus: ProposalStatus) => {
     if (newStatus === "aprovada") {
-      handleApprove(p);
+      openApprovalModal(p);
     } else {
       updateProposal.mutate({ id: p.id, status: newStatus as any });
     }
@@ -155,23 +190,26 @@ export default function ComercialPropostas() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((p) => (
-                  <TableRow key={p.id} className="cursor-pointer" onClick={() => setDetailProposal(p)}>
-                    <TableCell className="font-medium">{p.project_name}</TableCell>
-                    <TableCell>{p.client?.name || "—"}</TableCell>
-                    <TableCell>{p.area_m2}</TableCell>
-                    <TableCell>{fmt(p.total_value)}</TableCell>
-                    <TableCell>
-                      <Badge className={STATUS_COLORS[p.status]}>{PROPOSAL_STATUS_LABELS[p.status]}</Badge>
-                    </TableCell>
-                    <TableCell>{new Date(p.proposal_date).toLocaleDateString("pt-BR")}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setDetailProposal(p); }}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filtered.map((p) => {
+                  const displayValue = p.status === "aprovada" && p.final_total_value > 0 ? p.final_total_value : p.total_value;
+                  return (
+                    <TableRow key={p.id} className="cursor-pointer" onClick={() => setDetailProposal(p)}>
+                      <TableCell className="font-medium">{p.project_name}</TableCell>
+                      <TableCell>{p.client?.name || "—"}</TableCell>
+                      <TableCell>{p.area_m2}</TableCell>
+                      <TableCell>{fmt(displayValue)}</TableCell>
+                      <TableCell>
+                        <Badge className={STATUS_COLORS[p.status]}>{PROPOSAL_STATUS_LABELS[p.status]}</Badge>
+                      </TableCell>
+                      <TableCell>{new Date(p.proposal_date).toLocaleDateString("pt-BR")}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setDetailProposal(p); }}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 {filtered.length === 0 && (
                   <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Nenhuma proposta encontrada</TableCell></TableRow>
                 )}
@@ -184,7 +222,7 @@ export default function ComercialPropostas() {
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Nova Proposta</DialogTitle></DialogHeader>
-            <CreateProposalForm form={form} setForm={setForm} clients={clients} onSave={handleCreate} selectedClientId={form.client_id} />
+            <CreateProposalForm form={form} setForm={setForm} clients={clients} onSave={handleCreate} selectedClientId={form.client_id} calcDisciplineValue={calcDisciplineValue} />
           </DialogContent>
         </Dialog>
 
@@ -193,9 +231,21 @@ export default function ComercialPropostas() {
           <ProposalDetailDialog
             proposal={detailProposal}
             onClose={() => setDetailProposal(null)}
-            onApprove={() => handleApprove(detailProposal)}
+            onApprove={() => openApprovalModal(detailProposal)}
             onReject={() => handleReject(detailProposal)}
             onStatusChange={(s) => handleStatusChange(detailProposal, s)}
+          />
+        )}
+
+        {/* Approval discount modal */}
+        {approvalTarget && (
+          <ApprovalDiscountModal
+            proposal={approvalTarget}
+            discounts={discountForm}
+            setDiscounts={setDiscountForm}
+            onConfirm={handleApproveWithDiscount}
+            onCancel={() => setApprovalTarget(null)}
+            isLoading={approveProposal.isPending}
           />
         )}
       </div>
@@ -203,13 +253,17 @@ export default function ComercialPropostas() {
   );
 }
 
-function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId }: any) {
+/* ─── Create Form ─── */
+function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId, calcDisciplineValue }: any) {
   const { data: history = [] } = useClientHistory(selectedClientId || null);
+  const area = parseFloat(form.area_m2) || 0;
 
-  const totalValue =
-    (parseFloat(form.disc_estrutural) || 0) +
-    (parseFloat(form.disc_hidraulica) || 0) +
-    (parseFloat(form.disc_eletrica) || 0);
+  const valEst = calcDisciplineValue(form.pm2_estrutural, form.area_m2);
+  const valHid = calcDisciplineValue(form.pm2_hidraulica, form.area_m2);
+  const valEle = calcDisciplineValue(form.pm2_eletrica, form.area_m2);
+  const totalValue = valEst + valHid + valEle;
+
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
     <div className="space-y-3 max-h-[70vh] overflow-y-auto">
@@ -225,7 +279,6 @@ function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId }
         </Select>
       </div>
 
-      {/* Client history */}
       {history.length > 0 && (
         <Card className="bg-muted/30 border-dashed">
           <CardContent className="p-3">
@@ -234,10 +287,10 @@ function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId }
               <div key={h.id} className="text-xs border-b border-border/50 pb-1 mb-1">
                 <span className="font-medium">{h.project_name}</span> — {h.area_m2}m²
                 {(["estrutural", "hidraulica", "eletrica"] as const).map((d) => {
-                  const val = h.disciplines?.[d];
-                  return val ? (
+                  const pm2 = h.price_per_m2?.[d] || (h.disciplines?.[d] && h.area_m2 > 0 ? h.disciplines[d] / h.area_m2 : null);
+                  return pm2 ? (
                     <span key={d} className="ml-2 text-muted-foreground">
-                      {d.charAt(0).toUpperCase()}: R${(val / h.area_m2).toFixed(2)}/m²
+                      {d.charAt(0).toUpperCase()}: R${pm2.toFixed(2)}/m²
                     </span>
                   ) : null;
                 })}
@@ -251,13 +304,21 @@ function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId }
       <div><Label>Área do Projeto (m²) *</Label><Input type="number" value={form.area_m2} onChange={(e) => setForm({ ...form, area_m2: e.target.value })} /></div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-semibold">Valores por Disciplina</Label>
+        <Label className="text-sm font-semibold">Valores por Disciplina (R$/m²)</Label>
         <div className="grid grid-cols-3 gap-2">
-          <div><Label className="text-xs">Estrutural (R$)</Label><Input type="number" value={form.disc_estrutural} onChange={(e) => setForm({ ...form, disc_estrutural: e.target.value })} /></div>
-          <div><Label className="text-xs">Hidráulica (R$)</Label><Input type="number" value={form.disc_hidraulica} onChange={(e) => setForm({ ...form, disc_hidraulica: e.target.value })} /></div>
-          <div><Label className="text-xs">Elétrica (R$)</Label><Input type="number" value={form.disc_eletrica} onChange={(e) => setForm({ ...form, disc_eletrica: e.target.value })} /></div>
+          {([
+            { key: "pm2_estrutural", label: "Estrutural", val: valEst },
+            { key: "pm2_hidraulica", label: "Hidráulica", val: valHid },
+            { key: "pm2_eletrica", label: "Elétrica", val: valEle },
+          ] as const).map((d) => (
+            <div key={d.key}>
+              <Label className="text-xs">{d.label} (R$/m²)</Label>
+              <Input type="number" value={form[d.key]} onChange={(e) => setForm({ ...form, [d.key]: e.target.value })} placeholder="0,00" />
+              {d.val > 0 && <p className="text-xs text-muted-foreground mt-0.5">= {fmt(d.val)}</p>}
+            </div>
+          ))}
         </div>
-        <p className="text-xs text-muted-foreground">Valor total: {totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+        <p className="text-sm font-semibold text-foreground">Valor total: {fmt(totalValue)}</p>
       </div>
 
       <div><Label>Data da Proposta</Label><Input type="date" value={form.proposal_date} onChange={(e) => setForm({ ...form, proposal_date: e.target.value })} /></div>
@@ -270,6 +331,86 @@ function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId }
   );
 }
 
+/* ─── Approval Discount Modal ─── */
+function ApprovalDiscountModal({ proposal, discounts, setDiscounts, onConfirm, onCancel, isLoading }: {
+  proposal: CommercialProposal;
+  discounts: ProposalDiscounts;
+  setDiscounts: (d: ProposalDiscounts) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}) {
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const discs = (["estrutural", "hidraulica", "eletrica"] as const).filter(
+    (d) => proposal.disciplines[d] && proposal.disciplines[d]! > 0
+  );
+
+  const finalValues: ProposalDisciplines = {};
+  discs.forEach((d) => {
+    const original = proposal.disciplines[d] || 0;
+    const disc = Math.min(100, Math.max(0, discounts[d] || 0));
+    finalValues[d] = Math.max(0, original - original * (disc / 100));
+  });
+  const finalTotal = Object.values(finalValues).reduce((s, v) => s + (v || 0), 0);
+
+  return (
+    <Dialog open onOpenChange={onCancel}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>Aprovar Proposta — Descontos</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Defina o desconto (%) para cada disciplina antes de confirmar a aprovação.
+          </p>
+
+          {discs.map((d) => {
+            const original = proposal.disciplines[d] || 0;
+            const final_ = finalValues[d] || 0;
+            return (
+              <div key={d} className="border border-border rounded-md p-3 space-y-1">
+                <p className="text-sm font-medium">{DISC_LABELS[d]}</p>
+                <p className="text-xs text-muted-foreground">Original: {fmt(original)}</p>
+                <div className="flex items-center gap-2">
+                  <Label className="text-xs whitespace-nowrap">Desconto (%)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={discounts[d] ?? 0}
+                    onChange={(e) => {
+                      const val = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+                      setDiscounts({ ...discounts, [d]: val });
+                    }}
+                    className="w-24"
+                  />
+                </div>
+                <p className="text-sm font-semibold">Valor final: {fmt(final_)}</p>
+              </div>
+            );
+          })}
+
+          <div className="border-t border-border pt-3">
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Total original:</span>
+              <span className="text-sm">{fmt(proposal.total_value)}</span>
+            </div>
+            <div className="flex justify-between font-bold">
+              <span>Total final:</span>
+              <span>{fmt(finalTotal)}</span>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+          <Button onClick={onConfirm} disabled={isLoading} className="bg-green-600 hover:bg-green-700">
+            <CheckCircle className="h-4 w-4 mr-1" />Confirmar Aprovação
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ─── Detail Dialog ─── */
 function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatusChange }: {
   proposal: CommercialProposal;
   onClose: () => void;
@@ -279,6 +420,8 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
 }) {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const { data: history = [] } = useClientHistory(proposal.client_id);
+  const isApproved = proposal.status === "aprovada";
+  const hasFinal = isApproved && proposal.final_total_value > 0;
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -289,10 +432,12 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div><span className="text-muted-foreground">Cliente:</span> <span className="font-medium">{proposal.client?.name}</span></div>
             <div><span className="text-muted-foreground">Área:</span> <span className="font-medium">{proposal.area_m2} m²</span></div>
-            <div><span className="text-muted-foreground">Valor Total:</span> <span className="font-medium">{fmt(proposal.total_value)}</span></div>
+            <div><span className="text-muted-foreground">Valor Original:</span> <span className="font-medium">{fmt(proposal.total_value)}</span></div>
+            {hasFinal && <div><span className="text-muted-foreground">Valor Final:</span> <span className="font-bold text-green-600">{fmt(proposal.final_total_value)}</span></div>}
             <div><span className="text-muted-foreground">Data:</span> <span className="font-medium">{new Date(proposal.proposal_date).toLocaleDateString("pt-BR")}</span></div>
             <div><span className="text-muted-foreground">Status:</span> <Badge className={STATUS_COLORS[proposal.status]}>{PROPOSAL_STATUS_LABELS[proposal.status]}</Badge></div>
             {proposal.linked_project_id && <div><span className="text-muted-foreground">Projeto vinculado</span> <Badge variant="outline">✓</Badge></div>}
+            {proposal.approved_at && <div><span className="text-muted-foreground">Aprovada em:</span> <span className="font-medium">{new Date(proposal.approved_at).toLocaleDateString("pt-BR")}</span></div>}
           </div>
 
           {/* Disciplines */}
@@ -302,11 +447,20 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
               <div className="grid grid-cols-3 gap-3 text-sm">
                 {(["estrutural", "hidraulica", "eletrica"] as const).map((d) => {
                   const val = proposal.disciplines?.[d];
+                  const pm2 = proposal.price_per_m2?.[d];
+                  const disc = proposal.discounts?.[d];
+                  const finalVal = proposal.final_disciplines?.[d];
                   return (
                     <div key={d}>
                       <p className="text-muted-foreground capitalize">{d}</p>
+                      {pm2 != null && pm2 > 0 && <p className="text-xs text-muted-foreground">R$ {pm2.toFixed(2)}/m²</p>}
                       <p className="font-medium">{val ? fmt(val) : "—"}</p>
-                      {val && proposal.area_m2 > 0 && <p className="text-xs text-muted-foreground">R$ {(val / proposal.area_m2).toFixed(2)}/m²</p>}
+                      {hasFinal && disc != null && disc > 0 && (
+                        <p className="text-xs text-orange-600">Desconto: {disc}%</p>
+                      )}
+                      {hasFinal && finalVal != null && (
+                        <p className="text-xs font-semibold text-green-600">Final: {fmt(finalVal)}</p>
+                      )}
                     </div>
                   );
                 })}
@@ -316,7 +470,6 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
 
           {proposal.notes && <div><p className="text-xs text-muted-foreground">Observações:</p><p className="text-sm">{proposal.notes}</p></div>}
 
-          {/* Historical prices */}
           {history.length > 1 && (
             <Card className="bg-muted/30 border-dashed">
               <CardContent className="p-3">
@@ -330,7 +483,6 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
             </Card>
           )}
 
-          {/* Status change */}
           {proposal.status !== "aprovada" && proposal.status !== "reprovada" && (
             <div className="flex gap-2">
               <Select onValueChange={(v) => onStatusChange(v as ProposalStatus)}>
