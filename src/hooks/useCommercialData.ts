@@ -20,6 +20,18 @@ export interface ProposalDisciplines {
   eletrica?: number;
 }
 
+export interface ProposalPricePerM2 {
+  estrutural?: number;
+  hidraulica?: number;
+  eletrica?: number;
+}
+
+export interface ProposalDiscounts {
+  estrutural?: number;
+  hidraulica?: number;
+  eletrica?: number;
+}
+
 export type ProposalStatus = "lead" | "contato_feito" | "em_elaboracao" | "enviada" | "em_negociacao" | "aprovada" | "reprovada";
 
 export const PROPOSAL_STATUS_LABELS: Record<ProposalStatus, string> = {
@@ -42,15 +54,20 @@ export interface CommercialProposal {
   project_name: string;
   area_m2: number;
   disciplines: ProposalDisciplines;
+  price_per_m2: ProposalPricePerM2;
+  discounts: ProposalDiscounts;
+  final_disciplines: ProposalDisciplines;
   total_value: number;
+  final_total_value: number;
   proposal_date: string;
   responsible_id: string;
   status: ProposalStatus;
   notes: string | null;
   linked_project_id: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
   created_at: string;
   updated_at: string;
-  // joined
   client?: CommercialClient;
 }
 
@@ -80,6 +97,10 @@ export function useCommercialProposals() {
       return (data || []).map((p: any) => ({
         ...p,
         disciplines: p.disciplines as ProposalDisciplines,
+        price_per_m2: (p.price_per_m2 || {}) as ProposalPricePerM2,
+        discounts: (p.discounts || {}) as ProposalDiscounts,
+        final_disciplines: (p.final_disciplines || {}) as ProposalDisciplines,
+        final_total_value: p.final_total_value || 0,
         status: p.status as ProposalStatus,
         client: p.commercial_clients as CommercialClient,
       })) as CommercialProposal[];
@@ -101,6 +122,7 @@ export function useClientHistory(clientId: string | null) {
       return (data || []).map((p: any) => ({
         ...p,
         disciplines: p.disciplines as ProposalDisciplines,
+        price_per_m2: (p.price_per_m2 || {}) as ProposalPricePerM2,
         status: p.status as ProposalStatus,
       })) as CommercialProposal[];
     },
@@ -154,6 +176,7 @@ export function useCreateProposal() {
       project_name: string;
       area_m2: number;
       disciplines: ProposalDisciplines;
+      price_per_m2: ProposalPricePerM2;
       total_value: number;
       proposal_date: string;
       responsible_id: string;
@@ -196,22 +219,39 @@ export function useUpdateProposal() {
 export function useApproveProposal() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (proposal: CommercialProposal) => {
-      // 1. Check if already linked
+    mutationFn: async ({
+      proposal,
+      discounts,
+      userId,
+    }: {
+      proposal: CommercialProposal;
+      discounts: ProposalDiscounts;
+      userId: string;
+    }) => {
       if (proposal.linked_project_id) {
         throw new Error("Proposta já possui projeto vinculado");
       }
 
-      // 2. Create project in planning for each discipline
+      // Calculate final values with discounts
+      const finalDisciplines: ProposalDisciplines = {};
       const disciplines = proposal.disciplines;
-      const disciplineKeys = Object.keys(disciplines).filter(
-        (k) => disciplines[k as keyof ProposalDisciplines] && disciplines[k as keyof ProposalDisciplines]! > 0
+      const disciplineKeys = (Object.keys(disciplines) as (keyof ProposalDisciplines)[]).filter(
+        (k) => disciplines[k] && disciplines[k]! > 0
       );
 
+      for (const disc of disciplineKeys) {
+        const original = disciplines[disc] || 0;
+        const discountPct = Math.min(100, Math.max(0, discounts[disc] || 0));
+        finalDisciplines[disc] = Math.max(0, original - original * (discountPct / 100));
+      }
+
+      const finalTotal = Object.values(finalDisciplines).reduce((s, v) => s + (v || 0), 0);
+
+      // Create projects in planning for each discipline using FINAL values
       const createdProjectIds: string[] = [];
 
       for (const disc of disciplineKeys) {
-        const discValue = disciplines[disc as keyof ProposalDisciplines] || 0;
+        const discValue = finalDisciplines[disc] || 0;
         const { data: project, error: projError } = await supabase
           .from("projects")
           .insert({
@@ -230,11 +270,16 @@ export function useApproveProposal() {
         if (project) createdProjectIds.push((project as any).id);
       }
 
-      // 3. Update proposal status and link first project
+      // Update proposal with approval data
       const { error } = await supabase
         .from("commercial_proposals")
         .update({
           status: "aprovada",
+          discounts: discounts,
+          final_disciplines: finalDisciplines,
+          final_total_value: finalTotal,
+          approved_by: userId,
+          approved_at: new Date().toISOString(),
           linked_project_id: createdProjectIds[0] || null,
           updated_at: new Date().toISOString(),
         } as any)

@@ -28,30 +28,31 @@ export default function ComercialRelatorios() {
   const total = filtered.length;
   const convRate = total > 0 ? ((approved.length / total) * 100).toFixed(1) : "0";
 
-  // Revenue by client
+  // Use final values for approved proposals
+  const getApprovedValue = (p: any) => (p.final_total_value > 0 ? p.final_total_value : p.total_value);
+
   const clientRevenue = new Map<string, number>();
   approved.forEach((p) => {
     const name = p.client?.name || "Desconhecido";
-    clientRevenue.set(name, (clientRevenue.get(name) || 0) + p.total_value);
+    clientRevenue.set(name, (clientRevenue.get(name) || 0) + getApprovedValue(p));
   });
   const clientData = Array.from(clientRevenue.entries())
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
-  // Revenue by discipline
   const discRevenue = { estrutural: 0, hidraulica: 0, eletrica: 0 };
   approved.forEach((p) => {
+    const fd = (p.final_disciplines || {}) as ProposalDisciplines;
     const d = p.disciplines as ProposalDisciplines;
-    if (d.estrutural) discRevenue.estrutural += d.estrutural;
-    if (d.hidraulica) discRevenue.hidraulica += d.hidraulica;
-    if (d.eletrica) discRevenue.eletrica += d.eletrica;
+    if (fd.estrutural || d.estrutural) discRevenue.estrutural += (fd.estrutural || d.estrutural || 0);
+    if (fd.hidraulica || d.hidraulica) discRevenue.hidraulica += (fd.hidraulica || d.hidraulica || 0);
+    if (fd.eletrica || d.eletrica) discRevenue.eletrica += (fd.eletrica || d.eletrica || 0);
   });
   const discData = Object.entries(discRevenue).map(([k, v]) => ({
     name: DISCIPLINE_SHORT[k as keyof typeof DISCIPLINE_SHORT] || k,
     value: v,
   }));
 
-  // m² sold
   const totalM2 = approved.reduce((s, p) => s + p.area_m2, 0);
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -72,7 +73,6 @@ export default function ComercialRelatorios() {
           </Select>
         </div>
 
-        {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Total Propostas</p><p className="text-xl font-bold">{total}</p></CardContent></Card>
           <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Aprovadas</p><p className="text-xl font-bold">{approved.length}</p></CardContent></Card>
@@ -81,7 +81,6 @@ export default function ComercialRelatorios() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Revenue by client */}
           <Card>
             <CardHeader><CardTitle className="text-base">Receita por Cliente</CardTitle></CardHeader>
             <CardContent>
@@ -101,7 +100,6 @@ export default function ComercialRelatorios() {
             </CardContent>
           </Card>
 
-          {/* Revenue by discipline */}
           <Card>
             <CardHeader><CardTitle className="text-base">Receita por Disciplina</CardTitle></CardHeader>
             <CardContent>
@@ -118,7 +116,6 @@ export default function ComercialRelatorios() {
           </Card>
         </div>
 
-        {/* Proposals table */}
         <Card>
           <CardHeader><CardTitle className="text-base">Propostas no Período</CardTitle></CardHeader>
           <CardContent className="p-0">
@@ -134,16 +131,19 @@ export default function ComercialRelatorios() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.slice(0, 50).map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.project_name}</TableCell>
-                    <TableCell>{p.client?.name || "—"}</TableCell>
-                    <TableCell>{p.area_m2}</TableCell>
-                    <TableCell>{fmt(p.total_value)}</TableCell>
-                    <TableCell>{PROPOSAL_STATUS_LABELS[p.status]}</TableCell>
-                    <TableCell>{new Date(p.proposal_date).toLocaleDateString("pt-BR")}</TableCell>
-                  </TableRow>
-                ))}
+                {filtered.slice(0, 50).map((p) => {
+                  const displayVal = p.status === "aprovada" && p.final_total_value > 0 ? p.final_total_value : p.total_value;
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">{p.project_name}</TableCell>
+                      <TableCell>{p.client?.name || "—"}</TableCell>
+                      <TableCell>{p.area_m2}</TableCell>
+                      <TableCell>{fmt(displayVal)}</TableCell>
+                      <TableCell>{PROPOSAL_STATUS_LABELS[p.status]}</TableCell>
+                      <TableCell>{new Date(p.proposal_date).toLocaleDateString("pt-BR")}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
