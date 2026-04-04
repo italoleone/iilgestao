@@ -125,6 +125,7 @@ export type Database = {
           project_name: string
           proposal_date: string
           responsible_id: string
+          scope: string
           status: string
           total_value: number
           updated_at: string
@@ -146,6 +147,7 @@ export type Database = {
           project_name: string
           proposal_date?: string
           responsible_id: string
+          scope?: string
           status?: string
           total_value?: number
           updated_at?: string
@@ -167,6 +169,7 @@ export type Database = {
           project_name?: string
           proposal_date?: string
           responsible_id?: string
+          scope?: string
           status?: string
           total_value?: number
           updated_at?: string
