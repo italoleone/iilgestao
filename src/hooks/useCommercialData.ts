@@ -182,6 +182,7 @@ export function useCreateProposal() {
       responsible_id: string;
       status?: ProposalStatus;
       notes?: string;
+      scope?: string;
     }) => {
       const { data, error } = await supabase
         .from("commercial_proposals")
