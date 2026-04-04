@@ -15,7 +15,9 @@ import {
   type ProposalStatus, type CommercialProposal, type ProposalDisciplines, type ProposalDiscounts,
 } from "@/hooks/useCommercialData";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Search, Eye, CheckCircle, XCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Plus, Search, Eye, CheckCircle, XCircle, FileDown } from "lucide-react";
+import { toast } from "sonner";
 
 const STATUS_COLORS: Record<ProposalStatus, string> = {
   lead: "bg-muted text-muted-foreground",
@@ -42,6 +44,7 @@ export default function ComercialPropostas() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailProposal, setDetailProposal] = useState<CommercialProposal | null>(null);
   const [approvalTarget, setApprovalTarget] = useState<CommercialProposal | null>(null);
+  const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     client_id: "",
@@ -52,6 +55,7 @@ export default function ComercialPropostas() {
     pm2_eletrica: "",
     proposal_date: new Date().toISOString().split("T")[0],
     notes: "",
+    scope: "residencial",
   });
 
   const [discountForm, setDiscountForm] = useState<ProposalDiscounts>({
@@ -67,7 +71,7 @@ export default function ComercialPropostas() {
   });
 
   const openCreate = () => {
-    setForm({ client_id: "", project_name: "", area_m2: "", pm2_estrutural: "", pm2_hidraulica: "", pm2_eletrica: "", proposal_date: new Date().toISOString().split("T")[0], notes: "" });
+    setForm({ client_id: "", project_name: "", area_m2: "", pm2_estrutural: "", pm2_hidraulica: "", pm2_eletrica: "", proposal_date: new Date().toISOString().split("T")[0], notes: "", scope: "residencial" });
     setDialogOpen(true);
   };
 
@@ -112,6 +116,7 @@ export default function ComercialPropostas() {
       proposal_date: form.proposal_date,
       responsible_id: user?.id || "",
       notes: form.notes || undefined,
+      scope: form.scope,
     }, { onSuccess: () => setDialogOpen(false) });
   };
 
@@ -146,6 +151,44 @@ export default function ComercialPropostas() {
       openApprovalModal(p);
     } else {
       updateProposal.mutate({ id: p.id, status: newStatus as any });
+    }
+  };
+
+  const handleGerarPDF = async (proposal: CommercialProposal) => {
+    setGerandoPDF(proposal.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gerar-proposta-pdf`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ proposal_id: proposal.id }),
+        }
+      );
+
+      if (!response.ok) {
+        const errBody = await response.json().catch(() => ({}));
+        throw new Error(errBody.error || "Erro ao gerar documento");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Proposta_${proposal.client?.name}_${proposal.project_name}_${proposal.proposal_date}`
+        .replace(/[^a-zA-Z0-9_\-\.]/g, "_") + ".docx";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Documento gerado com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Não foi possível gerar o documento. Tente novamente.");
+    } finally {
+      setGerandoPDF(null);
     }
   };
 
@@ -186,7 +229,7 @@ export default function ComercialPropostas() {
                   <TableHead>Valor Total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Data</TableHead>
-                  <TableHead className="w-[80px]">Ações</TableHead>
+                  <TableHead className="w-[120px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -203,9 +246,23 @@ export default function ComercialPropostas() {
                       </TableCell>
                       <TableCell>{new Date(p.proposal_date).toLocaleDateString("pt-BR")}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setDetailProposal(p); }}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setDetailProposal(p); }}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Gerar Documento da Proposta"
+                            onClick={(e) => { e.stopPropagation(); handleGerarPDF(p); }}
+                            disabled={gerandoPDF === p.id}
+                          >
+                            {gerandoPDF === p.id
+                              ? <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                              : <FileDown className="h-4 w-4" />
+                            }
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -234,6 +291,8 @@ export default function ComercialPropostas() {
             onApprove={() => openApprovalModal(detailProposal)}
             onReject={() => handleReject(detailProposal)}
             onStatusChange={(s) => handleStatusChange(detailProposal, s)}
+            onGerarPDF={handleGerarPDF}
+            gerandoPDF={gerandoPDF}
           />
         )}
 
@@ -256,7 +315,6 @@ export default function ComercialPropostas() {
 /* ─── Create Form ─── */
 function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId, calcDisciplineValue }: any) {
   const { data: history = [] } = useClientHistory(selectedClientId || null);
-  const area = parseFloat(form.area_m2) || 0;
 
   const valEst = calcDisciplineValue(form.pm2_estrutural, form.area_m2);
   const valHid = calcDisciplineValue(form.pm2_hidraulica, form.area_m2);
@@ -302,6 +360,18 @@ function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId, 
 
       <div><Label>Nome do Projeto *</Label><Input value={form.project_name} onChange={(e) => setForm({ ...form, project_name: e.target.value })} /></div>
       <div><Label>Área do Projeto (m²) *</Label><Input type="number" value={form.area_m2} onChange={(e) => setForm({ ...form, area_m2: e.target.value })} /></div>
+
+      <div className="space-y-1">
+        <Label>Escopo do Projeto *</Label>
+        <Select value={form.scope} onValueChange={(v) => setForm({ ...form, scope: v })}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecione o escopo..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="residencial">Escopo Residencial</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       <div className="space-y-2">
         <Label className="text-sm font-semibold">Valores por Disciplina (R$/m²)</Label>
@@ -411,12 +481,14 @@ function ApprovalDiscountModal({ proposal, discounts, setDiscounts, onConfirm, o
 }
 
 /* ─── Detail Dialog ─── */
-function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatusChange }: {
+function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatusChange, onGerarPDF, gerandoPDF }: {
   proposal: CommercialProposal;
   onClose: () => void;
   onApprove: () => void;
   onReject: () => void;
   onStatusChange: (s: ProposalStatus) => void;
+  onGerarPDF: (p: CommercialProposal) => void;
+  gerandoPDF: string | null;
 }) {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const { data: history = [] } = useClientHistory(proposal.client_id);
@@ -483,24 +555,38 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
             </Card>
           )}
 
-          {proposal.status !== "aprovada" && proposal.status !== "reprovada" && (
-            <div className="flex gap-2">
-              <Select onValueChange={(v) => onStatusChange(v as ProposalStatus)}>
-                <SelectTrigger className="flex-1"><SelectValue placeholder="Alterar status..." /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(PROPOSAL_STATUS_LABELS).filter(([k]) => k !== proposal.status).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="default" onClick={onApprove} className="bg-green-600 hover:bg-green-700">
-                <CheckCircle className="h-4 w-4 mr-1" />Aprovar
-              </Button>
-              <Button variant="destructive" onClick={onReject}>
-                <XCircle className="h-4 w-4 mr-1" />Reprovar
-              </Button>
-            </div>
-          )}
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={() => onGerarPDF(proposal)}
+              disabled={gerandoPDF === proposal.id}
+            >
+              {gerandoPDF === proposal.id
+                ? <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-1" />
+                : <FileDown className="h-4 w-4 mr-1" />
+              }
+              Gerar Documento
+            </Button>
+
+            {proposal.status !== "aprovada" && proposal.status !== "reprovada" && (
+              <>
+                <Select onValueChange={(v) => onStatusChange(v as ProposalStatus)}>
+                  <SelectTrigger className="flex-1"><SelectValue placeholder="Alterar status..." /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PROPOSAL_STATUS_LABELS).filter(([k]) => k !== proposal.status).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="default" onClick={onApprove} className="bg-green-600 hover:bg-green-700">
+                  <CheckCircle className="h-4 w-4 mr-1" />Aprovar
+                </Button>
+                <Button variant="destructive" onClick={onReject}>
+                  <XCircle className="h-4 w-4 mr-1" />Reprovar
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
