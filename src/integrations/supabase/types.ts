@@ -112,6 +112,8 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           area_m2: number
+          arquivo_ref_1: string | null
+          arquivo_ref_2: string | null
           client_id: string
           created_at: string
           disciplines: Json
@@ -134,6 +136,8 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           area_m2: number
+          arquivo_ref_1?: string | null
+          arquivo_ref_2?: string | null
           client_id: string
           created_at?: string
           disciplines?: Json
@@ -156,6 +160,8 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           area_m2?: number
+          arquivo_ref_1?: string | null
+          arquivo_ref_2?: string | null
           client_id?: string
           created_at?: string
           disciplines?: Json

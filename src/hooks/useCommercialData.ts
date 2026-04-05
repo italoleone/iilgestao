@@ -18,18 +18,21 @@ export interface ProposalDisciplines {
   estrutural?: number;
   hidraulica?: number;
   eletrica?: number;
+  fundacoes?: number;
 }
 
 export interface ProposalPricePerM2 {
   estrutural?: number;
   hidraulica?: number;
   eletrica?: number;
+  fundacoes?: number;
 }
 
 export interface ProposalDiscounts {
   estrutural?: number;
   hidraulica?: number;
   eletrica?: number;
+  fundacoes?: number;
 }
 
 export type ProposalStatus = "lead" | "contato_feito" | "em_elaboracao" | "enviada" | "em_negociacao" | "aprovada" | "reprovada";

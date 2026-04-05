@@ -29,7 +29,7 @@ const STATUS_COLORS: Record<ProposalStatus, string> = {
   reprovada: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
-const DISC_LABELS: Record<string, string> = { estrutural: "Estrutural", hidraulica: "Hidráulica", eletrica: "Elétrica" };
+const DISC_LABELS: Record<string, string> = { estrutural: "Estrutural", hidraulica: "Hidráulica", eletrica: "Elétrica", fundacoes: "Fundações" };
 
 export default function ComercialPropostas() {
   const { data: proposals = [] } = useCommercialProposals();
@@ -53,15 +53,19 @@ export default function ComercialPropostas() {
     pm2_estrutural: "",
     pm2_hidraulica: "",
     pm2_eletrica: "",
+    pm2_fundacoes: "",
     proposal_date: new Date().toISOString().split("T")[0],
     notes: "",
     scope: "residencial",
+    arquivo_ref_1: "",
+    arquivo_ref_2: "",
   });
 
   const [discountForm, setDiscountForm] = useState<ProposalDiscounts>({
     estrutural: 0,
     hidraulica: 0,
     eletrica: 0,
+    fundacoes: 0,
   });
 
   const filtered = proposals.filter((p) => {
@@ -71,7 +75,7 @@ export default function ComercialPropostas() {
   });
 
   const openCreate = () => {
-    setForm({ client_id: "", project_name: "", area_m2: "", pm2_estrutural: "", pm2_hidraulica: "", pm2_eletrica: "", proposal_date: new Date().toISOString().split("T")[0], notes: "", scope: "residencial" });
+    setForm({ client_id: "", project_name: "", area_m2: "", pm2_estrutural: "", pm2_hidraulica: "", pm2_eletrica: "", pm2_fundacoes: "", proposal_date: new Date().toISOString().split("T")[0], notes: "", scope: "residencial", arquivo_ref_1: "", arquivo_ref_2: "" });
     setDialogOpen(true);
   };
 
@@ -103,6 +107,11 @@ export default function ComercialPropostas() {
       pricePerM2.eletrica = pm2;
       disciplines.eletrica = pm2 * area;
     }
+    if (form.pm2_fundacoes) {
+      const pm2 = parseFloat(form.pm2_fundacoes);
+      pricePerM2.fundacoes = pm2;
+      disciplines.fundacoes = pm2 * area;
+    }
 
     const total = Object.values(disciplines).reduce((s, v) => s + (v || 0), 0);
 
@@ -117,7 +126,9 @@ export default function ComercialPropostas() {
       responsible_id: user?.id || "",
       notes: form.notes || undefined,
       scope: form.scope,
-    }, { onSuccess: () => setDialogOpen(false) });
+      arquivo_ref_1: form.arquivo_ref_1 || undefined,
+      arquivo_ref_2: form.arquivo_ref_2 || undefined,
+    } as any, { onSuccess: () => setDialogOpen(false) });
   };
 
   const openApprovalModal = (p: CommercialProposal) => {
@@ -321,7 +332,8 @@ function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId, 
   const valEst = calcDisciplineValue(form.pm2_estrutural, form.area_m2);
   const valHid = calcDisciplineValue(form.pm2_hidraulica, form.area_m2);
   const valEle = calcDisciplineValue(form.pm2_eletrica, form.area_m2);
-  const totalValue = valEst + valHid + valEle;
+  const valFund = calcDisciplineValue(form.pm2_fundacoes, form.area_m2);
+  const totalValue = valEst + valHid + valEle + valFund;
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -375,17 +387,25 @@ function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId, 
         </Select>
       </div>
 
+      <div className="space-y-1">
+        <Label className="text-sm font-semibold">Arquivos de Referência</Label>
+        <p className="text-xs text-muted-foreground">Documentos utilizados como base para elaboração desta proposta</p>
+        <Input value={form.arquivo_ref_1} onChange={(e) => setForm({ ...form, arquivo_ref_1: e.target.value })} placeholder="Ex: Anteprojeto V1" />
+        <Input value={form.arquivo_ref_2} onChange={(e) => setForm({ ...form, arquivo_ref_2: e.target.value })} placeholder="Ex: Planta Legal (opcional)" />
+      </div>
+
       <div className="space-y-2">
         <Label className="text-sm font-semibold">Valores por Disciplina (R$/m²)</Label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {([
             { key: "pm2_estrutural", label: "Estrutural", val: valEst },
             { key: "pm2_hidraulica", label: "Hidráulica", val: valHid },
             { key: "pm2_eletrica", label: "Elétrica", val: valEle },
+            { key: "pm2_fundacoes", label: "Fundações", val: valFund },
           ] as const).map((d) => (
             <div key={d.key}>
               <Label className="text-xs">{d.label} (R$/m²)</Label>
-              <Input type="number" value={form[d.key]} onChange={(e) => setForm({ ...form, [d.key]: e.target.value })} placeholder="0,00" />
+              <Input type="number" value={form[d.key]} onChange={(e) => setForm({ ...form, [d.key]: e.target.value })} placeholder="0,00 (opcional)" />
               {d.val > 0 && <p className="text-xs text-muted-foreground mt-0.5">= {fmt(d.val)}</p>}
             </div>
           ))}
@@ -413,7 +433,7 @@ function ApprovalDiscountModal({ proposal, discounts, setDiscounts, onConfirm, o
   isLoading: boolean;
 }) {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  const discs = (["estrutural", "hidraulica", "eletrica"] as const).filter(
+  const discs = (["estrutural", "hidraulica", "eletrica", "fundacoes"] as const).filter(
     (d) => proposal.disciplines[d] && proposal.disciplines[d]! > 0
   );
 
@@ -518,15 +538,15 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
           <Card className="bg-muted/30">
             <CardContent className="p-3">
               <p className="text-xs font-semibold mb-2">Valores por Disciplina</p>
-              <div className="grid grid-cols-3 gap-3 text-sm">
-                {(["estrutural", "hidraulica", "eletrica"] as const).map((d) => {
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {(["estrutural", "hidraulica", "eletrica", "fundacoes"] as const).filter((d) => proposal.disciplines?.[d] && proposal.disciplines[d]! > 0).map((d) => {
                   const val = proposal.disciplines?.[d];
                   const pm2 = proposal.price_per_m2?.[d];
                   const disc = proposal.discounts?.[d];
                   const finalVal = proposal.final_disciplines?.[d];
                   return (
                     <div key={d}>
-                      <p className="text-muted-foreground capitalize">{d}</p>
+                      <p className="text-muted-foreground">{DISC_LABELS[d] || d}</p>
                       {pm2 != null && pm2 > 0 && <p className="text-xs text-muted-foreground">R$ {pm2.toFixed(2)}/m²</p>}
                       <p className="font-medium">{val ? fmt(val) : "—"}</p>
                       {hasFinal && disc != null && disc > 0 && (

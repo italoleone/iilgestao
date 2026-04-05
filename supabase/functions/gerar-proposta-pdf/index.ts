@@ -127,7 +127,8 @@ Deno.serve(async (req) => {
     const valEstrutural = Number(disciplines.estrutural) || 0;
     const valHidraulica = Number(disciplines.hidraulica) || 0;
     const valEletrica = Number(disciplines.eletrica) || 0;
-    const valFundacoes = area * 10;
+    const valFundacoes = Number(disciplines.fundacoes) || 0;
+    const hasFundacoes = valFundacoes > 0;
 
     // Build replacements map
     const replacements: Record<string, string> = {
@@ -137,24 +138,26 @@ Deno.serve(async (req) => {
       AREA: fmtArea(area),
       CIDADE: proposal.client?.city || "Marília",
       DATA_EMISSAO: fmtDate(proposal.proposal_date),
-      VALOR_ESTRUTURA: fmtBRL(valEstrutural),
-      VALOR_FUNDACOES: fmtBRL(valFundacoes),
-      VALOR_HIDRAULICA: fmtBRL(valHidraulica),
-      VALOR_ELETRICA: fmtBRL(valEletrica),
+      ARQUIVO_REF_1: proposal.arquivo_ref_1 || "",
+      ARQUIVO_REF_2: proposal.arquivo_ref_2 || "",
+      VALOR_ESTRUTURA: valEstrutural > 0 ? fmtBRL(valEstrutural) : "—",
+      VALOR_FUNDACOES: hasFundacoes ? fmtBRL(valFundacoes) : "—",
+      VALOR_HIDRAULICA: valHidraulica > 0 ? fmtBRL(valHidraulica) : "—",
+      VALOR_ELETRICA: valEletrica > 0 ? fmtBRL(valEletrica) : "—",
       VALOR_TOTAL: fmtBRL(totalValue),
       // Parcelas
       PARCELA_ACEITE: fmtBRL(totalValue * 0.10),
-      PARCELA_EP_ESTRUTURA: fmtBRL(valEstrutural * 0.30),
-      PARCELA_EP_HIDRAULICA: fmtBRL(valHidraulica * 0.30),
-      PARCELA_EP_ELETRICA: fmtBRL(valEletrica * 0.30),
-      PARCELA_PPE_ESTRUTURA: fmtBRL(valEstrutural * 0.25),
-      PARCELA_PPE_FUNDACOES: fmtBRL(valFundacoes * 0.45),
-      PARCELA_PPE_HIDRAULICA: fmtBRL(valHidraulica * 0.25),
-      PARCELA_PPE_ELETRICA: fmtBRL(valEletrica * 0.25),
-      PARCELA_PE_ESTRUTURA: fmtBRL(valEstrutural * 0.35),
-      PARCELA_PE_FUNDACOES: fmtBRL(valFundacoes * 0.45),
-      PARCELA_PE_HIDRAULICA: fmtBRL(valHidraulica * 0.35),
-      PARCELA_PE_ELETRICA: fmtBRL(valEletrica * 0.35),
+      PARCELA_EP_ESTRUTURA: valEstrutural > 0 ? fmtBRL(valEstrutural * 0.30) : "—",
+      PARCELA_EP_HIDRAULICA: valHidraulica > 0 ? fmtBRL(valHidraulica * 0.30) : "—",
+      PARCELA_EP_ELETRICA: valEletrica > 0 ? fmtBRL(valEletrica * 0.30) : "—",
+      PARCELA_PPE_ESTRUTURA: valEstrutural > 0 ? fmtBRL(valEstrutural * 0.25) : "—",
+      PARCELA_PPE_FUNDACOES: hasFundacoes ? fmtBRL(valFundacoes * 0.45) : "—",
+      PARCELA_PPE_HIDRAULICA: valHidraulica > 0 ? fmtBRL(valHidraulica * 0.25) : "—",
+      PARCELA_PPE_ELETRICA: valEletrica > 0 ? fmtBRL(valEletrica * 0.25) : "—",
+      PARCELA_PE_ESTRUTURA: valEstrutural > 0 ? fmtBRL(valEstrutural * 0.35) : "—",
+      PARCELA_PE_FUNDACOES: hasFundacoes ? fmtBRL(valFundacoes * 0.45) : "—",
+      PARCELA_PE_HIDRAULICA: valHidraulica > 0 ? fmtBRL(valHidraulica * 0.35) : "—",
+      PARCELA_PE_ELETRICA: valEletrica > 0 ? fmtBRL(valEletrica * 0.35) : "—",
     };
 
     // Process DOCX (it's a ZIP of XML files)
