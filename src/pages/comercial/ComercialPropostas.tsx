@@ -29,7 +29,7 @@ const STATUS_COLORS: Record<ProposalStatus, string> = {
   reprovada: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
-const DISC_LABELS: Record<string, string> = { estrutural: "Estrutural", hidraulica: "Hidráulica", eletrica: "Elétrica" };
+const DISC_LABELS: Record<string, string> = { estrutural: "Estrutural", hidraulica: "Hidráulica", eletrica: "Elétrica", fundacoes: "Fundações" };
 
 export default function ComercialPropostas() {
   const { data: proposals = [] } = useCommercialProposals();
@@ -65,6 +65,7 @@ export default function ComercialPropostas() {
     estrutural: 0,
     hidraulica: 0,
     eletrica: 0,
+    fundacoes: 0,
   });
 
   const filtered = proposals.filter((p) => {
