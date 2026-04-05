@@ -53,9 +53,12 @@ export default function ComercialPropostas() {
     pm2_estrutural: "",
     pm2_hidraulica: "",
     pm2_eletrica: "",
+    pm2_fundacoes: "",
     proposal_date: new Date().toISOString().split("T")[0],
     notes: "",
     scope: "residencial",
+    arquivo_ref_1: "",
+    arquivo_ref_2: "",
   });
 
   const [discountForm, setDiscountForm] = useState<ProposalDiscounts>({
