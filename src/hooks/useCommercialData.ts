@@ -18,12 +18,14 @@ export interface ProposalDisciplines {
   estrutural?: number;
   hidraulica?: number;
   eletrica?: number;
+  fundacoes?: number;
 }
 
 export interface ProposalPricePerM2 {
   estrutural?: number;
   hidraulica?: number;
   eletrica?: number;
+  fundacoes?: number;
 }
 
 export interface ProposalDiscounts {
