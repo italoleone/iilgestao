@@ -546,7 +546,7 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
                   const finalVal = proposal.final_disciplines?.[d];
                   return (
                     <div key={d}>
-                      <p className="text-muted-foreground capitalize">{d}</p>
+                      <p className="text-muted-foreground">{DISC_LABELS[d] || d}</p>
                       {pm2 != null && pm2 > 0 && <p className="text-xs text-muted-foreground">R$ {pm2.toFixed(2)}/m²</p>}
                       <p className="font-medium">{val ? fmt(val) : "—"}</p>
                       {hasFinal && disc != null && disc > 0 && (
