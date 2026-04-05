@@ -74,7 +74,7 @@ export default function ComercialPropostas() {
   });
 
   const openCreate = () => {
-    setForm({ client_id: "", project_name: "", area_m2: "", pm2_estrutural: "", pm2_hidraulica: "", pm2_eletrica: "", proposal_date: new Date().toISOString().split("T")[0], notes: "", scope: "residencial" });
+    setForm({ client_id: "", project_name: "", area_m2: "", pm2_estrutural: "", pm2_hidraulica: "", pm2_eletrica: "", pm2_fundacoes: "", proposal_date: new Date().toISOString().split("T")[0], notes: "", scope: "residencial", arquivo_ref_1: "", arquivo_ref_2: "" });
     setDialogOpen(true);
   };
 
