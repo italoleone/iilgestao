@@ -106,6 +106,11 @@ export default function ComercialPropostas() {
       pricePerM2.eletrica = pm2;
       disciplines.eletrica = pm2 * area;
     }
+    if (form.pm2_fundacoes) {
+      const pm2 = parseFloat(form.pm2_fundacoes);
+      pricePerM2.fundacoes = pm2;
+      disciplines.fundacoes = pm2 * area;
+    }
 
     const total = Object.values(disciplines).reduce((s, v) => s + (v || 0), 0);
 
@@ -120,7 +125,9 @@ export default function ComercialPropostas() {
       responsible_id: user?.id || "",
       notes: form.notes || undefined,
       scope: form.scope,
-    }, { onSuccess: () => setDialogOpen(false) });
+      arquivo_ref_1: form.arquivo_ref_1 || undefined,
+      arquivo_ref_2: form.arquivo_ref_2 || undefined,
+    } as any, { onSuccess: () => setDialogOpen(false) });
   };
 
   const openApprovalModal = (p: CommercialProposal) => {
