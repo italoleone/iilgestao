@@ -386,17 +386,25 @@ function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId, 
         </Select>
       </div>
 
+      <div className="space-y-1">
+        <Label className="text-sm font-semibold">Arquivos de Referência</Label>
+        <p className="text-xs text-muted-foreground">Documentos utilizados como base para elaboração desta proposta</p>
+        <Input value={form.arquivo_ref_1} onChange={(e) => setForm({ ...form, arquivo_ref_1: e.target.value })} placeholder="Ex: Anteprojeto V1" />
+        <Input value={form.arquivo_ref_2} onChange={(e) => setForm({ ...form, arquivo_ref_2: e.target.value })} placeholder="Ex: Planta Legal (opcional)" />
+      </div>
+
       <div className="space-y-2">
         <Label className="text-sm font-semibold">Valores por Disciplina (R$/m²)</Label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {([
             { key: "pm2_estrutural", label: "Estrutural", val: valEst },
             { key: "pm2_hidraulica", label: "Hidráulica", val: valHid },
             { key: "pm2_eletrica", label: "Elétrica", val: valEle },
+            { key: "pm2_fundacoes", label: "Fundações", val: valFund },
           ] as const).map((d) => (
             <div key={d.key}>
               <Label className="text-xs">{d.label} (R$/m²)</Label>
-              <Input type="number" value={form[d.key]} onChange={(e) => setForm({ ...form, [d.key]: e.target.value })} placeholder="0,00" />
+              <Input type="number" value={form[d.key]} onChange={(e) => setForm({ ...form, [d.key]: e.target.value })} placeholder="0,00 (opcional)" />
               {d.val > 0 && <p className="text-xs text-muted-foreground mt-0.5">= {fmt(d.val)}</p>}
             </div>
           ))}
