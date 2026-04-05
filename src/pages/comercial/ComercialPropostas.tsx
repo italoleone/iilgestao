@@ -433,7 +433,7 @@ function ApprovalDiscountModal({ proposal, discounts, setDiscounts, onConfirm, o
   isLoading: boolean;
 }) {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  const discs = (["estrutural", "hidraulica", "eletrica"] as const).filter(
+  const discs = (["estrutural", "hidraulica", "eletrica", "fundacoes"] as const).filter(
     (d) => proposal.disciplines[d] && proposal.disciplines[d]! > 0
   );
 
