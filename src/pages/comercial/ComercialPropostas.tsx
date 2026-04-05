@@ -538,8 +538,8 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
           <Card className="bg-muted/30">
             <CardContent className="p-3">
               <p className="text-xs font-semibold mb-2">Valores por Disciplina</p>
-              <div className="grid grid-cols-3 gap-3 text-sm">
-                {(["estrutural", "hidraulica", "eletrica"] as const).map((d) => {
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {(["estrutural", "hidraulica", "eletrica", "fundacoes"] as const).filter((d) => proposal.disciplines?.[d] && proposal.disciplines[d]! > 0).map((d) => {
                   const val = proposal.disciplines?.[d];
                   const pm2 = proposal.price_per_m2?.[d];
                   const disc = proposal.discounts?.[d];
