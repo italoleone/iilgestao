@@ -186,6 +186,8 @@ export default function ComercialPropostas() {
       URL.revokeObjectURL(url);
       toast.success("Documento gerado com sucesso!");
     } catch (err: any) {
+      console.error("Erro ao gerar documento:", err);
+      console.error("Detalhes:", err?.message, err?.stack);
       toast.error(err.message || "Não foi possível gerar o documento. Tente novamente.");
     } finally {
       setGerandoPDF(null);
