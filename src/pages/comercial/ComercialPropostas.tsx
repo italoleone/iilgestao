@@ -331,7 +331,8 @@ function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId, 
   const valEst = calcDisciplineValue(form.pm2_estrutural, form.area_m2);
   const valHid = calcDisciplineValue(form.pm2_hidraulica, form.area_m2);
   const valEle = calcDisciplineValue(form.pm2_eletrica, form.area_m2);
-  const totalValue = valEst + valHid + valEle;
+  const valFund = calcDisciplineValue(form.pm2_fundacoes, form.area_m2);
+  const totalValue = valEst + valHid + valEle + valFund;
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
