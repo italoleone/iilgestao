@@ -11,6 +11,10 @@ import Tarefas from "./pages/Tarefas";
 import TarefaDetalhe from "./pages/TarefaDetalhe";
 import Horas from "./pages/Horas";
 import Financeiro from "./pages/Financeiro";
+import FinanceiroDashboard from "./pages/financeiro/FinanceiroDashboard";
+import FinanceiroReceber from "./pages/financeiro/FinanceiroReceber";
+import FinanceiroPagar from "./pages/financeiro/FinanceiroPagar";
+import FinanceiroRentabilidade from "./pages/financeiro/FinanceiroRentabilidade";
 import Alertas from "./pages/Alertas";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
@@ -72,7 +76,10 @@ function AppRoutes() {
       <Route path="/tarefas" element={<ProtectedRoute><Tarefas /></ProtectedRoute>} />
       <Route path="/tarefas/:id" element={<ProtectedRoute><TarefaDetalhe /></ProtectedRoute>} />
       <Route path="/horas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Horas /></ProtectedRoute>} />
-      <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><Financeiro /></ProtectedRoute>} />
+      <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroDashboard /></ProtectedRoute>} />
+      <Route path="/financeiro/receber" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroReceber /></ProtectedRoute>} />
+      <Route path="/financeiro/pagar" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroPagar /></ProtectedRoute>} />
+      <Route path="/financeiro/rentabilidade" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroRentabilidade /></ProtectedRoute>} />
       <Route path="/usuarios" element={<ProtectedRoute allowedRoles={["admin_geral"]}><Usuarios /></ProtectedRoute>} />
       <Route path="/alertas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Alertas /></ProtectedRoute>} />
       <Route path="/comercial" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialDashboard /></ProtectedRoute>} />
