@@ -11,12 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   useCommercialProposals, useCommercialClients, useCreateProposal, useUpdateProposal,
-  useApproveProposal, useClientHistory, PROPOSAL_STATUS_LABELS,
+  useApproveProposal, useDeleteProposal, useClientHistory, PROPOSAL_STATUS_LABELS,
   type ProposalStatus, type CommercialProposal, type ProposalDisciplines, type ProposalDiscounts,
 } from "@/hooks/useCommercialData";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Search, Eye, CheckCircle, XCircle, FileDown } from "lucide-react";
+import { Plus, Search, Eye, CheckCircle, XCircle, FileDown, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const STATUS_COLORS: Record<ProposalStatus, string> = {
@@ -37,6 +37,7 @@ export default function ComercialPropostas() {
   const createProposal = useCreateProposal();
   const updateProposal = useUpdateProposal();
   const approveProposal = useApproveProposal();
+  const deleteProposal = useDeleteProposal();
   const { user } = useAuth();
 
   const [search, setSearch] = useState("");
@@ -275,6 +276,19 @@ export default function ComercialPropostas() {
                               : <FileDown className="h-4 w-4" />
                             }
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Excluir proposta"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`Excluir a proposta "${p.project_name}"? Esta ação não pode ser desfeita.`)) {
+                                deleteProposal.mutate(p.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -306,6 +320,12 @@ export default function ComercialPropostas() {
             onStatusChange={(s) => handleStatusChange(detailProposal, s)}
             onGerarPDF={handleGerarPDF}
             gerandoPDF={gerandoPDF}
+            onDelete={(p) => {
+              if (confirm(`Excluir a proposta "${p.project_name}"? Esta ação não pode ser desfeita.`)) {
+                deleteProposal.mutate(p.id);
+                setDetailProposal(null);
+              }
+            }}
           />
         )}
 
@@ -503,7 +523,7 @@ function ApprovalDiscountModal({ proposal, discounts, setDiscounts, onConfirm, o
 }
 
 /* ─── Detail Dialog ─── */
-function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatusChange, onGerarPDF, gerandoPDF }: {
+function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatusChange, onGerarPDF, gerandoPDF, onDelete }: {
   proposal: CommercialProposal;
   onClose: () => void;
   onApprove: () => void;
@@ -511,6 +531,7 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
   onStatusChange: (s: ProposalStatus) => void;
   onGerarPDF: (p: CommercialProposal) => void;
   gerandoPDF: string | null;
+  onDelete: (p: CommercialProposal) => void;
 }) {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const { data: history = [] } = useClientHistory(proposal.client_id);
@@ -608,6 +629,9 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
                 </Button>
               </>
             )}
+            <Button variant="ghost" size="icon" title="Excluir proposta" onClick={() => onDelete(proposal)}>
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
           </div>
         </div>
       </DialogContent>
