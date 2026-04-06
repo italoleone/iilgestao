@@ -271,7 +271,34 @@ export function useApproveProposal() {
           .select()
           .single();
         if (projError) throw projError;
-        if (project) createdProjectIds.push((project as any).id);
+      if (project) {
+        createdProjectIds.push((project as any).id);
+
+        // Create default tasks for each stage
+        const STAGE_NAMES = ["Estudo Preliminar","Anteprojeto","Pré-executivo","Executivo","Liberação para Obra","Revisão"];
+        const defaultTasksByStage: Record<string, string[]> = {
+          "Estudo Preliminar": ["Tarefa Teste 1", "Tarefa Teste 2"],
+          "Anteprojeto": ["Tarefa Teste 3"],
+          "Pré-executivo": ["Tarefa Teste 4"],
+          "Executivo": ["Tarefa Teste 5"],
+          "Liberação para Obra": ["Tarefa Teste 6"],
+          "Revisão": ["Tarefa Teste 7"],
+        };
+        const taskRows = STAGE_NAMES.flatMap((stageName) =>
+          (defaultTasksByStage[stageName] || []).map((taskName) => ({
+            name: taskName,
+            project_id: (project as any).id,
+            discipline: disc,
+            stage_name: stageName,
+            estimated_hours: 0,
+            hours_worked: 0,
+            status: "nao_iniciada",
+          }))
+        );
+        if (taskRows.length > 0) {
+          await supabase.from("tasks").insert(taskRows as any);
+        }
+      }
       }
 
       // Update proposal with approval data
@@ -296,6 +323,24 @@ export function useApproveProposal() {
       qc.invalidateQueries({ queryKey: ["commercial-proposals"] });
       qc.invalidateQueries({ queryKey: ["projects"] });
       toast.success(`Proposta aprovada! ${ids.length} projeto(s) criado(s) no Planejamento.`);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
+export function useDeleteProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("commercial_proposals")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["commercial-proposals"] });
+      toast.success("Proposta excluída");
     },
     onError: (e: any) => toast.error(e.message),
   });
