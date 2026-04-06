@@ -13,6 +13,8 @@ import {
   FileText,
   Kanban,
   PieChart,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -56,8 +58,13 @@ const modules: NavModule[] = [
   {
     title: "Financeiro",
     icon: BarChart3,
-    url: "/financeiro",
     roles: ["admin_geral", "admin"],
+    children: [
+      { title: "Dashboard", url: "/financeiro", icon: LayoutDashboard },
+      { title: "A Receber", url: "/financeiro/receber", icon: TrendingUp },
+      { title: "A Pagar", url: "/financeiro/pagar", icon: TrendingDown },
+      { title: "Rentabilidade", url: "/financeiro/rentabilidade", icon: PieChart },
+    ],
   },
   {
     title: "Comercial",
