@@ -248,6 +248,54 @@ export type Database = {
         }
         Relationships: []
       }
+      payables: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          created_by: string
+          description: string
+          due_date: string
+          id: string
+          notes: string | null
+          paid_date: string | null
+          recurrent: boolean
+          recurrent_day: number | null
+          status: string
+          supplier: string | null
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by: string
+          description: string
+          due_date: string
+          id?: string
+          notes?: string | null
+          paid_date?: string | null
+          recurrent?: boolean
+          recurrent_day?: number | null
+          status?: string
+          supplier?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          due_date?: string
+          id?: string
+          notes?: string | null
+          paid_date?: string | null
+          recurrent?: boolean
+          recurrent_day?: number | null
+          status?: string
+          supplier?: string | null
+        }
+        Relationships: []
+      }
       pdf_annotations: {
         Row: {
           annotation_data: Json
@@ -385,6 +433,69 @@ export type Database = {
           team?: string[]
         }
         Relationships: []
+      }
+      receivables: {
+        Row: {
+          amount: number
+          category: string
+          client_name: string
+          created_at: string
+          created_by: string
+          description: string
+          due_date: string
+          id: string
+          notes: string | null
+          project_id: string | null
+          proposal_id: string | null
+          received_date: string | null
+          status: string
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          client_name: string
+          created_at?: string
+          created_by: string
+          description: string
+          due_date: string
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          proposal_id?: string | null
+          received_date?: string | null
+          status?: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          client_name?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          due_date?: string
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          proposal_id?: string | null
+          received_date?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receivables_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receivables_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       task_attachments: {
         Row: {
