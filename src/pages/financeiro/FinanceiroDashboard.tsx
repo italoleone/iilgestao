@@ -72,13 +72,10 @@ export default function FinanceiroDashboard() {
   const resultado = receitaMes - despesaMes;
 
   const aReceber30 = useMemo(() => {
-    const refDate = new Date(selectedYear, selectedMonth, 1);
-    const limit = addDays(endOfMonth(refDate), 0);
-    return allReceivables.filter(r => r.status === "pendente" && {
-      true: true
-    }[String(
-      isWithinInterval(parseISO(r.due_date), { start: monthStart, end: addDays(monthEnd, 30) })
-    )] ).reduce((s, r) => s + Number(r.amount), 0);
+    const limit = addDays(monthEnd, 30);
+    return allReceivables
+      .filter(r => r.status === "pendente" && isWithinInterval(parseISO(r.due_date), { start: monthStart, end: limit }))
+      .reduce((s, r) => s + Number(r.amount), 0);
   }, [allReceivables, selectedMonth, selectedYear]);
 
   // Cash flow: 6 months ending at selected month
