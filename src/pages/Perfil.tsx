@@ -31,7 +31,7 @@ export default function Perfil() {
   const handleSaveProfile = async () => {
     if (!profile) return;
     setSaving(true);
-    const updates: Record<string, any> = { name, discipline };
+    const updates: { name: string; discipline: string; cost_per_hour?: number } = { name, discipline };
     if (canAccessFinanceiro) {
       updates.cost_per_hour = Number(costPerHour) || 0;
     }
