@@ -217,6 +217,119 @@ export function useMarkPaid() {
   });
 }
 
+// ---- Projeto Custo ----
+
+export interface ProjetoCustoRow {
+  projectId: string;
+  projectName: string;
+  client: string;
+  discipline: string;
+  status: string;
+  receita: number;
+  custoAcumulado: number;
+  margemRs: number;
+  margemPct: number;
+  horasGastas: number;
+  detalhesPorUsuario: {
+    userId: string;
+    userName: string;
+    horasGastas: number;
+    custo: number;
+  }[];
+  detalhesPorTarefa: {
+    taskId: string;
+    taskName: string;
+    stageName: string;
+    horasGastas: number;
+    custo: number;
+    responsavelNome: string;
+  }[];
+}
+
+export function useProjetoCusto(projectId: string | null) {
+  return useQuery({
+    queryKey: ["projeto-custo", projectId],
+    enabled: !!projectId,
+    queryFn: async () => {
+      const { data: project } = await supabase
+        .from("projects").select("*").eq("id", projectId!).single();
+      const { data: entries } = await supabase
+        .from("time_entries").select("*").eq("project_id", projectId!);
+      const { data: tasks } = await supabase
+        .from("tasks").select("id, name, stage_name, responsible").eq("project_id", projectId!);
+      const { data: profiles } = await supabase
+        .from("profiles").select("id, name, cost_per_hour");
+
+      const costMap = new Map<string, { name: string; cost: number }>();
+      (profiles || []).forEach((p: any) =>
+        costMap.set(p.id, { name: p.name, cost: p.cost_per_hour || 0 })
+      );
+      const taskMap = new Map<string, any>();
+      (tasks || []).forEach((t: any) => taskMap.set(t.id, t));
+
+      const byUser = new Map<string, { horasGastas: number; custo: number }>();
+      const byTask = new Map<string, { horasGastas: number; custo: number }>();
+      let totalMinutes = 0;
+      let totalCusto = 0;
+
+      (entries || []).forEach((e: any) => {
+        const mins = e.duration_minutes || 0;
+        const horas = mins / 60;
+        const profile = costMap.get(e.user_id);
+        const custo = horas * (profile?.cost || 0);
+        totalMinutes += mins;
+        totalCusto += custo;
+
+        const u = byUser.get(e.user_id) || { horasGastas: 0, custo: 0 };
+        u.horasGastas += horas;
+        u.custo += custo;
+        byUser.set(e.user_id, u);
+
+        if (e.task_id) {
+          const t = byTask.get(e.task_id) || { horasGastas: 0, custo: 0 };
+          t.horasGastas += horas;
+          t.custo += custo;
+          byTask.set(e.task_id, t);
+        }
+      });
+
+      const receita = project?.sale_value || 0;
+      const margemRs = receita - totalCusto;
+
+      return {
+        projectId: project?.id,
+        projectName: project?.name,
+        client: project?.client,
+        discipline: project?.discipline,
+        status: project?.status,
+        receita,
+        custoAcumulado: Math.round(totalCusto * 100) / 100,
+        margemRs: Math.round(margemRs * 100) / 100,
+        margemPct: receita > 0 ? Math.round((margemRs / receita) * 1000) / 10 : 0,
+        horasGastas: Math.round((totalMinutes / 60) * 100) / 100,
+        detalhesPorUsuario: Array.from(byUser.entries()).map(([userId, v]) => ({
+          userId,
+          userName: costMap.get(userId)?.name || "Desconhecido",
+          horasGastas: Math.round(v.horasGastas * 100) / 100,
+          custo: Math.round(v.custo * 100) / 100,
+        })).sort((a, b) => b.custo - a.custo),
+        detalhesPorTarefa: Array.from(byTask.entries()).map(([taskId, v]) => {
+          const task = taskMap.get(taskId);
+          const resp = task?.responsible ? costMap.get(task.responsible)?.name || "—" : "—";
+          return {
+            taskId,
+            taskName: task?.name || "Tarefa",
+            stageName: task?.stage_name || "—",
+            horasGastas: Math.round(v.horasGastas * 100) / 100,
+            custo: Math.round(v.custo * 100) / 100,
+            responsavelNome: resp,
+          };
+        }).sort((a, b) => b.custo - a.custo),
+      } as ProjetoCustoRow;
+    },
+  });
+}
+
 // ---- Rentabilidade ----
 
 export function useRentabilidadePorProjeto(filters?: RentabilidadeFilters) {
