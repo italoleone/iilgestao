@@ -131,40 +131,46 @@ export default function Tarefas() {
   const visibleTasks = useMemo(() => {
     let filtered = allTasks;
 
-    // Projetista: show all tasks assigned to them (hide concluded/approved)
     if (isProjetista && profile) {
-      filtered = filtered.filter(t => t.responsible === profile.id && !["concluida", "enviado_cliente"].includes(t.status));
-    } else if (!isProjetista && profile && filterProject === "all") {
-      // Managers without project filter: show tasks that have dates defined,
-      // tasks with active timers, or tasks awaiting validation for their projects
-      const activeTaskIds = new Set(activeTimers.map(t => t.task_id));
-      const coordinatedProjectIds = new Set(projects.filter(p => p.responsible === profile.id).map(p => p.id));
+      // Projetista vê APENAS suas tarefas com data definida e status ativo
       filtered = filtered.filter(t =>
-        t.startDate || t.endDate ||
-        activeTaskIds.has(t.id) ||
-        (t.status === "aguardando_validacao" && coordinatedProjectIds.has(t.projectId))
+        t.responsible === profile.id &&
+        (t.startDate || t.endDate) &&
+        !["aguardando_validacao", "aprovada", "enviado_cliente", "concluida"].includes(t.status)
       );
+    } else if (profile && (profile.role === "planejamento" || profile.role === "admin" || profile.role === "admin_geral")) {
+      const coordinatedProjectIds = new Set(
+        projects.filter(p => p.responsible === profile.id).map(p => p.id)
+      );
+      const activeTaskIds = new Set(activeTimers.map(t => t.task_id));
+
+      if (filterProject !== "all") {
+        // Com projeto selecionado: mostrar todas as tarefas do projeto
+        filtered = filtered.filter(t => t.projectId === filterProject);
+      } else {
+        // Sem projeto selecionado: mostrar tarefas pendentes de ação
+        filtered = filtered.filter(t =>
+          activeTaskIds.has(t.id) ||
+          (t.status === "aguardando_validacao" && coordinatedProjectIds.has(t.projectId))
+        );
+      }
     }
 
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(t =>
-        t.name.toLowerCase().includes(q) || projects.find(p => p.id === t.projectId)?.name.toLowerCase().includes(q)
-      );
-    }
-    if (filterProject !== "all") filtered = filtered.filter(t => t.projectId === filterProject);
+    // Aplicar filtros adicionais
+    if (search) filtered = filtered.filter(t => t.name.toLowerCase().includes(search.toLowerCase()));
     if (filterDiscipline !== "all") filtered = filtered.filter(t => t.discipline === filterDiscipline);
     if (filterStatus !== "all") filtered = filtered.filter(t => t.status === filterStatus);
-    if (filterResponsible !== "all") filtered = filtered.filter(t => t.responsible === filterResponsible);
     if (filterStage !== "all") filtered = filtered.filter(t => t.stageName === filterStage);
+    if (filterResponsible !== "all") filtered = filtered.filter(t => t.responsible === filterResponsible);
 
-    const statusOrder: Record<string, number> = { em_andamento: 0, nao_iniciada: 1, aguardando_validacao: 2, reprovada: 3, aprovada: 4, concluida: 5, enviado_cliente: 6 };
     return filtered.sort((a, b) => {
-      const so = (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1);
-      if (so !== 0) return so;
-      return parseLocalDate(a.endDate).getTime() - parseLocalDate(b.endDate).getTime();
+      const aOverdue = a.endDate && parseLocalDate(a.endDate) < new Date() && !["concluida","aprovada","enviado_cliente"].includes(a.status);
+      const bOverdue = b.endDate && parseLocalDate(b.endDate) < new Date() && !["concluida","aprovada","enviado_cliente"].includes(b.status);
+      if (aOverdue && !bOverdue) return -1;
+      if (!aOverdue && bOverdue) return 1;
+      return (a.endDate || "").localeCompare(b.endDate || "");
     });
-  }, [allTasks, search, filterProject, filterDiscipline, filterStatus, filterResponsible, filterStage, isProjetista, profile, projects, activeTimers]);
+  }, [allTasks, isProjetista, profile, projects, activeTimers, search, filterProject, filterDiscipline, filterStatus, filterStage, filterResponsible]);
 
   const handleCreate = async () => {
     if (!form.name || !form.projectId || !form.stageName || !form.responsible || !form.startDate || !form.endDate) {
@@ -315,32 +321,6 @@ export default function Tarefas() {
                           <div className="flex items-center gap-2 mb-1">
                             <p className="text-sm font-medium truncate">{task.name}</p>
                             {isOverdue && <Badge variant="destructive" className="text-xs shrink-0">Atrasada</Badge>}
-                            {task.status === "aprovada" && (
-                              <Badge variant="outline" className="text-xs shrink-0 bg-success/10 text-success border-success/30 gap-1">
-                                <CheckCircle2 className="h-3 w-3" /> Enviar para cliente
-                              </Badge>
-                            )}
-                            {task.status === "enviado_cliente" && (
-                              <Badge variant="outline" className="text-xs shrink-0 bg-primary/10 text-primary border-primary/30 gap-1">
-                                <Send className="h-3 w-3" /> Enviado
-                              </Badge>
-                            )}
-                            {task.status === "reprovada" && (
-                              <Badge variant="destructive" className="text-xs shrink-0 gap-1">
-                                <AlertTriangle className="h-3 w-3" /> Reprovada
-                              </Badge>
-                            )}
-                            {hasActiveUsers ? (
-                              <Badge variant="outline" className="text-xs shrink-0 bg-success/10 text-success border-success/30 gap-1 animate-pulse">
-                                <Radio className="h-3 w-3" />
-                                {taskActiveTimers.map(t => t.user_name.split(" ")[0]).join(", ")}
-                              </Badge>
-                            ) : task.status === "em_andamento" ? (
-                              <Badge variant="outline" className="text-xs shrink-0 bg-destructive/10 text-destructive border-destructive/30 gap-1">
-                                <Square className="h-3 w-3" />
-                                Parado
-                              </Badge>
-                            ) : null}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span>{project?.name}</span><span>·</span><span>{task.stageName}</span><span>·</span>
@@ -363,7 +343,17 @@ export default function Tarefas() {
                           <div className="hidden sm:block text-xs text-muted-foreground tabular-nums w-20 text-right">
                             {formatDateBR(task.endDate)}
                           </div>
-                          <Badge variant="secondary" className={`${taskStatusColors[task.status]} shrink-0`}>{TASK_STATUS_LABELS[task.status]}</Badge>
+                          {(() => {
+                            const hasTimer = getTimerForTask(activeTimers, task.id).length > 0;
+                            if (hasTimer) return null;
+                            if (task.status === "em_andamento") return <Badge className="bg-orange-100 text-orange-800 border-orange-300 shrink-0">Pausada</Badge>;
+                            if (task.status === "nao_iniciada") return <Badge variant="secondary" className="shrink-0">Não iniciada</Badge>;
+                            if (task.status === "aguardando_validacao") return <Badge className="bg-warning text-warning-foreground shrink-0">Aguard. Validação</Badge>;
+                            if (task.status === "aprovada") return <Badge className="bg-success text-success-foreground shrink-0">Aprovada</Badge>;
+                            if (task.status === "reprovada") return <Badge variant="destructive" className="shrink-0">Reprovada</Badge>;
+                            if (["concluida", "enviado_cliente"].includes(task.status)) return <Badge className="bg-success text-success-foreground shrink-0">Concluída</Badge>;
+                            return null;
+                          })()}
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </div>
                       </div>

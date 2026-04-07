@@ -214,15 +214,15 @@ export default function TarefaDetalhe() {
       return;
     }
     await supabase.from("tasks").update({ status: "aguardando_validacao" }).eq("id", task.id);
-    setTask(prev => prev ? { ...prev, status: "aguardando_validacao" } : prev);
     toast.success("Tarefa enviada para validação do coordenador!");
+    navigate("/tarefas");
   };
 
   const handleApprove = async () => {
     if (!task) return;
     await supabase.from("tasks").update({ status: "aprovada" }).eq("id", task.id);
-    setTask(prev => prev ? { ...prev, status: "aprovada" } : prev);
     toast.success("Tarefa aprovada com sucesso!");
+    navigate("/tarefas");
   };
 
   const handleReject = async () => {
@@ -231,10 +231,10 @@ export default function TarefaDetalhe() {
       return;
     }
     await supabase.from("tasks").update({ status: "reprovada", rejection_reason: rejectReason.trim() }).eq("id", task.id);
-    setTask(prev => prev ? { ...prev, status: "reprovada", rejection_reason: rejectReason.trim() } : prev);
     setRejectOpen(false);
     setRejectReason("");
-    toast.success("Tarefa reprovada. O projetista foi notificado.");
+    toast.success("Tarefa reprovada. O projetista será notificado.");
+    navigate("/tarefas");
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
