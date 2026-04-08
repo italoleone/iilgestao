@@ -136,7 +136,7 @@ export default function Tarefas() {
       filtered = filtered.filter(t =>
         t.responsible === profile.id &&
         (t.startDate || t.endDate) &&
-        !["aguardando_validacao", "aprovada", "enviado_cliente", "concluida"].includes(t.status)
+        !["aguardando_validacao", "enviado_cliente", "concluida"].includes(t.status)
       );
     } else if (profile && (profile.role === "planejamento" || profile.role === "admin" || profile.role === "admin_geral")) {
       const coordinatedProjectIds = new Set(
