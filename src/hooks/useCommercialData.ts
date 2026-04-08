@@ -276,16 +276,9 @@ export function useApproveProposal() {
 
         // Create default tasks for each stage
         const STAGE_NAMES = ["Estudo Preliminar","Anteprojeto","Pré-executivo","Executivo","Liberação para Obra","Revisão"];
-        const defaultTasksByStage: Record<string, string[]> = {
-          "Estudo Preliminar": ["Tarefa Teste 1", "Tarefa Teste 2"],
-          "Anteprojeto": ["Tarefa Teste 3"],
-          "Pré-executivo": ["Tarefa Teste 4"],
-          "Executivo": ["Tarefa Teste 5"],
-          "Liberação para Obra": ["Tarefa Teste 6"],
-          "Revisão": ["Tarefa Teste 7"],
-        };
+        const discTasks = DEFAULT_TASKS_BY_DISCIPLINE[disc] || {};
         const taskRows = STAGE_NAMES.flatMap((stageName) =>
-          (defaultTasksByStage[stageName] || []).map((taskName) => ({
+          (discTasks[stageName] || []).map((taskName: string) => ({
             name: taskName,
             project_id: (project as any).id,
             discipline: disc,

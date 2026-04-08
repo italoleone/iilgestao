@@ -129,18 +129,10 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
 
     // Auto-create default tasks for each project
     if (insertedProjects && insertedProjects.length > 0) {
-      const defaultTasksByStage: Record<string, string[]> = {
-        "Estudo Preliminar": ["Tarefa Teste 1", "Tarefa Teste 2"],
-        "Anteprojeto": ["Tarefa Teste 3"],
-        "Pré-executivo": ["Tarefa Teste 4"],
-        "Executivo": ["Tarefa Teste 5"],
-        "Liberação para Obra": ["Tarefa Teste 6"],
-        "Revisão": ["Tarefa Teste 7"],
-      };
-
-      const taskRows = insertedProjects.flatMap((proj: any) =>
-        STAGE_NAMES.flatMap((stageName) =>
-          (defaultTasksByStage[stageName] || []).map((taskName) => ({
+      const taskRows = insertedProjects.flatMap((proj: any) => {
+        const discTasks = DEFAULT_TASKS_BY_DISCIPLINE[proj.discipline] || {};
+        return STAGE_NAMES.flatMap((stageName) =>
+          (discTasks[stageName] || []).map((taskName: string) => ({
             name: taskName,
             project_id: proj.id,
             discipline: proj.discipline,
@@ -149,8 +141,8 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
             hours_worked: 0,
             status: "nao_iniciada",
           }))
-        )
-      );
+        );
+      });
 
       if (taskRows.length > 0) {
         await supabase.from("tasks").insert(taskRows as any);
