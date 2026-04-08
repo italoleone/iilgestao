@@ -16,10 +16,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell,
 } from "recharts";
 
-function daysFromNow(dateStr: string) {
+function daysFromNow(dateStr: string | null | undefined): number | null {
+  if (!dateStr) return null;
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
   d.setHours(0, 0, 0, 0);
   return Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
@@ -87,19 +89,19 @@ export default function DashboardPlanejamento() {
 
   // 1. Overdue tasks
   const overdueTasks = useMemo(() =>
-    filteredTasks.filter(t =>
-      daysFromNow(t.endDate) < 0 &&
-      !["aprovada", "concluida"].includes(t.status)
-    ).sort((a, b) => daysFromNow(a.endDate) - daysFromNow(b.endDate)),
+    filteredTasks.filter(t => {
+      const d = daysFromNow(t.endDate);
+      return d !== null && d < 0 && !["aprovada", "concluida"].includes(t.status);
+    }).sort((a, b) => (daysFromNow(a.endDate) ?? 0) - (daysFromNow(b.endDate) ?? 0)),
     [filteredTasks]
   );
 
   // Due today
   const dueTodayTasks = useMemo(() =>
-    filteredTasks.filter(t =>
-      daysFromNow(t.endDate) === 0 &&
-      !["aprovada", "concluida"].includes(t.status)
-    ),
+    filteredTasks.filter(t => {
+      const d = daysFromNow(t.endDate);
+      return d !== null && d === 0 && !["aprovada", "concluida"].includes(t.status);
+    }),
     [filteredTasks]
   );
 
@@ -107,8 +109,8 @@ export default function DashboardPlanejamento() {
   const dueSoonTasks = useMemo(() =>
     filteredTasks.filter(t => {
       const d = daysFromNow(t.endDate);
-      return d > 0 && d <= 15 && !["aprovada", "concluida"].includes(t.status);
-    }).sort((a, b) => daysFromNow(a.endDate) - daysFromNow(b.endDate)),
+      return d !== null && d > 0 && d <= 15 && !["aprovada", "concluida"].includes(t.status);
+    }).sort((a, b) => (daysFromNow(a.endDate) ?? 0) - (daysFromNow(b.endDate) ?? 0)),
     [filteredTasks]
   );
 
@@ -116,8 +118,8 @@ export default function DashboardPlanejamento() {
   const startingSoonTasks = useMemo(() =>
     filteredTasks.filter(t => {
       const d = daysFromNow(t.startDate);
-      return d >= 0 && d <= 7;
-    }).sort((a, b) => daysFromNow(a.startDate) - daysFromNow(b.startDate)),
+      return d !== null && d >= 0 && d <= 7;
+    }).sort((a, b) => (daysFromNow(a.startDate) ?? 0) - (daysFromNow(b.startDate) ?? 0)),
     [filteredTasks]
   );
 
@@ -131,9 +133,10 @@ export default function DashboardPlanejamento() {
   // 5. Week stats
   const weekTasks = useMemo(() =>
     filteredTasks.filter(t => {
-      const sd = new Date(t.startDate);
-      const ed = new Date(t.endDate);
-      return ed >= weekStart || sd >= weekStart;
+      if (!t.startDate && !t.endDate) return false;
+      const sd = t.startDate ? new Date(t.startDate) : null;
+      const ed = t.endDate ? new Date(t.endDate) : null;
+      return (ed && ed >= weekStart) || (sd && sd >= weekStart);
     }),
     [filteredTasks, weekStart]
   );
