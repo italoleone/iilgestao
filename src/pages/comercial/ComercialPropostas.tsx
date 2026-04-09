@@ -142,13 +142,37 @@ export default function ComercialPropostas() {
 
   const handleApproveWithDiscount = () => {
     if (!approvalTarget || !user) return;
+    // Open coordinator selection modal
+    const discs = (["estrutural", "hidraulica", "eletrica", "fundacoes"] as const).filter(
+      (d) => approvalTarget.disciplines[d] && approvalTarget.disciplines[d]! > 0
+    );
+    const initial: Record<string, string> = {};
+    discs.forEach((d) => { initial[d] = ""; });
+    setCoordinatorSelections(initial);
+    setCoordinatorTarget(approvalTarget);
+    // Load active users for coordinator selection
+    supabase.from("profiles").select("id, name").eq("status", "active").order("name").then(({ data }) => {
+      if (data) setActiveUsers(data.map((u) => ({ id: u.id, name: u.name })));
+    });
+  };
+
+  const handleConfirmCoordinators = () => {
+    if (!approvalTarget || !user || !coordinatorTarget) return;
+    const discs = Object.keys(coordinatorSelections);
+    const allFilled = discs.every((d) => coordinatorSelections[d]);
+    if (!allFilled) {
+      toast.error("Selecione o coordenador para todas as disciplinas.");
+      return;
+    }
     approveProposal.mutate({
       proposal: approvalTarget,
       discounts: discountForm,
       userId: user.id,
+      coordinators: coordinatorSelections,
     }, {
       onSuccess: () => {
         setApprovalTarget(null);
+        setCoordinatorTarget(null);
         setDetailProposal(null);
       },
     });
