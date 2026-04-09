@@ -3,40 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-const DEFAULT_TASKS_BY_DISCIPLINE: Record<string, Record<string, string[]>> = {
-  estrutural: {
-    "Estudo Preliminar": ["Recebimento da Arquitetura em EP + Normas do Condomínio","Kick-off Interno do Projeto + Cronograma Interno","Elaboração da Modelagem","Checklist da Modelagem","Elaboração das Formas","Checklist das Formas","Gerar IFC","Enviar arvore para TQS.CON","Envio do projeto para o cliente"],
-    "Anteprojeto": ["Recebimento da Arquitetura/Comentários do EP","Validação dos Comentários","Validação do cronograma Externo/Interno","Atender/Incorporar comentários/arquitetura no Modelo","Elaboração das Formas","Checklist das Formas","Compatibilizar com projeto de Hidráulica/Eletrica/Bombeiro","Gerar IFC","Enviar arvore para TQS.CON","Envio do projeto para o cliente"],
-    "Pré-executivo": ["Recebimento da Arquitetura/Comentários do AP","Validar comentários","Validar Cronograma Externo/Interno","Atender/Incorporar Comentários/Arquitetura no Modelo","Elaboração das Formas","Checklist das Formas","Compatibilizar com projeto de Hidráulica/Eletrica/Bombeiro","Gerar IFC","Enviar arvore para TQS.CON","Enviar para o cliente"],
-    "Executivo": ["Recebimento da Arquitetura/Comentários do PR","Validar comentários","Validar Cronograma Externo/Interno","Atender/Incorporar Comentários/Arquitetura no Modelo","Compatibilizar com projeto de Hidráulica/Eletrica/Bombeiro","Elaboração das Formas","Checklist das Formas","Elaboração das Armações","Checklist das Armações","Elaboração folha Markup","Elaboração da Furação","Gerar IFC","Enviar arvore para TQS.CON","Enviar para o Cliente"],
-    "Liberação para Obra": ["Recebimento da Arquitetura/Comentários do EX","Validar comentários","Validar Cronograma Externo/Interno","Atender/Incorporar Comentários/Arquitetura de Forma","Checklist da Forma","Atender/Incorporar Comentários/Arquitetura de Armação","Checklist da Armação","Compatibilizar com projeto de Hidráulica/Eletrica/Bombeiro","Revisão da Furação","Gerar IFC","Enviar arvore para TQS.CON","Enviar para o Cliente"],
-    "Revisão": ["Revisão 01","Revisão 02","Revisão 03"],
-  },
-  hidraulica: {
-    "Estudo Preliminar": ["Recebimento da Arquitetura em EP + Normas do Condomínio","Briefing/Kickoff com Cliente","Kick-off Interno do Projeto + Cronograma Interno","Elaboração do Projeto","Checklist do Projeto","Compatibilizar com projeto de Estrutura/Eletrica/Bombeiro","Gerar IFC","Envio do projeto para o cliente"],
-    "Anteprojeto": ["Recebimento da Arquitetura/Comentários do EP","Validação dos Comentários","Validação do cronograma Externo/Interno","Atender/Incorporar comentários/arquitetura","Elaboração do Projeto","Checklist do Projeto","Compatibilizar com projeto de Estrutura/Eletrica/Bombeiro","Gerar IFC","Projeto de PPCI e Protocolo junto ao CB","Envio do projeto para o cliente"],
-    "Pré-executivo": ["Recebimento da Arquitetura/Comentários do AP","Validar comentários","Validar Cronograma Externo/Interno","Atender/Incorporar Comentários/Arquitetura no Modelo","Elaboração do Projeto","Checklist do Projeto","Elaboração do Markup","Compatibilizar com projeto de Estrutura/Eletrica/Bombeiro","Gerar IFC","Projeto de PPCI e Protocolo junto ao CB","Enviar para o cliente"],
-    "Executivo": ["Recebimento da Arquitetura/Comentários do PR","Validar comentários","Validar Cronograma Externo/Interno","Atender/Incorporar Comentários/Arquitetura","Elaboração da Modelagem","Checklist da Modelagem","Elaboração dos Detalhamentos","Checklist dos Detalhamentos","Elaboração da Implantação/Anexos","Checklist da Implantação/Anexos","Compatibilizar com projeto de Estrutura/Eletrica/Bombeiro","Elaboração folha Markup","Gerar IFC","Projeto de PPCI e Protocolo junto ao CB","Enviar para o Cliente"],
-    "Liberação para Obra": ["Recebimento da Arquitetura/Comentários do PR","Validar comentários","Validar Cronograma Externo/Interno","Atender/Incorporar Comentários/Arquitetura","Revisar Modelagem","Checklist da Modelagem","Revisar Detalhamentos","Checklist dos Detalhamentos","Revisar Implantação/Anexos","Checklist da Implantação/Anexos","Compatibilizar com projeto de Estrutura/Eletrica/Bombeiro","Gerar IFC","Revisar Projeto de PPCI e Protocolo junto ao CB","Enviar para o Cliente"],
-    "Revisão": ["Revisão 01","Revisão 02","Revisão 03"],
-  },
-  eletrica: {
-    "Estudo Preliminar": ["Recebimento da Arquitetura em EP + Normas do Condomínio","Briefing/Kickoff com Cliente","Kick-off Interno do Projeto + Cronograma Interno","Elaboração do Projeto","Checklist do Projeto","Compatibilizar com projeto de Estrutura/Hidráulica/Bombeiro","Gerar IFC","Envio do projeto para o cliente"],
-    "Anteprojeto": ["Recebimento da Arquitetura/Comentários do EP","Validação dos Comentários","Validação do cronograma Externo/Interno","Atender/Incorporar comentários/arquitetura","Elaboração do Projeto","Checklist do Projeto","Compatibilizar com projeto de Estrutura/Hidráulica/Bombeiro","Gerar IFC","Envio do projeto para o cliente"],
-    "Pré-executivo": ["Recebimento da Arquitetura/Comentários do AP","Validar comentários","Validar Cronograma Externo/Interno","Atender/Incorporar Comentários/Arquitetura","Elaboração da Modelagem","Checklist da Modelagem","Compatibilizar com projeto de Estrutura/Hidráulica/Bombeiro","Elaboração do Markup","Gerar IFC","Enviar para o cliente"],
-    "Executivo": ["Recebimento da Arquitetura/Comentários do PR","Validar comentários","Validar Cronograma Externo/Interno","Atender/Incorporar Comentários/Arquitetura","Elaboração dos Detalhamentos","Checklist dos Detalhamentos","Elaboração da Implantação/Anexos","Checklist da Implantação/Anexos","Elaboração da Entrada de Energia","Elaboração do SPDA","Compatibilizar com projeto de Estrutura/Hidráulica/Bombeiro","Elaboração folha Markup","Gerar IFC","Enviar para o Cliente"],
-    "Liberação para Obra": ["Recebimento da Arquitetura/Comentários do PR","Validar comentários","Validar Cronograma Externo/Interno","Atender/Incorporar Comentários/Arquitetura","Revisar Detalhamentos","Checklist dos Detalhamentos","Revisar Implantação/Anexos","Checklist da Implantação/Anexos","Compatibilizar com projeto de Estrutura/Hidráulica/Bombeiro","Revisar folha Markup","Gerar IFC","Enviar para o Cliente"],
-    "Revisão": ["Revisão 01","Revisão 02","Revisão 03"],
-  },
-  fundacoes: {
-    "Estudo Preliminar": [],
-    "Anteprojeto": [],
-    "Pré-executivo": [],
-    "Executivo": [],
-    "Liberação para Obra": [],
-    "Revisão": ["Revisão 01","Revisão 02","Revisão 03"],
-  },
-};
+import { DEFAULT_TASKS_BY_DISCIPLINE } from "@/data/defaultTasks";
 
 export interface CommercialClient {
   id: string;
@@ -262,10 +229,12 @@ export function useApproveProposal() {
       proposal,
       discounts,
       userId,
+      coordinators,
     }: {
       proposal: CommercialProposal;
       discounts: ProposalDiscounts;
       userId: string;
+      coordinators?: Record<string, string>;
     }) => {
       if (proposal.linked_project_id) {
         throw new Error("Proposta já possui projeto vinculado");
@@ -291,6 +260,7 @@ export function useApproveProposal() {
 
       for (const disc of disciplineKeys) {
         const discValue = finalDisciplines[disc] || 0;
+        const coordId = coordinators?.[disc] || proposal.responsible_id;
         const { data: project, error: projError } = await supabase
           .from("projects")
           .insert({
@@ -299,7 +269,8 @@ export function useApproveProposal() {
             discipline: disc,
             start_date: new Date().toISOString().split("T")[0],
             deadline: new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0],
-            responsible: proposal.responsible_id,
+            responsible: coordId,
+            team: [coordId],
             sale_value: discValue,
             status: "em_andamento",
           } as any)
