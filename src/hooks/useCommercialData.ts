@@ -229,10 +229,12 @@ export function useApproveProposal() {
       proposal,
       discounts,
       userId,
+      coordinators,
     }: {
       proposal: CommercialProposal;
       discounts: ProposalDiscounts;
       userId: string;
+      coordinators?: Record<string, string>;
     }) => {
       if (proposal.linked_project_id) {
         throw new Error("Proposta já possui projeto vinculado");
