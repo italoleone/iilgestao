@@ -64,13 +64,18 @@ export default function DashboardPlanejamento() {
     return Array.from(set).sort();
   }, [tasks]);
 
-  // Base filter: role-based (coordenador sees own discipline only)
+  // Base filter: role-based
+  // Coordenador sees only tasks from projects where they are the responsible
+  // Planejamento sees everything (no filter)
   const roleFilteredTasks = useMemo(() => {
-    if (profile?.role === "planejamento" && profile.discipline) {
-      return tasks.filter(t => t.discipline === profile.discipline);
+    if (profile?.role === "coordenador" && profile.id) {
+      const myProjectIds = new Set(
+        projects.filter(p => p.responsible === profile.id).map(p => p.id)
+      );
+      return tasks.filter(t => myProjectIds.has(t.projectId));
     }
     return tasks;
-  }, [tasks, profile]);
+  }, [tasks, profile, projects]);
 
   // Apply user-selected filters on top
   const filteredTasks = useMemo(() => {

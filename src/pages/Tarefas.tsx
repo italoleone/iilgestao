@@ -35,7 +35,7 @@ const taskStatusColors: Record<TaskStatus, string> = {
 };
 
 export default function Tarefas() {
-  const { isProjetista, profile } = useAuth();
+  const { isProjetista, isCoordenador, canCreateTasks, profile } = useAuth();
   const navigate = useNavigate();
   const { projects } = useProjects();
   const { tasks: allTasks, loading, refetch: refetchTasks } = useTasks();
@@ -138,7 +138,29 @@ export default function Tarefas() {
         (t.startDate || t.endDate) &&
         !["aguardando_validacao", "enviado_cliente", "concluida"].includes(t.status)
       );
+    } else if (isCoordenador && profile) {
+      // Coordenador vê apenas tarefas dos projetos onde é responsável (coordenador)
+      // E somente tarefas com data programada
+      const coordinatedProjectIds = new Set(
+        projects.filter(p => p.responsible === profile.id).map(p => p.id)
+      );
+
+      if (filterProject !== "all") {
+        // Com projeto selecionado: mostrar todas as tarefas do projeto (se for dele)
+        filtered = filtered.filter(t => t.projectId === filterProject && coordinatedProjectIds.has(t.projectId));
+      } else {
+        // Sem projeto selecionado: tarefas dos seus projetos com data definida
+        const activeTaskIds = new Set(activeTimers.map(t => t.task_id));
+        filtered = filtered.filter(t =>
+          coordinatedProjectIds.has(t.projectId) && (
+            (t.startDate || t.endDate) ||
+            activeTaskIds.has(t.id) ||
+            t.status === "aguardando_validacao"
+          )
+        );
+      }
     } else if (profile && (profile.role === "planejamento" || profile.role === "admin" || profile.role === "admin_geral")) {
+      // Planejamento, Gerente e Diretor: veem tudo
       const coordinatedProjectIds = new Set(
         projects.filter(p => p.responsible === profile.id).map(p => p.id)
       );
@@ -170,7 +192,7 @@ export default function Tarefas() {
       if (!aOverdue && bOverdue) return 1;
       return (a.endDate || "").localeCompare(b.endDate || "");
     });
-  }, [allTasks, isProjetista, profile, projects, activeTimers, search, filterProject, filterDiscipline, filterStatus, filterStage, filterResponsible]);
+  }, [allTasks, isProjetista, isCoordenador, profile, projects, activeTimers, search, filterProject, filterDiscipline, filterStatus, filterStage, filterResponsible]);
 
   const handleCreate = async () => {
     if (!form.name || !form.projectId || !form.stageName || !form.responsible || !form.startDate || !form.endDate) {

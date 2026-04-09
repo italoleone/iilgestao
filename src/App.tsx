@@ -45,8 +45,11 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
   if (pendingApproval) return <Navigate to="/login" replace />;
   if (!user) return <Navigate to="/login" replace />;
   if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
-    // Redirect projetista to tarefas, others to home
-    return <Navigate to={profile.role === "projetista" ? "/tarefas" : "/"} replace />;
+    // Redirect based on role
+    if (profile.role === "projetista") return <Navigate to="/tarefas" replace />;
+    if (profile.role === "coordenador") return <Navigate to="/planejamento" replace />;
+    if (profile.role === "planejamento") return <Navigate to="/planejamento" replace />;
+    return <Navigate to="/" replace />;
   }
   return <>{children}</>;
 }
@@ -63,25 +66,25 @@ function AppRoutes() {
   }
 
   // Determine default route based on role
-  const defaultRoute = profile?.role === "projetista" ? "/tarefas" : "/";
+  const defaultRoute = profile?.role === "projetista" ? "/tarefas" : (profile?.role === "coordenador" || profile?.role === "planejamento") ? "/planejamento" : "/";
 
   return (
     <Routes>
       <Route path="/login" element={user && !pendingApproval ? <Navigate to={defaultRoute} replace /> : <Login />} />
       <Route path="/cadastro" element={user && !pendingApproval ? <Navigate to={defaultRoute} replace /> : <Cadastro />} />
-      <Route path="/" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Dashboard /></ProtectedRoute>} />
-      <Route path="/planejamento" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><DashboardPlanejamento /></ProtectedRoute>} />
-      <Route path="/projetos" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Projetos /></ProtectedRoute>} />
-      <Route path="/projetos/:id" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><ProjetoDetalhe /></ProtectedRoute>} />
+      <Route path="/" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><Dashboard /></ProtectedRoute>} />
+      <Route path="/planejamento" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><DashboardPlanejamento /></ProtectedRoute>} />
+      <Route path="/projetos" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><Projetos /></ProtectedRoute>} />
+      <Route path="/projetos/:id" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><ProjetoDetalhe /></ProtectedRoute>} />
       <Route path="/tarefas" element={<ProtectedRoute><Tarefas /></ProtectedRoute>} />
       <Route path="/tarefas/:id" element={<ProtectedRoute><TarefaDetalhe /></ProtectedRoute>} />
-      <Route path="/horas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Horas /></ProtectedRoute>} />
+      <Route path="/horas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><Horas /></ProtectedRoute>} />
       <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroDashboard /></ProtectedRoute>} />
       <Route path="/financeiro/receber" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroReceber /></ProtectedRoute>} />
       <Route path="/financeiro/pagar" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroPagar /></ProtectedRoute>} />
       <Route path="/financeiro/rentabilidade" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroRentabilidade /></ProtectedRoute>} />
       <Route path="/usuarios" element={<ProtectedRoute allowedRoles={["admin_geral"]}><Usuarios /></ProtectedRoute>} />
-      <Route path="/alertas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Alertas /></ProtectedRoute>} />
+      <Route path="/alertas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><Alertas /></ProtectedRoute>} />
       <Route path="/comercial" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialDashboard /></ProtectedRoute>} />
       <Route path="/comercial/clientes" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialClientes /></ProtectedRoute>} />
       <Route path="/comercial/propostas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialPropostas /></ProtectedRoute>} />
