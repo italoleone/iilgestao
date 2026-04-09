@@ -260,6 +260,7 @@ export function useApproveProposal() {
 
       for (const disc of disciplineKeys) {
         const discValue = finalDisciplines[disc] || 0;
+        const coordId = coordinators?.[disc] || proposal.responsible_id;
         const { data: project, error: projError } = await supabase
           .from("projects")
           .insert({
@@ -268,7 +269,8 @@ export function useApproveProposal() {
             discipline: disc,
             start_date: new Date().toISOString().split("T")[0],
             deadline: new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0],
-            responsible: proposal.responsible_id,
+            responsible: coordId,
+            team: [coordId],
             sale_value: discValue,
             status: "em_andamento",
           } as any)
