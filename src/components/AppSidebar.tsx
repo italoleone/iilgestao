@@ -26,7 +26,8 @@ import { useState } from "react";
 const ROLE_LABELS: Record<string, string> = {
   admin_geral: "Diretor",
   admin: "Gerente",
-  planejamento: "Coordenador",
+  planejamento: "Planejamento",
+  coordenador: "Coordenador",
   projetista: "Projetista",
 };
 
@@ -43,12 +44,12 @@ const modules: NavModule[] = [
     title: "Dashboard",
     icon: LayoutDashboard,
     url: "/",
-    roles: ["admin_geral", "admin", "planejamento"],
+    roles: ["admin_geral", "admin"],
   },
   {
     title: "Planejamento",
     icon: ClipboardList,
-    roles: ["admin_geral", "admin", "planejamento", "projetista"],
+    roles: ["admin_geral", "admin", "planejamento", "coordenador", "projetista"],
     children: [
       { title: "Dashboard", url: "/planejamento", icon: LayoutDashboard },
       { title: "Projetos", url: "/projetos", icon: FolderKanban },
@@ -88,7 +89,7 @@ const modules: NavModule[] = [
     title: "Alertas",
     icon: Bell,
     url: "/alertas",
-    roles: ["admin_geral", "admin", "planejamento"],
+    roles: ["admin_geral", "admin", "planejamento", "coordenador"],
   },
 ];
 
@@ -112,7 +113,8 @@ export function AppSidebar() {
     if (userRole === "projetista") {
       return mod.children.filter((c) => c.url === "/tarefas");
     }
-    // Coordenador sees all planning children
+    // Coordenador sees all planning children (Dashboard, Projetos, Tarefas)
+    // Planejamento sees all planning children
     return mod.children;
   };
 
