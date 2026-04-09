@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { supabase } from "@/integrations/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
-export type AppRole = "admin_geral" | "admin" | "planejamento" | "projetista";
+export type AppRole = "admin_geral" | "admin" | "planejamento" | "coordenador" | "projetista";
 
 export interface UserProfile {
   id: string;
@@ -24,9 +24,13 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   canAccessFinanceiro: boolean;
+  canAccessComercial: boolean;
+  canAccessPlanejamento: boolean;
   canAccessAllProjects: boolean;
   canManageUsers: boolean;
+  canCreateTasks: boolean;
   isProjetista: boolean;
+  isCoordenador: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -117,9 +121,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const role = profile?.role;
   const canAccessFinanceiro = role === "admin_geral" || role === "admin";
-  const canAccessAllProjects = role !== "projetista";
+  const canAccessComercial = role === "admin_geral" || role === "admin";
+  const canAccessPlanejamento = role !== "projetista";
+  const canAccessAllProjects = role === "admin_geral" || role === "admin" || role === "planejamento";
   const canManageUsers = role === "admin_geral";
+  const canCreateTasks = role !== "projetista";
   const isProjetista = role === "projetista";
+  const isCoordenador = role === "coordenador";
 
   return (
     <AuthContext.Provider
@@ -132,9 +140,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         refreshProfile,
         canAccessFinanceiro,
+        canAccessComercial,
+        canAccessPlanejamento,
         canAccessAllProjects,
         canManageUsers,
+        canCreateTasks,
         isProjetista,
+        isCoordenador,
       }}
     >
       {children}
