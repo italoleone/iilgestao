@@ -357,7 +357,7 @@ export default function ComercialPropostas() {
         )}
 
         {/* Approval discount modal */}
-        {approvalTarget && (
+        {approvalTarget && !coordinatorTarget && (
           <ApprovalDiscountModal
             proposal={approvalTarget}
             discounts={discountForm}
@@ -366,6 +366,45 @@ export default function ComercialPropostas() {
             onCancel={() => setApprovalTarget(null)}
             isLoading={approveProposal.isPending}
           />
+        )}
+
+        {/* Coordinator selection modal */}
+        {coordinatorTarget && (
+          <Dialog open onOpenChange={() => setCoordinatorTarget(null)}>
+            <DialogContent className="max-w-md">
+              <DialogHeader><DialogTitle>Selecionar Coordenadores</DialogTitle></DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Defina o coordenador técnico para cada disciplina do projeto.
+                </p>
+                {Object.keys(coordinatorSelections).map((disc) => (
+                  <div key={disc} className="space-y-1">
+                    <Label className="text-sm font-medium">{DISC_LABELS[disc] || disc}</Label>
+                    <select
+                      value={coordinatorSelections[disc] || ""}
+                      onChange={(e) => setCoordinatorSelections((prev) => ({ ...prev, [disc]: e.target.value }))}
+                      className="h-10 w-full rounded-md border bg-card px-3 text-sm"
+                    >
+                      <option value="">Selecione o coordenador...</option>
+                      {activeUsers.map((u) => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCoordinatorTarget(null)}>Cancelar</Button>
+                <Button
+                  onClick={handleConfirmCoordinators}
+                  disabled={approveProposal.isPending || !Object.values(coordinatorSelections).every(Boolean)}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <CheckCircle className="h-4 w-4 mr-1" />Confirmar e Criar Projetos
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
     </AppLayout>
