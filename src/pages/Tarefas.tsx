@@ -132,25 +132,27 @@ export default function Tarefas() {
   const visibleTasks = useMemo(() => {
     let filtered = allTasks;
 
-    if (isProjetista && profile) {
-      // Projetista vê APENAS suas tarefas com data definida e status ativo
+    if (!profile) return filtered;
+
+    const filter = getTaskFilter(profile.role, profile.id);
+
+    // Filtro por responsável da tarefa (projetista)
+    if (filter.byTaskResponsible) {
       filtered = filtered.filter(t =>
-        t.responsible === profile.id &&
+        t.responsible === filter.byTaskResponsible &&
         (t.startDate || t.endDate) &&
         !["aguardando_validacao", "enviado_cliente", "concluida"].includes(t.status)
       );
-    } else if (isCoordenador && profile) {
-      // Coordenador vê apenas tarefas dos projetos onde é responsável (coordenador)
-      // E somente tarefas com data programada
+    }
+    // Filtro por coordenador do projeto
+    else if (filter.byProjectResponsible) {
       const coordinatedProjectIds = new Set(
-        projects.filter(p => p.responsible === profile.id).map(p => p.id)
+        projects.filter(p => p.responsible === filter.byProjectResponsible).map(p => p.id)
       );
 
       if (filterProject !== "all") {
-        // Com projeto selecionado: mostrar todas as tarefas do projeto (se for dele)
         filtered = filtered.filter(t => t.projectId === filterProject && coordinatedProjectIds.has(t.projectId));
       } else {
-        // Sem projeto selecionado: tarefas dos seus projetos com data definida
         const activeTaskIds = new Set(activeTimers.map(t => t.task_id));
         filtered = filtered.filter(t =>
           coordinatedProjectIds.has(t.projectId) && (
@@ -160,18 +162,17 @@ export default function Tarefas() {
           )
         );
       }
-    } else if (profile && (profile.role === "planejamento" || profile.role === "admin" || profile.role === "admin_geral")) {
-      // Planejamento, Gerente e Diretor: veem tudo
+    }
+    // Sem filtro de papel (diretor/gerente/planejamento)
+    else {
       const coordinatedProjectIds = new Set(
         projects.filter(p => p.responsible === profile.id).map(p => p.id)
       );
       const activeTaskIds = new Set(activeTimers.map(t => t.task_id));
 
       if (filterProject !== "all") {
-        // Com projeto selecionado: mostrar todas as tarefas do projeto
         filtered = filtered.filter(t => t.projectId === filterProject);
       } else {
-        // Sem projeto selecionado: mostrar tarefas pendentes de ação
         filtered = filtered.filter(t =>
           activeTaskIds.has(t.id) ||
           (t.status === "aguardando_validacao" && coordinatedProjectIds.has(t.projectId))
@@ -179,7 +180,7 @@ export default function Tarefas() {
       }
     }
 
-    // Aplicar filtros adicionais
+    // Filtros adicionais da UI
     if (search) filtered = filtered.filter(t => t.name.toLowerCase().includes(search.toLowerCase()));
     if (filterDiscipline !== "all") filtered = filtered.filter(t => t.discipline === filterDiscipline);
     if (filterStatus !== "all") filtered = filtered.filter(t => t.status === filterStatus);
@@ -193,7 +194,7 @@ export default function Tarefas() {
       if (!aOverdue && bOverdue) return 1;
       return (a.endDate || "").localeCompare(b.endDate || "");
     });
-  }, [allTasks, isProjetista, isCoordenador, profile, projects, activeTimers, search, filterProject, filterDiscipline, filterStatus, filterStage, filterResponsible]);
+  }, [allTasks, profile, projects, activeTimers, search, filterProject, filterDiscipline, filterStatus, filterStage, filterResponsible]);
 
   const handleCreate = async () => {
     if (!form.name || !form.projectId || !form.stageName || !form.responsible || !form.startDate || !form.endDate) {
