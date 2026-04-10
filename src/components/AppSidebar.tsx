@@ -41,7 +41,8 @@ interface NavModule {
   title: string;
   icon: typeof LayoutDashboard;
   url?: string;
-  roles?: string[];
+  /** Function that decides if this module is visible for the given role */
+  visible?: (role: AppRole) => boolean;
   children?: { title: string; url: string; icon: typeof LayoutDashboard }[];
 }
 
@@ -50,12 +51,12 @@ const modules: NavModule[] = [
     title: "Dashboard",
     icon: LayoutDashboard,
     url: "/",
-    roles: ["admin_geral", "admin"],
+    visible: canAccessDashboard,
   },
   {
     title: "Planejamento",
     icon: ClipboardList,
-    roles: ["admin_geral", "admin", "planejamento", "coordenador", "projetista"],
+    visible: () => true, // all roles see this, children are filtered below
     children: [
       { title: "Dashboard", url: "/planejamento", icon: LayoutDashboard },
       { title: "Projetos", url: "/projetos", icon: FolderKanban },
@@ -65,7 +66,7 @@ const modules: NavModule[] = [
   {
     title: "Financeiro",
     icon: BarChart3,
-    roles: ["admin_geral", "admin"],
+    visible: canAccessFinanceiro,
     children: [
       { title: "Dashboard", url: "/financeiro", icon: LayoutDashboard },
       { title: "A Receber", url: "/financeiro/receber", icon: TrendingUp },
@@ -76,7 +77,7 @@ const modules: NavModule[] = [
   {
     title: "Comercial",
     icon: Briefcase,
-    roles: ["admin_geral", "admin"],
+    visible: canAccessComercial,
     children: [
       { title: "Dashboard", url: "/comercial", icon: LayoutDashboard },
       { title: "Clientes", url: "/comercial/clientes", icon: UserRound },
@@ -89,13 +90,13 @@ const modules: NavModule[] = [
     title: "Usuários",
     icon: Users,
     url: "/usuarios",
-    roles: ["admin_geral"],
+    visible: (role) => role === "admin_geral",
   },
   {
     title: "Alertas",
     icon: Bell,
     url: "/alertas",
-    roles: ["admin_geral", "admin", "planejamento", "coordenador"],
+    visible: (role) => role !== "projetista",
   },
 ];
 
@@ -105,12 +106,11 @@ export function AppSidebar() {
   const { profile, signOut } = useAuth();
   const [hoveredModule, setHoveredModule] = useState<string | null>(null);
 
-  const userRole = profile?.role || "projetista";
+  const userRole: AppRole = profile?.role || "projetista";
 
-  // For projetista, only show Planejamento > Tarefas
   const visibleModules = modules.filter((m) => {
-    if (!m.roles) return true;
-    return m.roles.includes(userRole);
+    if (!m.visible) return true;
+    return m.visible(userRole);
   });
 
   // Filter children for projetista
