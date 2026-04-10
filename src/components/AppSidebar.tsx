@@ -18,10 +18,16 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, type AppRole } from "@/contexts/AuthContext";
 import { LeoneLogo } from "@/components/LeoneLogo";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import {
+  canAccessDashboard,
+  canAccessPlanejamento,
+  canAccessFinanceiro,
+  canAccessComercial,
+} from "@/utils/permissions";
 
 const ROLE_LABELS: Record<string, string> = {
   admin_geral: "Diretor",
