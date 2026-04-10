@@ -8,6 +8,7 @@ import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useProjects, useTasks, useActiveProfiles, useTimeEntries, getProfileById } from "@/hooks/useSupabaseData";
 import { useActiveTimers, getTimerForTask } from "@/hooks/useActiveTimers";
 import { useAuth } from "@/contexts/AuthContext";
+import { getTaskFilter } from "@/utils/permissions";
 import {
   AlertTriangle, Clock, CheckCircle2, Play, Radio, TrendingUp, Users, BarChart3, Timer, CalendarClock, Zap, CalendarCheck, Filter,
 } from "lucide-react";
@@ -68,9 +69,11 @@ export default function DashboardPlanejamento() {
   // Coordenador sees only tasks from projects where they are the responsible
   // Planejamento sees everything (no filter)
   const roleFilteredTasks = useMemo(() => {
-    if (profile?.role === "coordenador" && profile.id) {
+    if (!profile) return tasks;
+    const filter = getTaskFilter(profile.role, profile.id);
+    if (filter.byProjectResponsible) {
       const myProjectIds = new Set(
-        projects.filter(p => p.responsible === profile.id).map(p => p.id)
+        projects.filter(p => p.responsible === filter.byProjectResponsible).map(p => p.id)
       );
       return tasks.filter(t => myProjectIds.has(t.projectId));
     }
