@@ -31,6 +31,8 @@ interface AuthContextType {
   canCreateTasks: boolean;
   isProjetista: boolean;
   isCoordenador: boolean;
+  isPlanejamento: boolean;
+  isDiretorOrGerente: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -128,6 +130,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const canCreateTasks = role !== "projetista";
   const isProjetista = role === "projetista";
   const isCoordenador = role === "coordenador";
+  const isPlanejamento = role === "planejamento";
+  const isDiretorOrGerente = role === "admin_geral" || role === "admin";
 
   return (
     <AuthContext.Provider
@@ -147,6 +151,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         canCreateTasks,
         isProjetista,
         isCoordenador,
+        isPlanejamento,
+        isDiretorOrGerente,
       }}
     >
       {children}
