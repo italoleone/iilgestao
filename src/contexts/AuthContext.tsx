@@ -31,6 +31,8 @@ interface AuthContextType {
   canCreateTasks: boolean;
   isProjetista: boolean;
   isCoordenador: boolean;
+  isPlanejamento: boolean;
+  isDiretorOrGerente: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
