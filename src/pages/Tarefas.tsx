@@ -128,60 +128,35 @@ export default function Tarefas() {
   });
 
   // For managers: default to showing only tasks with active timers (no project filter)
-  // For projetistas: show only their own tasks
   const visibleTasks = useMemo(() => {
     let filtered = allTasks;
 
     if (!profile) return filtered;
 
-    const filter = getTaskFilter(profile.role, profile.id);
+    const role = profile.role;
 
-    // Filtro por responsável da tarefa (projetista)
-    if (filter.byTaskResponsible) {
+    // 1. PROJETISTA: apenas tarefas onde responsible = profile.id
+    if (role === "projetista") {
       filtered = filtered.filter(t =>
-        t.responsible === filter.byTaskResponsible &&
-        (t.startDate || t.endDate) &&
-        !["aguardando_validacao", "enviado_cliente", "concluida"].includes(t.status)
+        t.responsible === profile.id &&
+        !["concluida", "enviado_cliente"].includes(t.status)
       );
     }
-    // Filtro por coordenador do projeto
-    else if (filter.byProjectResponsible) {
-      const coordinatedProjectIds = new Set(
-        projects.filter(p => p.responsible === filter.byProjectResponsible).map(p => p.id)
-      );
-
-      if (filterProject !== "all") {
-        filtered = filtered.filter(t => t.projectId === filterProject && coordinatedProjectIds.has(t.projectId));
-      } else {
-        const activeTaskIds = new Set(activeTimers.map(t => t.task_id));
-        filtered = filtered.filter(t =>
-          coordinatedProjectIds.has(t.projectId) && (
-            (t.startDate || t.endDate) ||
-            activeTaskIds.has(t.id) ||
-            t.status === "aguardando_validacao"
-          )
-        );
-      }
-    }
-    // Sem filtro de papel (diretor/gerente/planejamento)
-    else {
+    // 2. COORDENADOR: apenas tarefas com startDate definido,
+    //    pertencentes a projetos onde projects.responsible = profile.id
+    else if (role === "coordenador") {
       const coordinatedProjectIds = new Set(
         projects.filter(p => p.responsible === profile.id).map(p => p.id)
       );
-      const activeTaskIds = new Set(activeTimers.map(t => t.task_id));
-
-      if (filterProject !== "all") {
-        filtered = filtered.filter(t => t.projectId === filterProject);
-      } else {
-        filtered = filtered.filter(t =>
-          activeTaskIds.has(t.id) ||
-          (t.status === "aguardando_validacao" && coordinatedProjectIds.has(t.projectId))
-        );
-      }
+      filtered = filtered.filter(t =>
+        coordinatedProjectIds.has(t.projectId) && t.startDate != null
+      );
     }
+    // 3. DIRETOR, GERENTE, PLANEJAMENTO: sem filtro — vê tudo
 
     // Filtros adicionais da UI
     if (search) filtered = filtered.filter(t => t.name.toLowerCase().includes(search.toLowerCase()));
+    if (filterProject !== "all") filtered = filtered.filter(t => t.projectId === filterProject);
     if (filterDiscipline !== "all") filtered = filtered.filter(t => t.discipline === filterDiscipline);
     if (filterStatus !== "all") filtered = filtered.filter(t => t.status === filterStatus);
     if (filterStage !== "all") filtered = filtered.filter(t => t.stageName === filterStage);
@@ -194,7 +169,7 @@ export default function Tarefas() {
       if (!aOverdue && bOverdue) return 1;
       return (a.endDate || "").localeCompare(b.endDate || "");
     });
-  }, [allTasks, profile, projects, activeTimers, search, filterProject, filterDiscipline, filterStatus, filterStage, filterResponsible]);
+  }, [allTasks, profile, projects, search, filterProject, filterDiscipline, filterStatus, filterStage, filterResponsible]);
 
   const handleCreate = async () => {
     if (!form.name || !form.projectId || !form.stageName || !form.responsible || !form.startDate || !form.endDate) {
