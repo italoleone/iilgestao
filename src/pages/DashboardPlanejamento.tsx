@@ -8,6 +8,7 @@ import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useProjects, useTasks, useActiveProfiles, useTimeEntries, getProfileById } from "@/hooks/useSupabaseData";
 import { useActiveTimers, getTimerForTask } from "@/hooks/useActiveTimers";
 import { useAuth } from "@/contexts/AuthContext";
+import { getTaskFilter } from "@/utils/permissions";
 import {
   AlertTriangle, Clock, CheckCircle2, Play, Radio, TrendingUp, Users, BarChart3, Timer, CalendarClock, Zap, CalendarCheck, Filter,
 } from "lucide-react";
