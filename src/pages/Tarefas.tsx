@@ -227,14 +227,19 @@ export default function Tarefas() {
     toast.success("Tarefa criada com sucesso!");
   };
 
-  const stats = useMemo(() => {
-    const active = visibleTasks.filter(t => t.status === "em_andamento").length;
-    const pending = visibleTasks.filter(t => t.status === "nao_iniciada").length;
-    const done = visibleTasks.filter(t => t.status === "concluida").length;
-    const totalEstimated = visibleTasks.reduce((s, t) => s + t.estimatedHours, 0);
-    const totalWorked = visibleTasks.reduce((s, t) => s + t.hoursWorked, 0);
-    return { active, pending, done, totalEstimated, totalWorked };
-  }, [visibleTasks]);
+  const countEmAndamento = visibleTasks.filter(t => t.status === "em_andamento").length;
+  const countNaoIniciadas = visibleTasks.filter(t => t.status === "nao_iniciada").length;
+  const countConcluidas = visibleTasks.filter(t => ["concluida", "aprovada"].includes(t.status)).length;
+  const totalHorasWorked = visibleTasks.reduce((s, t) => s + t.hoursWorked, 0);
+  const totalHorasEstimated = visibleTasks.reduce((s, t) => s + t.estimatedHours, 0);
+
+  const stats = useMemo(() => ({
+    active: countEmAndamento,
+    pending: countNaoIniciadas,
+    done: countConcluidas,
+    totalEstimated: totalHorasEstimated,
+    totalWorked: totalHorasWorked,
+  }), [countEmAndamento, countNaoIniciadas, countConcluidas, totalHorasEstimated, totalHorasWorked]);
 
   const handleTaskClick = (task: Task) => { navigate(`/tarefas/${task.id}`); };
 
