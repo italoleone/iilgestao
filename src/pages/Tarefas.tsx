@@ -127,49 +127,73 @@ export default function Tarefas() {
     name: "", projectId: "", stageName: "", responsible: "", startDate: "", endDate: "", estimatedHours: "",
   });
 
-  // For managers: default to showing only tasks with active timers (no project filter)
   const visibleTasks = useMemo(() => {
     let filtered = allTasks;
 
-    if (!profile) return filtered;
+    if (!profile) return [];
 
     const role = profile.role;
 
-    // 1. PROJETISTA: apenas tarefas onde responsible = profile.id
+    // PROJETISTA: vê todas suas tarefas ativas (com ou sem data)
+    // Exceto as que já foram concluídas/enviadas ao cliente
     if (role === "projetista") {
       filtered = filtered.filter(t =>
         t.responsible === profile.id &&
         !["concluida", "enviado_cliente"].includes(t.status)
       );
     }
-    // 2. COORDENADOR: apenas tarefas com startDate definido,
-    //    pertencentes a projetos onde projects.responsible = profile.id
+    // COORDENADOR: vê tarefas dos projetos que coordena
+    // Com ou sem data — Bug 4 era causado por exigir startDate
     else if (role === "coordenador") {
       const coordinatedProjectIds = new Set(
         projects.filter(p => p.responsible === profile.id).map(p => p.id)
       );
-      filtered = filtered.filter(t =>
-        coordinatedProjectIds.has(t.projectId) && t.startDate != null
-      );
+      if (filterProject !== "all") {
+        filtered = filtered.filter(t => t.projectId === filterProject);
+      } else {
+        filtered = filtered.filter(t =>
+          coordinatedProjectIds.has(t.projectId) &&
+          !["enviado_cliente", "concluida"].includes(t.status)
+        );
+      }
     }
-    // 3. DIRETOR, GERENTE, PLANEJAMENTO: sem filtro — vê tudo
+    // PLANEJAMENTO / ADMIN / ADMIN_GERAL: vê todas com filtro de projeto
+    else if (["planejamento", "admin", "admin_geral"].includes(role)) {
+      if (filterProject !== "all") {
+        filtered = filtered.filter(t => t.projectId === filterProject);
+      } else {
+        // Sem projeto selecionado: mostrar apenas tarefas com data definida
+        // para evitar mostrar as 1000 tarefas sem data (Bug 3)
+        filtered = filtered.filter(t =>
+          (t.startDate || t.endDate) &&
+          !["enviado_cliente", "concluida"].includes(t.status)
+        );
+      }
+    }
 
-    // Filtros adicionais da UI
-    if (search) filtered = filtered.filter(t => t.name.toLowerCase().includes(search.toLowerCase()));
-    if (filterProject !== "all") filtered = filtered.filter(t => t.projectId === filterProject);
+    // Aplicar filtros adicionais
+    if (search) filtered = filtered.filter(t =>
+      t.name.toLowerCase().includes(search.toLowerCase())
+    );
     if (filterDiscipline !== "all") filtered = filtered.filter(t => t.discipline === filterDiscipline);
     if (filterStatus !== "all") filtered = filtered.filter(t => t.status === filterStatus);
     if (filterStage !== "all") filtered = filtered.filter(t => t.stageName === filterStage);
     if (filterResponsible !== "all") filtered = filtered.filter(t => t.responsible === filterResponsible);
 
+    // Ordenar: atrasadas primeiro, depois por data de término
     return filtered.sort((a, b) => {
-      const aOverdue = a.endDate && parseLocalDate(a.endDate) < new Date() && !["concluida","aprovada","enviado_cliente"].includes(a.status);
-      const bOverdue = b.endDate && parseLocalDate(b.endDate) < new Date() && !["concluida","aprovada","enviado_cliente"].includes(b.status);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const aOverdue = a.endDate && new Date(a.endDate) < now && !["concluida", "aprovada", "enviado_cliente"].includes(a.status);
+      const bOverdue = b.endDate && new Date(b.endDate) < now && !["concluida", "aprovada", "enviado_cliente"].includes(b.status);
       if (aOverdue && !bOverdue) return -1;
       if (!aOverdue && bOverdue) return 1;
-      return (a.endDate || "").localeCompare(b.endDate || "");
+      if (!a.endDate && !b.endDate) return 0;
+      if (!a.endDate) return 1;
+      if (!b.endDate) return -1;
+      return a.endDate.localeCompare(b.endDate);
     });
-  }, [allTasks, profile, projects, search, filterProject, filterDiscipline, filterStatus, filterStage, filterResponsible]);
+  }, [allTasks, profile, projects, activeTimers, search, filterProject, filterDiscipline, filterStatus, filterStage, filterResponsible]);
 
   const handleCreate = async () => {
     if (!form.name || !form.projectId || !form.stageName || !form.responsible || !form.startDate || !form.endDate) {
