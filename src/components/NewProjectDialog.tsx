@@ -147,8 +147,20 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
       });
 
       if (taskRows.length > 0) {
-        await supabase.from("tasks").insert(taskRows as any);
+        const { error: taskError } = await supabase
+          .from("tasks")
+          .insert(taskRows as any);
+
+        if (taskError) {
+          console.error("Erro ao criar tarefas padrão:", taskError);
+          toast.warning("Projeto criado, mas as tarefas padrão não foram criadas: " + taskError.message);
+        }
       }
+    } else {
+      console.error("Insert de projeto não retornou dados — verifique o .select()");
+      toast.error("Erro ao criar projeto: tente novamente.");
+      setSaving(false);
+      return;
     }
 
     setSaving(false);
