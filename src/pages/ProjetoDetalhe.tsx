@@ -1,21 +1,25 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { formatDateBR, parseLocalDate } from "@/lib/utils";
+import { formatDateBR, parseLocalDate, formatBRL, parseBRL, cn } from "@/lib/utils";
 import { useState, useEffect, useMemo } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveProfiles, getProfileById, useTasks } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { DISCIPLINE_SHORT, STATUS_LABELS, TASK_STATUS_LABELS, STAGE_NAMES, type ProjectStatus, type TaskStatus, type Discipline, type Project, type Stage } from "@/types";
-import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks, Loader2, Trash2, ChevronDown } from "lucide-react";
+import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks, Loader2, Trash2, ChevronDown, Pencil, Check, ChevronsUpDown } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { MeetingsSection } from "@/components/meetings/MeetingsSection";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { formatBRL } from "@/lib/utils";
 import { useTimeEntries } from "@/hooks/useSupabaseData";
 
 const statusColors: Record<ProjectStatus, string> = {
