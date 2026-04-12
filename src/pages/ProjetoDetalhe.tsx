@@ -55,14 +55,32 @@ export default function ProjetoDetalhe() {
   const navigate = useNavigate();
   const { profiles } = useActiveProfiles();
   const { tasks: allTasks } = useTasks();
-  const { canAccessFinanceiro: canSeeFinancial, canAccessAllProjects } = useAuth();
+  const { canAccessFinanceiro: canSeeFinancial, canAccessAllProjects, profile: authProfile } = useAuth();
   const { entries: projectTimeEntries } = useTimeEntries(undefined, id);
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
+  // Edit dialog state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editClient, setEditClient] = useState("");
+  const [editClientSearch, setEditClientSearch] = useState("");
+  const [editClientPopoverOpen, setEditClientPopoverOpen] = useState(false);
+  const [editClients, setEditClients] = useState<string[]>([]);
+  const [editDiscipline, setEditDiscipline] = useState<Discipline>("estrutural");
+  const [editResponsible, setEditResponsible] = useState("");
+  const [editSaleValue, setEditSaleValue] = useState("");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editDeadline, setEditDeadline] = useState("");
+  const [editStatus, setEditStatus] = useState<ProjectStatus>("em_andamento");
+  const [editActiveUsers, setEditActiveUsers] = useState<{ id: string; name: string }[]>([]);
+  const [editSaving, setEditSaving] = useState(false);
+
+  const canEdit = authProfile?.role === "admin_geral" || authProfile?.role === "admin" || authProfile?.role === "planejamento";
+
+  const fetchProject = () => {
     if (!id) return;
     supabase.from("projects").select("*").eq("id", id).maybeSingle().then(({ data }) => {
       if (data) {
@@ -78,7 +96,62 @@ export default function ProjetoDetalhe() {
       }
       setLoading(false);
     });
-  }, [id]);
+  };
+
+  useEffect(() => { fetchProject(); }, [id]);
+
+  const openEditDialog = () => {
+    if (!project) return;
+    setEditName(project.name);
+    setEditClient(project.client);
+    setEditClientSearch("");
+    setEditDiscipline(project.discipline);
+    setEditResponsible(project.responsible);
+    setEditSaleValue(formatBRL(project.saleValue));
+    setEditStartDate(project.startDate);
+    setEditDeadline(project.deadline);
+    setEditStatus(project.status);
+    // Fetch clients and active users
+    supabase.from("clients").select("name").order("name").then(({ data }) => {
+      if (data) setEditClients(data.map(c => c.name));
+    });
+    supabase.from("profiles").select("id, name").eq("status", "active").order("name").then(({ data }) => {
+      if (data) setEditActiveUsers(data.map(u => ({ id: u.id, name: u.name })));
+    });
+    setEditOpen(true);
+  };
+
+  const filteredEditClients = useMemo(() => {
+    if (!editClientSearch) return editClients;
+    return editClients.filter(c => c.toLowerCase().includes(editClientSearch.toLowerCase()));
+  }, [editClients, editClientSearch]);
+
+  const handleEditSave = async () => {
+    if (!project) return;
+    if (!editName || !editClient || !editResponsible || !editStartDate || !editDeadline) {
+      toast.error("Preencha todos os campos obrigatórios.");
+      return;
+    }
+    setEditSaving(true);
+    const { error } = await supabase.from("projects").update({
+      name: editName,
+      client: editClient,
+      discipline: editDiscipline,
+      responsible: editResponsible,
+      sale_value: parseBRL(editSaleValue),
+      start_date: editStartDate,
+      deadline: editDeadline,
+      status: editStatus,
+    }).eq("id", project.id);
+    setEditSaving(false);
+    if (error) {
+      toast.error("Erro ao atualizar projeto: " + error.message);
+    } else {
+      toast.success("Projeto atualizado com sucesso.");
+      fetchProject();
+      setEditOpen(false);
+    }
+  };
 
   const projectTasks = useMemo(() => allTasks.filter(t => t.projectId === id), [allTasks, id]);
   const taskHours = useMemo(() => ({
