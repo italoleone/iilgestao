@@ -206,31 +206,38 @@ export default function ProjetoDetalhe() {
             <Button variant="ghost" size="sm" className="gap-1.5 -ml-2" onClick={() => navigate("/projetos")}>
               <ArrowLeft className="h-4 w-4" /> Voltar
             </Button>
-            {canAccessAllProjects && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm" className="gap-1.5" disabled={deleting}>
-                    <Trash2 className="h-4 w-4" /> Excluir Projeto
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir projeto?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Tem certeza que deseja excluir o projeto <strong>{project.name}</strong>?
-                      <br /><br />
-                      ⚠️ Todas as tarefas vinculadas e registros de horas também serão excluídos permanentemente.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteProject} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      Excluir permanentemente
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
+            <div className="flex items-center gap-2">
+              {canEdit && (
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={openEditDialog}>
+                  <Pencil className="h-4 w-4" /> Editar Projeto
+                </Button>
+              )}
+              {canAccessAllProjects && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" className="gap-1.5" disabled={deleting}>
+                      <Trash2 className="h-4 w-4" /> Excluir Projeto
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Excluir projeto?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja excluir o projeto <strong>{project.name}</strong>?
+                        <br /><br />
+                        ⚠️ Todas as tarefas vinculadas e registros de horas também serão excluídos permanentemente.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteProject} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Excluir permanentemente
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           </div>
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div><h1 className="text-2xl font-bold">{project.name}</h1><p className="text-muted-foreground mt-1">{project.client}</p></div>
