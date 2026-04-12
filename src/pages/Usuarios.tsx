@@ -14,7 +14,8 @@ import { useAuth, type AppRole } from "@/contexts/AuthContext";
 const ROLE_DISPLAY: Record<string, string> = {
   admin_geral: "Diretor",
   admin: "Gerente",
-  planejamento: "Coordenador",
+  coordenador: "Coordenador",
+  planejamento: "Planejamento",
   projetista: "Projetista",
 };
 
@@ -355,7 +356,8 @@ export default function Usuarios() {
             <SelectContent>
               <SelectItem value="admin_geral">Diretor</SelectItem>
               <SelectItem value="admin">Gerente</SelectItem>
-              <SelectItem value="planejamento">Coordenador</SelectItem>
+              <SelectItem value="coordenador">Coordenador</SelectItem>
+              <SelectItem value="planejamento">Planejamento</SelectItem>
               <SelectItem value="projetista">Projetista</SelectItem>
             </SelectContent>
           </Select>
@@ -384,7 +386,8 @@ export default function Usuarios() {
             <SelectContent>
               <SelectItem value="admin_geral">Diretor</SelectItem>
               <SelectItem value="admin">Gerente</SelectItem>
-              <SelectItem value="planejamento">Coordenador</SelectItem>
+              <SelectItem value="coordenador">Coordenador</SelectItem>
+              <SelectItem value="planejamento">Planejamento</SelectItem>
               <SelectItem value="projetista">Projetista</SelectItem>
             </SelectContent>
           </Select>
