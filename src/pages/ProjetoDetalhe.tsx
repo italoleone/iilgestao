@@ -326,6 +326,108 @@ export default function ProjetoDetalhe() {
 
         <MeetingsSection projectId={project.id} />
       </div>
+
+      {/* Edit Project Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Projeto</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Nome do Projeto *</Label>
+              <Input id="edit-name" value={editName} onChange={e => setEditName(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Cliente *</Label>
+              <Popover open={editClientPopoverOpen} onOpenChange={setEditClientPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {editClient || "Selecionar ou digitar cliente..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar cliente..." value={editClientSearch} onValueChange={v => { setEditClientSearch(v); setEditClient(v); }} />
+                    <CommandList>
+                      <CommandEmpty>
+                        {editClientSearch ? (
+                          <button className="w-full px-2 py-2 text-sm text-left hover:bg-accent rounded" onClick={() => { setEditClient(editClientSearch); setEditClientPopoverOpen(false); }}>
+                            Usar: <strong>&quot;{editClientSearch}&quot;</strong>
+                          </button>
+                        ) : "Nenhum cliente encontrado."}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {filteredEditClients.map(c => (
+                          <CommandItem key={c} value={c} onSelect={() => { setEditClient(c); setEditClientSearch(""); setEditClientPopoverOpen(false); }}>
+                            <Check className={cn("mr-2 h-4 w-4", editClient === c ? "opacity-100" : "opacity-0")} />
+                            {c}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Disciplina *</Label>
+              <select value={editDiscipline} onChange={e => setEditDiscipline(e.target.value as Discipline)} className="h-10 w-full rounded-md border bg-card px-3 text-sm">
+                {(["estrutural", "hidraulica", "eletrica"] as Discipline[]).map(d => (
+                  <option key={d} value={d}>{DISCIPLINE_SHORT[d]}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Coordenador *</Label>
+              <select value={editResponsible} onChange={e => setEditResponsible(e.target.value)} className="h-10 w-full rounded-md border bg-card px-3 text-sm">
+                <option value="">Selecione...</option>
+                {editActiveUsers.map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Valor de Venda (R$) *</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">R$</span>
+                <Input type="text" inputMode="decimal" value={editSaleValue} onChange={e => setEditSaleValue(e.target.value)} placeholder="Ex: 12.050,89" className="pl-10" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="edit-start">Data de Início *</Label>
+                <Input id="edit-start" type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-deadline">Data Final *</Label>
+                <Input id="edit-deadline" type="date" value={editDeadline} onChange={e => setEditDeadline(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Status *</Label>
+              <select value={editStatus} onChange={e => setEditStatus(e.target.value as ProjectStatus)} className="h-10 w-full rounded-md border bg-card px-3 text-sm">
+                {(Object.entries(STATUS_LABELS) as [ProjectStatus, string][]).map(([val, label]) => (
+                  <option key={val} value={val}>{label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
+            <Button onClick={handleEditSave} disabled={editSaving}>
+              {editSaving ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
