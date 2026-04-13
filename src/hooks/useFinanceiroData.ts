@@ -351,6 +351,21 @@ export function useRentabilidadePorProjeto(filters?: RentabilidadeFilters) {
       const { data: profiles, error: pre } = await supabase.from("profiles").select("id, cost_per_hour");
       if (pre) throw pre;
 
+      // Fetch receivables with status "recebido" for tax cost
+      const { data: receivablesData } = await supabase
+        .from("receivables")
+        .select("project_id, amount, tax_percentage")
+        .eq("status", "recebido");
+
+      // Aggregate tax cost per project
+      const taxCostByProject = new Map<string, number>();
+      (receivablesData || []).forEach((r: any) => {
+        if (r.project_id) {
+          const cur = taxCostByProject.get(r.project_id) || 0;
+          taxCostByProject.set(r.project_id, cur + (Number(r.amount) * (Number(r.tax_percentage) || 0) / 100));
+        }
+      });
+
       const costMap = new Map<string, number>();
       (profiles || []).forEach((p: any) => costMap.set(p.id, p.cost_per_hour || 0));
 
@@ -375,7 +390,9 @@ export function useRentabilidadePorProjeto(filters?: RentabilidadeFilters) {
       const rows: RentabilidadeRow[] = (projects || []).map((p: any) => {
         const ph = projectHours.get(p.id) || { totalMinutes: 0, cost: 0 };
         const receita = p.sale_value || 0;
-        const custoReal = Math.round(ph.cost * 100) / 100;
+        const custoHoras = Math.round(ph.cost * 100) / 100;
+        const custoImpostos = Math.round((taxCostByProject.get(p.id) || 0) * 100) / 100;
+        const custoReal = custoHoras + custoImpostos;
         const margemRs = receita - custoReal;
         const margemPct = receita > 0 ? (margemRs / receita) * 100 : 0;
         const horasGastas = Math.round((ph.totalMinutes / 60) * 100) / 100;
