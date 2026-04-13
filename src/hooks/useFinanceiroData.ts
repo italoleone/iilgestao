@@ -263,6 +263,12 @@ export function useProjetoCusto(projectId: string | null) {
       const { data: profiles } = await supabase
         .from("profiles").select("id, name, cost_per_hour");
 
+      const { data: projectReceivables } = await supabase
+        .from("receivables")
+        .select("amount, tax_percentage")
+        .eq("project_id", projectId!)
+        .eq("status", "recebido");
+
       const costMap = new Map<string, { name: string; cost: number }>();
       (profiles || []).forEach((p: any) =>
         costMap.set(p.id, { name: p.name, cost: p.cost_per_hour || 0 })
@@ -296,8 +302,13 @@ export function useProjetoCusto(projectId: string | null) {
         }
       });
 
+      const custoImpostos = (projectReceivables || []).reduce((sum: number, r: any) => {
+        return sum + (Number(r.amount) * (Number(r.tax_percentage) || 0) / 100);
+      }, 0);
+      const totalCustoFinal = totalCusto + custoImpostos;
+
       const receita = project?.sale_value || 0;
-      const margemRs = receita - totalCusto;
+      const margemRs = receita - totalCustoFinal;
 
       return {
         projectId: project?.id,
@@ -306,7 +317,7 @@ export function useProjetoCusto(projectId: string | null) {
         discipline: project?.discipline,
         status: project?.status,
         receita,
-        custoAcumulado: Math.round(totalCusto * 100) / 100,
+        custoAcumulado: Math.round(totalCustoFinal * 100) / 100,
         margemRs: Math.round(margemRs * 100) / 100,
         margemPct: receita > 0 ? Math.round((margemRs / receita) * 1000) / 10 : 0,
         horasGastas: Math.round((totalMinutes / 60) * 100) / 100,
