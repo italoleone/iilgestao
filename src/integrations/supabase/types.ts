@@ -444,11 +444,14 @@ export type Database = {
           description: string
           due_date: string
           id: string
+          installment_number: string | null
+          nf_number: string | null
           notes: string | null
           project_id: string | null
           proposal_id: string | null
           received_date: string | null
           status: string
+          tax_percentage: number | null
         }
         Insert: {
           amount?: number
@@ -459,11 +462,14 @@ export type Database = {
           description: string
           due_date: string
           id?: string
+          installment_number?: string | null
+          nf_number?: string | null
           notes?: string | null
           project_id?: string | null
           proposal_id?: string | null
           received_date?: string | null
           status?: string
+          tax_percentage?: number | null
         }
         Update: {
           amount?: number
@@ -474,11 +480,14 @@ export type Database = {
           description?: string
           due_date?: string
           id?: string
+          installment_number?: string | null
+          nf_number?: string | null
           notes?: string | null
           project_id?: string | null
           proposal_id?: string | null
           received_date?: string | null
           status?: string
+          tax_percentage?: number | null
         }
         Relationships: [
           {
