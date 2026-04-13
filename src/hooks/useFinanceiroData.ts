@@ -19,6 +19,9 @@ export interface Receivable {
   notes: string | null;
   created_by: string;
   created_at: string;
+  nf_number: string | null;
+  tax_percentage: number | null;
+  installment_number: string | null;
 }
 
 export interface Payable {
