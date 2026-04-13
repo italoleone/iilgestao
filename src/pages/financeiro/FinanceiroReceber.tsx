@@ -1,17 +1,16 @@
 import { useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, CheckCircle, Pencil, Trash2, Search, CalendarIcon } from "lucide-react";
+import { Plus, CheckCircle, Pencil, Trash2, Search } from "lucide-react";
 import { useReceivables, useCreateReceivable, useUpdateReceivable, useDeleteReceivable, useMarkReceived, Receivable } from "@/hooks/useFinanceiroData";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -42,8 +41,20 @@ export default function FinanceiroReceber() {
   const markReceived = useMarkReceived();
 
   const { data: projects = [] } = useQuery({
-    queryKey: ["projects-list"],
-    queryFn: async () => { const { data } = await supabase.from("projects").select("id, name"); return data || []; },
+    queryKey: ["projects-list-active"],
+    queryFn: async () => {
+      const { data } = await supabase.from("projects").select("id, name, client").neq("status", "concluido");
+      return data || [];
+    },
+  });
+
+  // Also fetch all projects for display in table (including concluded)
+  const { data: allProjects = [] } = useQuery({
+    queryKey: ["projects-list-all"],
+    queryFn: async () => {
+      const { data } = await supabase.from("projects").select("id, name");
+      return data || [];
+    },
   });
 
   // KPIs
@@ -53,20 +64,68 @@ export default function FinanceiroReceber() {
   const ticketMedio = receivables.length > 0 ? receivables.reduce((s, r) => s + Number(r.amount), 0) / receivables.length : 0;
 
   // Form state
-  const empty = { description: "", client_name: "", amount: 0, due_date: format(now, "yyyy-MM-dd"), category: "servico", project_id: "", notes: "" };
-  const [form, setForm] = useState(empty);
+  const emptyForm = {
+    nf_number: "",
+    project_id: "",
+    client_name: "",
+    amount: 0,
+    tax_percentage: 0,
+    due_date: format(now, "yyyy-MM-dd"),
+    installment_number: "",
+  };
+  const [form, setForm] = useState(emptyForm);
 
-  const openNew = () => { setEditing(null); setForm(empty); setDialogOpen(true); };
+  const taxValue = (Number(form.amount) || 0) * ((Number(form.tax_percentage) || 0) / 100);
+
+  const openNew = () => { setEditing(null); setForm(emptyForm); setDialogOpen(true); };
   const openEdit = (r: Receivable) => {
     setEditing(r);
-    setForm({ description: r.description, client_name: r.client_name, amount: Number(r.amount), due_date: r.due_date, category: r.category, project_id: r.project_id || "", notes: r.notes || "" });
+    setForm({
+      nf_number: (r as any).nf_number || "",
+      project_id: r.project_id || "",
+      client_name: r.client_name,
+      amount: Number(r.amount),
+      tax_percentage: Number((r as any).tax_percentage) || 0,
+      due_date: r.due_date,
+      installment_number: (r as any).installment_number || "",
+    });
     setDialogOpen(true);
   };
 
+  const handleProjectChange = (projectId: string) => {
+    const proj = projects.find((p: any) => p.id === projectId);
+    setForm(f => ({
+      ...f,
+      project_id: projectId,
+      client_name: proj?.client || f.client_name,
+    }));
+  };
+
   const handleSave = () => {
-    const payload: any = { ...form, amount: Number(form.amount), project_id: form.project_id || null, received_date: null, status: "pendente", proposal_id: null };
+    if (!form.project_id || !form.amount || !form.due_date) return;
+
+    const projName = projects.find((p: any) => p.id === form.project_id)?.name || allProjects.find((p: any) => p.id === form.project_id)?.name || "";
+    const description = form.nf_number ? `NF ${form.nf_number} — ${projName}` : projName;
+
+    const payload: any = {
+      description,
+      client_name: form.client_name,
+      amount: Number(form.amount),
+      due_date: form.due_date,
+      project_id: form.project_id || null,
+      nf_number: form.nf_number || null,
+      tax_percentage: Number(form.tax_percentage) || 0,
+      installment_number: form.installment_number || null,
+      category: "servico",
+      notes: null,
+      proposal_id: null,
+      received_date: null,
+      status: "pendente",
+    };
+
     if (editing) {
-      updateRec.mutate({ id: editing.id, ...payload }, { onSuccess: () => setDialogOpen(false) });
+      const { status: _s, received_date: _rd, ...updatePayload } = payload;
+      updateRec.mutate({ id: editing.id, ...updatePayload }, { onSuccess: () => setDialogOpen(false) });
     } else {
       createRec.mutate(payload, { onSuccess: () => setDialogOpen(false) });
     }
@@ -136,10 +195,11 @@ export default function FinanceiroReceber() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Cliente</TableHead>
+                  <TableHead>NF</TableHead>
                   <TableHead>Projeto</TableHead>
+                  <TableHead>Parcela</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
+                  <TableHead className="text-right">Imposto (R$)</TableHead>
                   <TableHead>Vencimento</TableHead>
                   <TableHead>Recebimento</TableHead>
                   <TableHead>Status</TableHead>
@@ -147,39 +207,43 @@ export default function FinanceiroReceber() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {receivables.length === 0 && <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">Nenhum registro</TableCell></TableRow>}
-                {receivables.map(r => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.description}</TableCell>
-                    <TableCell>{r.client_name}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{projects.find((p: any) => p.id === r.project_id)?.name || "—"}</TableCell>
-                    <TableCell className="text-right font-semibold">{fmt(Number(r.amount))}</TableCell>
-                    <TableCell>{format(parseISO(r.due_date), "dd/MM/yyyy")}</TableCell>
-                    <TableCell>{r.received_date ? format(parseISO(r.received_date), "dd/MM/yyyy") : "—"}</TableCell>
-                    <TableCell><Badge className={STATUS_BADGE[r.status]}>{r.status}</Badge></TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        {r.status === "pendente" && (
-                          <Popover open={datePickerFor === r.id} onOpenChange={o => !o && setDatePickerFor(null)}>
-                            <PopoverTrigger asChild>
-                              <Button variant="ghost" size="icon" title="Marcar recebido" onClick={() => { setDatePickerFor(r.id); setSelectedDate(new Date()); }}>
-                                <CheckCircle className="h-4 w-4 text-emerald-400" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="end">
-                              <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className={cn("p-3 pointer-events-auto")} />
-                              <div className="p-2 border-t flex justify-end">
-                                <Button size="sm" onClick={() => { if (selectedDate) { markReceived.mutate({ id: r.id, date: format(selectedDate, "yyyy-MM-dd") }); setDatePickerFor(null); } }}>Confirmar</Button>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                        )}
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => { if (confirm("Excluir?")) deleteRec.mutate(r.id); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {receivables.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nenhum registro</TableCell></TableRow>}
+                {receivables.map(r => {
+                  const taxAmt = Number(r.amount) * (Number((r as any).tax_percentage) || 0) / 100;
+                  return (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{(r as any).nf_number || "—"}</TableCell>
+                      <TableCell className="text-sm">{allProjects.find((p: any) => p.id === r.project_id)?.name || "—"}</TableCell>
+                      <TableCell className="text-sm">{(r as any).installment_number || "—"}</TableCell>
+                      <TableCell className="text-right font-semibold">{fmt(Number(r.amount))}</TableCell>
+                      <TableCell className="text-right text-sm">{fmt(taxAmt)}</TableCell>
+                      <TableCell>{format(parseISO(r.due_date), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>{r.received_date ? format(parseISO(r.received_date), "dd/MM/yyyy") : "—"}</TableCell>
+                      <TableCell><Badge className={STATUS_BADGE[r.status]}>{r.status}</Badge></TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          {r.status === "pendente" && (
+                            <Popover open={datePickerFor === r.id} onOpenChange={o => !o && setDatePickerFor(null)}>
+                              <PopoverTrigger asChild>
+                                <Button variant="ghost" size="icon" title="Marcar recebido" onClick={() => { setDatePickerFor(r.id); setSelectedDate(new Date()); }}>
+                                  <CheckCircle className="h-4 w-4 text-emerald-400" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="end">
+                                <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className={cn("p-3 pointer-events-auto")} />
+                                <div className="p-2 border-t flex justify-end">
+                                  <Button size="sm" onClick={() => { if (selectedDate) { markReceived.mutate({ id: r.id, date: format(selectedDate, "yyyy-MM-dd") }); setDatePickerFor(null); } }}>Confirmar</Button>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          )}
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(r)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => { if (confirm("Excluir?")) deleteRec.mutate(r.id); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
@@ -190,38 +254,46 @@ export default function FinanceiroReceber() {
           <DialogContent>
             <DialogHeader><DialogTitle>{editing ? "Editar Conta a Receber" : "Nova Conta a Receber"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
-              <div><Label>Descrição *</Label><Input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
-              <div><Label>Cliente *</Label><Input value={form.client_name} onChange={e => setForm({ ...form, client_name: e.target.value })} /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label>Valor *</Label><Input type="number" value={form.amount || ""} onChange={e => setForm({ ...form, amount: Number(e.target.value) })} /></div>
-                <div><Label>Vencimento *</Label><Input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} /></div>
+              <div>
+                <Label>Número da NF</Label>
+                <Input value={form.nf_number} onChange={e => setForm({ ...form, nf_number: e.target.value })} placeholder="Ex: 001234" />
+              </div>
+              <div>
+                <Label>Projeto *</Label>
+                <Select value={form.project_id} onValueChange={handleProjectChange}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o projeto" /></SelectTrigger>
+                  <SelectContent>
+                    {projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Categoria</Label>
-                  <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="servico">Serviço</SelectItem>
-                      <SelectItem value="adiantamento">Adiantamento</SelectItem>
-                      <SelectItem value="outros">Outros</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Valor da NF *</Label>
+                  <Input type="number" min={0} step="0.01" value={form.amount || ""} onChange={e => setForm({ ...form, amount: Number(e.target.value) })} />
                 </div>
                 <div>
-                  <Label>Projeto</Label>
-                  <Select value={form.project_id} onValueChange={v => setForm({ ...form, project_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Nenhum</SelectItem>
-                      {projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <Label>% Imposto NF</Label>
+                  <Input type="number" min={0} max={100} step="0.01" value={form.tax_percentage || ""} onChange={e => setForm({ ...form, tax_percentage: Number(e.target.value) })} />
+                  <p className="text-xs text-muted-foreground mt-1">Valor do imposto: {fmt(taxValue)}</p>
                 </div>
               </div>
-              <div><Label>Observações</Label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Vencimento *</Label>
+                  <Input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Número da Parcela</Label>
+                  <Input value={form.installment_number} onChange={e => setForm({ ...form, installment_number: e.target.value })} placeholder='Ex: 1/3 ou "Parcela única"' />
+                </div>
+              </div>
             </div>
-            <DialogFooter><Button onClick={handleSave} disabled={!form.description || !form.client_name || !form.amount}>{editing ? "Salvar" : "Criar"}</Button></DialogFooter>
+            <DialogFooter>
+              <Button onClick={handleSave} disabled={!form.project_id || !form.amount || !form.due_date}>
+                {editing ? "Salvar" : "Criar"}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
