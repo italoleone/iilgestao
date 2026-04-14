@@ -341,7 +341,7 @@ export default function FinanceiroDashboard() {
             {projetoCusto && (
               <>
                 {/* Project KPIs */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   <Card>
                     <CardContent className="pt-6">
                       <p className="text-xs text-muted-foreground">Receita Contratada</p>
@@ -350,8 +350,14 @@ export default function FinanceiroDashboard() {
                   </Card>
                   <Card>
                     <CardContent className="pt-6">
-                      <p className="text-xs text-muted-foreground">Custo Acumulado</p>
-                      <p className="text-xl font-bold mt-1 text-red-400">{fmt(projetoCusto.custoAcumulado)}</p>
+                      <p className="text-xs text-muted-foreground">Custo Horas</p>
+                      <p className="text-xl font-bold mt-1 text-red-400">{fmt(projetoCusto.custoHoras)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-6">
+                      <p className="text-xs text-muted-foreground">Custo NF</p>
+                      <p className="text-xl font-bold mt-1 text-orange-400">{fmt(projetoCusto.custoNF)}</p>
                     </CardContent>
                   </Card>
                   <Card>

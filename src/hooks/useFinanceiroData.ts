@@ -229,6 +229,8 @@ export interface ProjetoCustoRow {
   discipline: string;
   status: string;
   receita: number;
+  custoHoras: number;
+  custoNF: number;
   custoAcumulado: number;
   margemRs: number;
   margemPct: number;
@@ -317,6 +319,8 @@ export function useProjetoCusto(projectId: string | null) {
         discipline: project?.discipline,
         status: project?.status,
         receita,
+        custoHoras: Math.round(totalCusto * 100) / 100,
+        custoNF: Math.round(custoImpostos * 100) / 100,
         custoAcumulado: Math.round(totalCustoFinal * 100) / 100,
         margemRs: Math.round(margemRs * 100) / 100,
         margemPct: receita > 0 ? Math.round((margemRs / receita) * 1000) / 10 : 0,
