@@ -113,9 +113,10 @@ function mapTask(row: DbTask): Task {
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const channelName = useRef(`projects-changes-${Math.random().toString(36).slice(2)}`);
 
-  const fetchProjects = useCallback(async () => {
-    setLoading(true);
+  const fetchProjects = useCallback(async (isInitial = false) => {
+    if (isInitial) setLoading(true);
     const { data, error } = await supabase
       .from("projects")
       .select("*")
@@ -123,17 +124,17 @@ export function useProjects() {
     if (!error && data) {
       setProjects((data as unknown as DbProject[]).map(mapProject));
     }
-    setLoading(false);
+    if (isInitial) setLoading(false);
   }, []);
 
   useEffect(() => {
-    fetchProjects();
+    fetchProjects(true);
     const channel = supabase
-      .channel("projects-changes")
+      .channel(channelName.current)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "projects" },
-        () => { fetchProjects(); }
+        () => { fetchProjects(false); }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
