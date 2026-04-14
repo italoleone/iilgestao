@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Discipline, ProjectStatus, TaskStatus, Project, Task, Stage } from "@/types";
 import { STAGE_NAMES } from "@/types";
