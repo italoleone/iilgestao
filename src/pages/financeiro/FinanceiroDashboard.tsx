@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
-const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmt = (v: number | undefined | null) => (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const PIE_COLORS: Record<string, string> = {
   salario: "hsl(220, 70%, 55%)",
