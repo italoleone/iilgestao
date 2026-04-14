@@ -17,7 +17,7 @@ import {
 } from "@/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign, Trash2, CheckCircle2, Send, ThumbsUp, ThumbsDown, Upload, Download, FileText, AlertTriangle, Eye, Radio, Pencil } from "lucide-react";
+import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign, Trash2, CheckCircle2, Send, ThumbsUp, ThumbsDown, Upload, Download, FileText, AlertTriangle, Eye, Radio, Pencil, MessageSquare, ChevronRight } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -88,6 +88,21 @@ export default function TarefaDetalhe() {
   const [editData, setEditData] = useState<Partial<DbTask>>({});
   const [saving, setSaving] = useState(false);
 
+  // Comments state
+  interface DbComment {
+    id: string; task_id: string; author_id: string; title: string; body: string;
+    parent_id: string | null; created_at: string;
+    author?: { name: string };
+    replies?: DbComment[];
+  }
+  const [comments, setComments] = useState<DbComment[]>([]);
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [selectedComment, setSelectedComment] = useState<DbComment | null>(null);
+  const [newCommentTitle, setNewCommentTitle] = useState("");
+  const [newCommentBody, setNewCommentBody] = useState("");
+  const [replyBody, setReplyBody] = useState("");
+  const [savingComment, setSavingComment] = useState(false);
+
   const fetchTask = async () => {
     if (!id) return;
     setLoading(true);
@@ -107,7 +122,29 @@ export default function TarefaDetalhe() {
     if (data) setAttachments(data as unknown as TaskAttachment[]);
   };
 
-  useEffect(() => { fetchTask(); }, [id]);
+  const fetchComments = async () => {
+    if (!id) return;
+    const { data } = await supabase
+      .from("task_comments")
+      .select("*, author:profiles!author_id(name)")
+      .eq("task_id", id)
+      .is("parent_id", null)
+      .order("created_at", { ascending: false });
+    if (!data) return;
+    const withReplies = await Promise.all(
+      (data as any[]).map(async (c) => {
+        const { data: replies } = await supabase
+          .from("task_comments")
+          .select("*, author:profiles!author_id(name)")
+          .eq("parent_id", c.id)
+          .order("created_at", { ascending: true });
+        return { ...c, replies: replies || [] };
+      })
+    );
+    setComments(withReplies as DbComment[]);
+  };
+
+  useEffect(() => { fetchTask(); fetchComments(); }, [id]);
   useEffect(() => {
     if (task) fetchAttachments();
   }, [task?.id]);
@@ -216,6 +253,41 @@ export default function TarefaDetalhe() {
     await supabase.from("tasks").update({ status: "aguardando_validacao" }).eq("id", task.id);
     toast.success("Tarefa enviada para validação do coordenador!");
     navigate("/tarefas");
+  };
+
+  const handleAddComment = async () => {
+    if (!newCommentTitle.trim() || !newCommentBody.trim() || !profile || !id) return;
+    setSavingComment(true);
+    const { error } = await supabase.from("task_comments").insert({
+      task_id: id, author_id: profile.id,
+      title: newCommentTitle.trim(), body: newCommentBody.trim(), parent_id: null,
+    } as any);
+    setSavingComment(false);
+    if (error) { toast.error("Erro ao salvar comentário."); return; }
+    setNewCommentTitle(""); setNewCommentBody("");
+    fetchComments();
+    toast.success("Comentário adicionado!");
+  };
+
+  const handleAddReply = async () => {
+    if (!replyBody.trim() || !profile || !selectedComment) return;
+    setSavingComment(true);
+    const { error } = await supabase.from("task_comments").insert({
+      task_id: id!, author_id: profile.id,
+      title: `Re: ${selectedComment.title}`, body: replyBody.trim(),
+      parent_id: selectedComment.id,
+    } as any);
+    setSavingComment(false);
+    if (error) { toast.error("Erro ao salvar resposta."); return; }
+    setReplyBody("");
+    fetchComments();
+    const { data: updatedReplies } = await supabase
+      .from("task_comments")
+      .select("*, author:profiles!author_id(name)")
+      .eq("parent_id", selectedComment.id)
+      .order("created_at", { ascending: true });
+    setSelectedComment(prev => prev ? { ...prev, replies: (updatedReplies as any[]) || [] } : prev);
+    toast.success("Resposta adicionada!");
   };
 
   const handleApprove = async () => {
@@ -641,6 +713,71 @@ export default function TarefaDetalhe() {
           </Card>
         </div>
 
+        {/* Comments */}
+        <Card className="shadow-sm animate-reveal-up delay-3" style={{ animationFillMode: "backwards" }}>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" /> Observações / Comentários
+              <Badge variant="secondary" className="ml-auto text-xs">{comments.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* New comment form */}
+            <div className="space-y-2 p-3 rounded-lg border bg-muted/20">
+              <p className="text-xs font-medium text-muted-foreground">Novo comentário</p>
+              <Input
+                placeholder="Título do comentário..."
+                value={newCommentTitle}
+                onChange={(e) => setNewCommentTitle(e.target.value)}
+                className="text-sm"
+              />
+              <Textarea
+                placeholder="Escreva sua observação aqui..."
+                value={newCommentBody}
+                onChange={(e) => setNewCommentBody(e.target.value)}
+                rows={3}
+                className="text-sm resize-none"
+              />
+              <div className="flex justify-end">
+                <Button
+                  size="sm" className="gap-1.5"
+                  onClick={handleAddComment}
+                  disabled={savingComment || !newCommentTitle.trim() || !newCommentBody.trim()}
+                >
+                  {savingComment ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                  Publicar
+                </Button>
+              </div>
+            </div>
+
+            {/* Comments list */}
+            {comments.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhum comentário ainda.</p>
+            ) : (
+              <div className="space-y-2">
+                {comments.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex items-start justify-between p-3 rounded-lg border hover:bg-muted/30 cursor-pointer transition-colors"
+                    onClick={() => { setSelectedComment(c); setCommentDialogOpen(true); setReplyBody(""); }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{c.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {(c.author as any)?.name || "—"} · {formatDateBR(c.created_at?.split("T")[0] || "")}
+                        {c.replies && c.replies.length > 0 && (
+                          <span className="ml-2 text-primary font-medium">{c.replies.length} resposta{c.replies.length > 1 ? "s" : ""}</span>
+                        )}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Attachments */}
         <Card className="shadow-sm animate-reveal-up delay-3" style={{ animationFillMode: "backwards" }}>
           <CardHeader>
@@ -768,6 +905,55 @@ export default function TarefaDetalhe() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Comment detail dialog */}
+      <Dialog open={commentDialogOpen} onOpenChange={(open) => { if (!open) { setSelectedComment(null); setReplyBody(""); } setCommentDialogOpen(open); }}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-base">{selectedComment?.title}</DialogTitle>
+            <p className="text-xs text-muted-foreground">
+              {(selectedComment?.author as any)?.name || "—"} · {formatDateBR(selectedComment?.created_at?.split("T")[0] || "")}
+            </p>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 py-2">
+            <div className="p-3 rounded-lg bg-muted/30 text-sm whitespace-pre-wrap">
+              {selectedComment?.body}
+            </div>
+
+            {selectedComment?.replies && selectedComment.replies.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Respostas</p>
+                {selectedComment.replies.map((r) => (
+                  <div key={r.id} className="ml-4 p-3 rounded-lg border bg-muted/10 text-sm">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      {(r.author as any)?.name || "—"} · {formatDateBR(r.created_at?.split("T")[0] || "")}
+                    </p>
+                    <p className="whitespace-pre-wrap">{r.body}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-2 pt-2 border-t">
+              <p className="text-xs font-medium text-muted-foreground">Adicionar resposta</p>
+              <Textarea
+                placeholder="Escreva sua resposta..."
+                value={replyBody}
+                onChange={(e) => setReplyBody(e.target.value)}
+                rows={3}
+                className="text-sm resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setCommentDialogOpen(false)}>Fechar</Button>
+            <Button size="sm" className="gap-1.5" onClick={handleAddReply} disabled={savingComment || !replyBody.trim()}>
+              {savingComment ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+              Responder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Reject dialog */}
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
