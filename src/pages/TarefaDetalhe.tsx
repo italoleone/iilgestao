@@ -255,6 +255,41 @@ export default function TarefaDetalhe() {
     navigate("/tarefas");
   };
 
+  const handleAddComment = async () => {
+    if (!newCommentTitle.trim() || !newCommentBody.trim() || !profile || !id) return;
+    setSavingComment(true);
+    const { error } = await supabase.from("task_comments").insert({
+      task_id: id, author_id: profile.id,
+      title: newCommentTitle.trim(), body: newCommentBody.trim(), parent_id: null,
+    } as any);
+    setSavingComment(false);
+    if (error) { toast.error("Erro ao salvar comentário."); return; }
+    setNewCommentTitle(""); setNewCommentBody("");
+    fetchComments();
+    toast.success("Comentário adicionado!");
+  };
+
+  const handleAddReply = async () => {
+    if (!replyBody.trim() || !profile || !selectedComment) return;
+    setSavingComment(true);
+    const { error } = await supabase.from("task_comments").insert({
+      task_id: id!, author_id: profile.id,
+      title: `Re: ${selectedComment.title}`, body: replyBody.trim(),
+      parent_id: selectedComment.id,
+    } as any);
+    setSavingComment(false);
+    if (error) { toast.error("Erro ao salvar resposta."); return; }
+    setReplyBody("");
+    fetchComments();
+    const { data: updatedReplies } = await supabase
+      .from("task_comments")
+      .select("*, author:profiles!author_id(name)")
+      .eq("parent_id", selectedComment.id)
+      .order("created_at", { ascending: true });
+    setSelectedComment(prev => prev ? { ...prev, replies: (updatedReplies as any[]) || [] } : prev);
+    toast.success("Resposta adicionada!");
+  };
+
   const handleApprove = async () => {
     if (!task) return;
     await supabase.from("tasks").update({ status: "aprovada" }).eq("id", task.id);
