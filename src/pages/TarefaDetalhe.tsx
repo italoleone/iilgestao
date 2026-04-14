@@ -17,7 +17,7 @@ import {
 } from "@/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign, Trash2, CheckCircle2, Send, ThumbsUp, ThumbsDown, Upload, Download, FileText, AlertTriangle, Eye, Radio, Pencil } from "lucide-react";
+import { ArrowLeft, Play, Square, Clock, User, CalendarDays, Paperclip, History, Loader2, DollarSign, Trash2, CheckCircle2, Send, ThumbsUp, ThumbsDown, Upload, Download, FileText, AlertTriangle, Eye, Radio, Pencil, MessageSquare, ChevronRight } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -88,6 +88,21 @@ export default function TarefaDetalhe() {
   const [editData, setEditData] = useState<Partial<DbTask>>({});
   const [saving, setSaving] = useState(false);
 
+  // Comments state
+  interface DbComment {
+    id: string; task_id: string; author_id: string; title: string; body: string;
+    parent_id: string | null; created_at: string;
+    author?: { name: string };
+    replies?: DbComment[];
+  }
+  const [comments, setComments] = useState<DbComment[]>([]);
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [selectedComment, setSelectedComment] = useState<DbComment | null>(null);
+  const [newCommentTitle, setNewCommentTitle] = useState("");
+  const [newCommentBody, setNewCommentBody] = useState("");
+  const [replyBody, setReplyBody] = useState("");
+  const [savingComment, setSavingComment] = useState(false);
+
   const fetchTask = async () => {
     if (!id) return;
     setLoading(true);
@@ -107,7 +122,29 @@ export default function TarefaDetalhe() {
     if (data) setAttachments(data as unknown as TaskAttachment[]);
   };
 
-  useEffect(() => { fetchTask(); }, [id]);
+  const fetchComments = async () => {
+    if (!id) return;
+    const { data } = await supabase
+      .from("task_comments")
+      .select("*, author:profiles!author_id(name)")
+      .eq("task_id", id)
+      .is("parent_id", null)
+      .order("created_at", { ascending: false });
+    if (!data) return;
+    const withReplies = await Promise.all(
+      (data as any[]).map(async (c) => {
+        const { data: replies } = await supabase
+          .from("task_comments")
+          .select("*, author:profiles!author_id(name)")
+          .eq("parent_id", c.id)
+          .order("created_at", { ascending: true });
+        return { ...c, replies: replies || [] };
+      })
+    );
+    setComments(withReplies as DbComment[]);
+  };
+
+  useEffect(() => { fetchTask(); fetchComments(); }, [id]);
   useEffect(() => {
     if (task) fetchAttachments();
   }, [task?.id]);
