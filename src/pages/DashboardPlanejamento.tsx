@@ -134,8 +134,8 @@ export default function DashboardPlanejamento() {
   // 4. Active timers
   const activeTaskIds = useMemo(() => new Set(activeTimers.map(t => t.task_id)), [activeTimers]);
   const activeTasks = useMemo(() =>
-    filteredTasks.filter(t => activeTaskIds.has(t.id)),
-    [filteredTasks, activeTaskIds]
+    tasks.filter(t => activeTaskIds.has(t.id)),
+    [tasks, activeTaskIds]
   );
 
   // 5. Week stats
