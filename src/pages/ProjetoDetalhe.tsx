@@ -61,6 +61,7 @@ export default function ProjetoDetalhe() {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [filterUser, setFilterUser] = useState<string>("all");
 
   // Edit dialog state
   const [editOpen, setEditOpen] = useState(false);
@@ -164,6 +165,34 @@ export default function ProjetoDetalhe() {
     const costPerHour = userProfile?.cost_per_hour || 0;
     return sum + (entry.duration_minutes / 60) * costPerHour;
   }, 0), [projectTimeEntries, profiles]);
+
+  const taskNameMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    allTasks.forEach(t => { m[t.id] = t.name; });
+    return m;
+  }, [allTasks]);
+
+  const projectUsers = useMemo(() => {
+    const seen = new Set<string>();
+    const users: { id: string; name: string }[] = [];
+    projectTimeEntries.forEach(e => {
+      if (!seen.has(e.user_id)) {
+        seen.add(e.user_id);
+        users.push({ id: e.user_id, name: e.user_name });
+      }
+    });
+    return users.sort((a, b) => a.name.localeCompare(b.name));
+  }, [projectTimeEntries]);
+
+  const filteredEntries = useMemo(() => {
+    const entries = filterUser === "all"
+      ? projectTimeEntries
+      : projectTimeEntries.filter(e => e.user_id === filterUser);
+    return [...entries].sort((a, b) =>
+      new Date(b.date + "T" + b.start_time).getTime() -
+      new Date(a.date + "T" + a.start_time).getTime()
+    );
+  }, [projectTimeEntries, filterUser]);
 
   if (loading) {
     return <AppLayout><div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div></AppLayout>;
@@ -325,6 +354,63 @@ export default function ProjetoDetalhe() {
         </Card>
 
         <MeetingsSection projectId={project.id} />
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Histórico de Atividades ({filteredEntries.length})
+              </CardTitle>
+              <select
+                value={filterUser}
+                onChange={e => setFilterUser(e.target.value)}
+                className="h-8 rounded-md border bg-card px-3 text-sm"
+              >
+                <option value="all">Todos os usuários</option>
+                {projectUsers.map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {filteredEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma atividade registrada.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Tarefa</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Usuário</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Dia</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Início</th>
+                      <th className="text-left py-2 px-3 font-medium text-muted-foreground">Término</th>
+                      <th className="text-right py-2 px-3 font-medium text-muted-foreground">Horas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredEntries.map(entry => (
+                      <tr key={entry.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                        <td className="py-2 px-3 font-medium">{taskNameMap[entry.task_id] || "—"}</td>
+                        <td className="py-2 px-3 text-muted-foreground">{entry.user_name}</td>
+                        <td className="py-2 px-3 tabular-nums text-muted-foreground">
+                          {new Date(entry.date + "T12:00:00").toLocaleDateString("pt-BR")}
+                        </td>
+                        <td className="py-2 px-3 tabular-nums text-muted-foreground">{entry.start_time}</td>
+                        <td className="py-2 px-3 tabular-nums text-muted-foreground">{entry.end_time}</td>
+                        <td className="py-2 px-3 tabular-nums text-right font-medium">
+                          {(entry.duration_minutes / 60).toFixed(1)}h
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Edit Project Dialog */}
