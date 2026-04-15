@@ -198,6 +198,7 @@ export function useTasks() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     fetchTasks(true);
 
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -212,10 +213,11 @@ export function useTasks() {
           () => { fetchTasks(false); }
         )
         .subscribe((status) => {
+          if (cancelled) return;
           if (status === "CLOSED" || status === "CHANNEL_ERROR") {
-            supabase.removeChannel(channel);
+            try { supabase.removeChannel(channel); } catch (_) {}
             reconnectTimeout = setTimeout(() => {
-              channelRef.current = setupChannel();
+              if (!cancelled) channelRef.current = setupChannel();
             }, 3000);
           }
         });
@@ -233,7 +235,8 @@ export function useTasks() {
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      if (channelRef.current) supabase.removeChannel(channelRef.current);
+      cancelled = true;
+      try { if (channelRef.current) supabase.removeChannel(channelRef.current); } catch (_) {}
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibility);
