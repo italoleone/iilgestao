@@ -113,7 +113,7 @@ function mapTask(row: DbTask): Task {
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const channelName = useRef(`projects-changes-${Math.random().toString(36).slice(2)}`);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const fetchProjects = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
@@ -121,7 +121,9 @@ export function useProjects() {
       .from("projects")
       .select("*")
       .order("created_at", { ascending: false });
-    if (!error && data) {
+    if (error) {
+      setTimeout(() => fetchProjects(false), 5000);
+    } else if (data) {
       setProjects((data as unknown as DbProject[]).map(mapProject));
     }
     if (isInitial) setLoading(false);
@@ -129,15 +131,45 @@ export function useProjects() {
 
   useEffect(() => {
     fetchProjects(true);
-    const channel = supabase
-      .channel(channelName.current)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "projects" },
-        () => { fetchProjects(false); }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const setupChannel = () => {
+      const name = `projects-changes-${Math.random().toString(36).slice(2)}`;
+      const channel = supabase
+        .channel(name)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "projects" },
+          () => { fetchProjects(false); }
+        )
+        .subscribe((status) => {
+          if (status === "CLOSED" || status === "CHANNEL_ERROR") {
+            supabase.removeChannel(channel);
+            reconnectTimeout = setTimeout(() => {
+              channelRef.current = setupChannel();
+            }, 3000);
+          }
+        });
+      channelRef.current = channel;
+      return channel;
+    };
+
+    setupChannel();
+
+    const interval = setInterval(() => fetchProjects(false), 60000);
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") fetchProjects(false);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [fetchProjects]);
 
   return { projects, loading, refetch: fetchProjects, setProjects };
@@ -146,7 +178,7 @@ export function useProjects() {
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const channelName = useRef(`tasks-changes-${Math.random().toString(36).slice(2)}`);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const fetchTasks = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
@@ -154,7 +186,9 @@ export function useTasks() {
       .from("tasks")
       .select("*")
       .order("created_at", { ascending: false });
-    if (!error && data) {
+    if (error) {
+      setTimeout(() => fetchTasks(false), 5000);
+    } else if (data) {
       setTasks((data as unknown as DbTask[]).map(mapTask));
     }
     if (isInitial) setLoading(false);
@@ -162,15 +196,45 @@ export function useTasks() {
 
   useEffect(() => {
     fetchTasks(true);
-    const channel = supabase
-      .channel(channelName.current)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "tasks" },
-        () => { fetchTasks(false); }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const setupChannel = () => {
+      const name = `tasks-changes-${Math.random().toString(36).slice(2)}`;
+      const channel = supabase
+        .channel(name)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "tasks" },
+          () => { fetchTasks(false); }
+        )
+        .subscribe((status) => {
+          if (status === "CLOSED" || status === "CHANNEL_ERROR") {
+            supabase.removeChannel(channel);
+            reconnectTimeout = setTimeout(() => {
+              channelRef.current = setupChannel();
+            }, 3000);
+          }
+        });
+      channelRef.current = channel;
+      return channel;
+    };
+
+    setupChannel();
+
+    const interval = setInterval(() => fetchTasks(false), 60000);
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") fetchTasks(false);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [fetchTasks]);
 
   return { tasks, loading, refetch: fetchTasks, setTasks };
