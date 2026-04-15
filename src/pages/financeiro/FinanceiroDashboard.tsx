@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { DollarSign, TrendingUp, TrendingDown, Clock, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Clock, CheckCircle, ChevronDown, ChevronUp, ChevronsUpDown, Check } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useReceivables, usePayables, useMarkReceived, useMarkPaid, useProjetoCusto } from "@/hooks/useFinanceiroData";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Line, ComposedChart } from "recharts";
@@ -134,6 +135,7 @@ export default function FinanceiroDashboard() {
   // ---- Análise por Projeto ----
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showAllTasks, setShowAllTasks] = useState(false);
+  const [projectPopoverOpen, setProjectPopoverOpen] = useState(false);
 
   const { data: projetos = [] } = useQuery({
     queryKey: ["projects-list"],
@@ -318,16 +320,45 @@ export default function FinanceiroDashboard() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
-              <Select value={selectedProjectId || ""} onValueChange={(v) => { setSelectedProjectId(v || null); setShowAllTasks(false); }}>
-                <SelectTrigger className="w-full max-w-md">
-                  <SelectValue placeholder="Selecione um projeto para ver a análise de custo detalhada" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projetos.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name} — {p.client}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={projectPopoverOpen} onOpenChange={setProjectPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full max-w-md justify-between font-normal text-sm h-10">
+                    {selectedProjectId
+                      ? (() => { const p = projetos.find((p: any) => p.id === selectedProjectId); return p ? `${p.name} — ${p.client}` : "Selecione um projeto..."; })()
+                      : "Selecione um projeto para ver a análise de custo detalhada"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command filter={(value, search) => {
+                    const p = projetos.find((p: any) => p.id === value);
+                    if (!p) return 0;
+                    const haystack = `${p.name} ${p.client} ${p.discipline}`.toLowerCase();
+                    return haystack.includes(search.toLowerCase()) ? 1 : 0;
+                  }}>
+                    <CommandInput placeholder="Buscar por nome, cliente ou disciplina..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhum projeto encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {projetos.map((p: any) => (
+                          <CommandItem
+                            key={p.id}
+                            value={p.id}
+                            onSelect={(val) => {
+                              setSelectedProjectId(val === selectedProjectId ? null : val);
+                              setShowAllTasks(false);
+                              setProjectPopoverOpen(false);
+                            }}
+                          >
+                            <Check className={`mr-2 h-4 w-4 ${selectedProjectId === p.id ? "opacity-100" : "opacity-0"}`} />
+                            {p.name} — {p.client}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {!selectedProjectId && (
