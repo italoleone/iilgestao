@@ -196,7 +196,7 @@ export default function TarefaDetalhe() {
   const hoursProgress = task && Number(task.estimated_hours) > 0
     ? Math.round((Number(task.hours_worked) / Number(task.estimated_hours)) * 100) : 0;
 
-  const isCoordinator = project && profile && project.responsible === profile.id;
+  const isCoordinator = profile?.role === "coordenador" || profile?.role === "admin_geral" || profile?.role === "admin" || (project && profile && project.responsible === profile.id);
   const isTaskResponsible = task && profile && task.responsible === profile.id;
   const isManager = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
   const canExecuteTimer = task && (task.status === "nao_iniciada" || task.status === "em_andamento" || task.status === "reprovada");
@@ -250,7 +250,12 @@ export default function TarefaDetalhe() {
       toast.error("Anexe pelo menos 1 arquivo antes de enviar para validação.");
       return;
     }
-    await supabase.from("tasks").update({ status: "aguardando_validacao" }).eq("id", task.id);
+    const { error } = await supabase.from("tasks").update({ status: "aguardando_validacao" }).eq("id", task.id);
+    if (error) {
+      toast.error("Erro ao enviar para validação: " + error.message);
+      return;
+    }
+    setTask(prev => prev ? { ...prev, status: "aguardando_validacao" } : prev);
     toast.success("Tarefa enviada para validação do coordenador!");
     navigate("/tarefas");
   };
@@ -292,7 +297,9 @@ export default function TarefaDetalhe() {
 
   const handleApprove = async () => {
     if (!task) return;
-    await supabase.from("tasks").update({ status: "aprovada" }).eq("id", task.id);
+    const { error } = await supabase.from("tasks").update({ status: "aprovada" }).eq("id", task.id);
+    if (error) { toast.error("Erro ao aprovar: " + error.message); return; }
+    setTask(prev => prev ? { ...prev, status: "aprovada" } : prev);
     toast.success("Tarefa aprovada com sucesso!");
     navigate("/tarefas");
   };
@@ -302,7 +309,9 @@ export default function TarefaDetalhe() {
       toast.error("Informe o motivo da reprovação.");
       return;
     }
-    await supabase.from("tasks").update({ status: "reprovada", rejection_reason: rejectReason.trim() }).eq("id", task.id);
+    const { error } = await supabase.from("tasks").update({ status: "reprovada", rejection_reason: rejectReason.trim() }).eq("id", task.id);
+    if (error) { toast.error("Erro ao reprovar: " + error.message); return; }
+    setTask(prev => prev ? { ...prev, status: "reprovada", rejection_reason: rejectReason.trim() } : prev);
     setRejectOpen(false);
     setRejectReason("");
     toast.success("Tarefa reprovada. O projetista será notificado.");
@@ -472,7 +481,7 @@ export default function TarefaDetalhe() {
   const showCompleteButton = (isTaskResponsible || isManager) && task.status === "em_andamento";
   const showSendValidation = (isTaskResponsible || isManager) && task.status === "concluida";
   // Coordinator or manager can validate, but NOT the task executor (prevent self-approval)
-  const showValidationActions = (isCoordinator || isManager) && !isTaskResponsible && task.status === "aguardando_validacao";
+  const showValidationActions = (isCoordinator || isManager) && task.status === "aguardando_validacao";
   const showSendToClient = (isTaskResponsible || isManager) && task.status === "aprovada";
 
   const handleSendToClient = async () => {
