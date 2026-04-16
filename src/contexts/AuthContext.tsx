@@ -80,28 +80,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    let isMounted = true;
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (!isMounted) return;
-
         if (session?.user) {
           setUser(session.user);
-          await fetchProfile(session.user.id);
+          // Use setTimeout to avoid Supabase deadlock
+          setTimeout(() => fetchProfile(session.user.id), 0);
         } else {
           setUser(null);
           setProfile(null);
-          setPendingApproval(false);
         }
         setLoading(false);
       }
     );
 
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        fetchProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
