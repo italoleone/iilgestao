@@ -5,15 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { LeoneLogo } from "@/components/LeoneLogo";
-import { LogIn } from "lucide-react";
+import { LogIn, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Login() {
   const { signIn, pendingApproval } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +31,24 @@ export default function Login() {
       toast.error("Credenciais inválidas. Verifique e-mail e senha.");
     }
     setLoading(false);
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail) {
+      toast.error("Preencha o e-mail.");
+      return;
+    }
+    setResetLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: window.location.origin + "/login",
+    });
+    setResetLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success("Link de recuperação enviado para seu e-mail.");
+    }
   };
 
   if (pendingApproval) {
@@ -91,42 +113,83 @@ export default function Login() {
           </div>
 
           <div>
-            <h1 className="text-xl font-bold tracking-tight">Entrar no sistema</h1>
-            <p className="text-sm text-muted-foreground mt-1">Acesse sua conta para continuar</p>
+            <h1 className="text-xl font-bold tracking-tight">
+              {showReset ? "Recuperar senha" : "Entrar no sistema"}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {showReset ? "Informe seu e-mail para receber o link de recuperação" : "Acesse sua conta para continuar"}
+            </p>
           </div>
 
           <Card className="shadow-none border">
             <CardContent className="pt-6">
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">E-mail</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu@email.com"
-                    autoComplete="email"
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••"
-                    autoComplete="current-password"
-                    className="h-11"
-                  />
-                </div>
-                <Button type="submit" className="w-full h-11 gap-2 bg-accent text-accent-foreground hover:bg-accent/90 font-medium" disabled={loading}>
-                  <LogIn className="h-4 w-4" />
-                  {loading ? "Entrando..." : "Entrar"}
-                </Button>
-              </form>
+              {showReset ? (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-email">E-mail</Label>
+                    <Input
+                      id="reset-email"
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      placeholder="seu@email.com"
+                      autoComplete="email"
+                      className="h-11"
+                    />
+                  </div>
+                  <Button type="submit" className="w-full h-11 gap-2 bg-accent text-accent-foreground hover:bg-accent/90 font-medium" disabled={resetLoading}>
+                    {resetLoading ? "Enviando..." : "Enviar link de recuperação"}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setShowReset(false)}
+                    className="flex items-center gap-1 text-xs text-accent hover:underline mx-auto mt-2"
+                  >
+                    <ArrowLeft className="h-3 w-3" />
+                    Voltar ao login
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">E-mail</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="seu@email.com"
+                      autoComplete="email"
+                      className="h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Senha</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••"
+                      autoComplete="current-password"
+                      className="h-11"
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setShowReset(true)}
+                        className="text-xs text-accent hover:underline"
+                      >
+                        Esqueceu sua senha?
+                      </button>
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full h-11 gap-2 bg-accent text-accent-foreground hover:bg-accent/90 font-medium" disabled={loading}>
+                    <LogIn className="h-4 w-4" />
+                    {loading ? "Entrando..." : "Entrar"}
+                  </Button>
+                </form>
+              )}
             </CardContent>
           </Card>
 
