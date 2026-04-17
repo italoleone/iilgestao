@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,14 +9,18 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
 import {
   useCommercialProposals, useCommercialClients, useCreateProposal, useUpdateProposal,
-  useApproveProposal, useDeleteProposal, useClientHistory, PROPOSAL_STATUS_LABELS,
-  type ProposalStatus, type CommercialProposal, type ProposalDisciplines, type ProposalDiscounts,
+  useApproveProposal, useDeleteProposal, useClientHistory, useBillingSchedule,
+  useSaveBillingSchedule,
+  PROPOSAL_STATUS_LABELS, BILLING_STAGES, MONTH_LABELS,
+  type ProposalStatus, type CommercialProposal, type ProposalDisciplines,
+  type ProposalDiscounts, type BillingStageKey, type UpsertBillingScheduleInput,
 } from "@/hooks/useCommercialData";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Search, Eye, CheckCircle, XCircle, FileDown, Trash2 } from "lucide-react";
+import { Plus, Search, Eye, CheckCircle, XCircle, FileDown, Trash2, CalendarClock, Info } from "lucide-react";
 import { toast } from "sonner";
 
 const STATUS_COLORS: Record<ProposalStatus, string> = {
@@ -29,7 +33,14 @@ const STATUS_COLORS: Record<ProposalStatus, string> = {
   reprovada: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
-const DISC_LABELS: Record<string, string> = { estrutural: "Estrutural", hidraulica: "Hidráulica", eletrica: "Elétrica", fundacoes: "Fundações" };
+const DISC_LABELS: Record<string, string> = {
+  estrutural: "Estrutural",
+  hidraulica: "Hidráulica",
+  eletrica: "Elétrica",
+  fundacoes: "Fundações",
+};
+
+// ─── Componente Principal ─────────────────────────────────────────────────────
 
 export default function ComercialPropostas() {
   const { data: proposals = [] } = useCommercialProposals();
@@ -38,7 +49,7 @@ export default function ComercialPropostas() {
   const updateProposal = useUpdateProposal();
   const approveProposal = useApproveProposal();
   const deleteProposal = useDeleteProposal();
-  const { user } = useAuth();
+  const { user, isDiretorOrGerente } = useAuth();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -49,6 +60,9 @@ export default function ComercialPropostas() {
   const [coordinatorSelections, setCoordinatorSelections] = useState<Record<string, string>>({});
   const [activeUsers, setActiveUsers] = useState<{ id: string; name: string }[]>([]);
   const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
+
+  // Estado do modal de cronograma de faturamento
+  const [billingProposal, setBillingProposal] = useState<CommercialProposal | null>(null);
 
   const [form, setForm] = useState({
     client_id: "",
@@ -79,7 +93,12 @@ export default function ComercialPropostas() {
   });
 
   const openCreate = () => {
-    setForm({ client_id: "", project_name: "", area_m2: "", pm2_estrutural: "", pm2_hidraulica: "", pm2_eletrica: "", pm2_fundacoes: "", proposal_date: new Date().toISOString().split("T")[0], notes: "", scope: "residencial", arquivo_ref_1: "", arquivo_ref_2: "" });
+    setForm({
+      client_id: "", project_name: "", area_m2: "",
+      pm2_estrutural: "", pm2_hidraulica: "", pm2_eletrica: "", pm2_fundacoes: "",
+      proposal_date: new Date().toISOString().split("T")[0],
+      notes: "", scope: "residencial", arquivo_ref_1: "", arquivo_ref_2: "",
+    });
     setDialogOpen(true);
   };
 
@@ -96,26 +115,10 @@ export default function ComercialPropostas() {
     const pricePerM2: ProposalDisciplines = {};
     const disciplines: ProposalDisciplines = {};
 
-    if (form.pm2_estrutural) {
-      const pm2 = parseFloat(form.pm2_estrutural);
-      pricePerM2.estrutural = pm2;
-      disciplines.estrutural = pm2 * area;
-    }
-    if (form.pm2_hidraulica) {
-      const pm2 = parseFloat(form.pm2_hidraulica);
-      pricePerM2.hidraulica = pm2;
-      disciplines.hidraulica = pm2 * area;
-    }
-    if (form.pm2_eletrica) {
-      const pm2 = parseFloat(form.pm2_eletrica);
-      pricePerM2.eletrica = pm2;
-      disciplines.eletrica = pm2 * area;
-    }
-    if (form.pm2_fundacoes) {
-      const pm2 = parseFloat(form.pm2_fundacoes);
-      pricePerM2.fundacoes = pm2;
-      disciplines.fundacoes = pm2 * area;
-    }
+    if (form.pm2_estrutural) { const pm2 = parseFloat(form.pm2_estrutural); pricePerM2.estrutural = pm2; disciplines.estrutural = pm2 * area; }
+    if (form.pm2_hidraulica) { const pm2 = parseFloat(form.pm2_hidraulica); pricePerM2.hidraulica = pm2; disciplines.hidraulica = pm2 * area; }
+    if (form.pm2_eletrica)   { const pm2 = parseFloat(form.pm2_eletrica);   pricePerM2.eletrica   = pm2; disciplines.eletrica   = pm2 * area; }
+    if (form.pm2_fundacoes)  { const pm2 = parseFloat(form.pm2_fundacoes);  pricePerM2.fundacoes  = pm2; disciplines.fundacoes  = pm2 * area; }
 
     const total = Object.values(disciplines).reduce((s, v) => s + (v || 0), 0);
 
@@ -142,7 +145,6 @@ export default function ComercialPropostas() {
 
   const handleApproveWithDiscount = () => {
     if (!approvalTarget || !user) return;
-    // Open coordinator selection modal
     const discs = (["estrutural", "hidraulica", "eletrica", "fundacoes"] as const).filter(
       (d) => approvalTarget.disciplines[d] && approvalTarget.disciplines[d]! > 0
     );
@@ -150,7 +152,6 @@ export default function ComercialPropostas() {
     discs.forEach((d) => { initial[d] = ""; });
     setCoordinatorSelections(initial);
     setCoordinatorTarget(approvalTarget);
-    // Load active users for coordinator selection
     supabase.from("profiles").select("id, name").eq("status", "active").order("name").then(({ data }) => {
       if (data) setActiveUsers(data.map((u) => ({ id: u.id, name: u.name })));
     });
@@ -160,10 +161,7 @@ export default function ComercialPropostas() {
     if (!approvalTarget || !user || !coordinatorTarget) return;
     const discs = Object.keys(coordinatorSelections);
     const allFilled = discs.every((d) => coordinatorSelections[d]);
-    if (!allFilled) {
-      toast.error("Selecione o coordenador para todas as disciplinas.");
-      return;
-    }
+    if (!allFilled) { toast.error("Selecione o coordenador para todas as disciplinas."); return; }
     approveProposal.mutate({
       proposal: approvalTarget,
       discounts: discountForm,
@@ -197,36 +195,28 @@ export default function ComercialPropostas() {
     setGerandoPDF(proposal.id);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gerar-proposta-pdf`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session?.access_token}`,
-          },
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
           body: JSON.stringify({ proposal_id: proposal.id }),
         }
       );
-
       if (!response.ok) {
         const errBody = await response.json().catch(() => ({}));
         throw new Error(errBody.error || "Erro ao gerar documento");
       }
-
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Proposta_${proposal.client?.name}_${proposal.project_name}_${proposal.proposal_date}`
-        .replace(/[^a-zA-Z0-9_\-\.]/g, "_") + ".docx";
+      a.download = `Proposta_${proposal.client?.name}_${proposal.project_name}_${proposal.proposal_date}`.replace(/[^a-zA-Z0-9_\-\.]/g, "_") + ".docx";
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Documento gerado com sucesso!");
     } catch (err: any) {
       console.error("Erro ao gerar documento:", err);
-      console.error("Detalhes:", err?.message, err?.stack);
       toast.error(err.message || "Não foi possível gerar o documento. Tente novamente.");
     } finally {
       setGerandoPDF(null);
@@ -270,7 +260,7 @@ export default function ComercialPropostas() {
                   <TableHead>Valor Total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Data</TableHead>
-                  <TableHead className="w-[120px]">Ações</TableHead>
+                  <TableHead className="w-[150px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -288,32 +278,31 @@ export default function ComercialPropostas() {
                       <TableCell>{new Date(p.proposal_date).toLocaleDateString("pt-BR")}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setDetailProposal(p); }}>
+                          <Button variant="ghost" size="icon" title="Ver detalhes" onClick={(e) => { e.stopPropagation(); setDetailProposal(p); }}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Gerar Documento da Proposta"
-                            onClick={(e) => { e.stopPropagation(); handleGerarPDF(p); }}
-                            disabled={gerandoPDF === p.id}
-                          >
+                          <Button variant="ghost" size="icon" title="Gerar Documento" onClick={(e) => { e.stopPropagation(); handleGerarPDF(p); }} disabled={gerandoPDF === p.id}>
                             {gerandoPDF === p.id
                               ? <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                              : <FileDown className="h-4 w-4" />
-                            }
+                              : <FileDown className="h-4 w-4" />}
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Excluir proposta"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm(`Excluir a proposta "${p.project_name}"? Esta ação não pode ser desfeita.`)) {
-                                deleteProposal.mutate(p.id);
-                              }
-                            }}
-                          >
+                          {/* Botão de Cronograma de Faturamento — só para propostas aprovadas e usuários autorizados */}
+                          {p.status === "aprovada" && isDiretorOrGerente && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Cronograma de Faturamento"
+                              onClick={(e) => { e.stopPropagation(); setBillingProposal(p); }}
+                            >
+                              <CalendarClock className="h-4 w-4 text-blue-500" />
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="icon" title="Excluir proposta" onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Excluir a proposta "${p.project_name}"? Esta ação não pode ser desfeita.`)) {
+                              deleteProposal.mutate(p.id);
+                            }
+                          }}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
@@ -329,7 +318,7 @@ export default function ComercialPropostas() {
           </CardContent>
         </Card>
 
-        {/* Create dialog */}
+        {/* Create Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Nova Proposta</DialogTitle></DialogHeader>
@@ -337,7 +326,7 @@ export default function ComercialPropostas() {
           </DialogContent>
         </Dialog>
 
-        {/* Detail dialog */}
+        {/* Detail Dialog */}
         {detailProposal && (
           <ProposalDetailDialog
             proposal={detailProposal}
@@ -346,7 +335,9 @@ export default function ComercialPropostas() {
             onReject={() => handleReject(detailProposal)}
             onStatusChange={(s) => handleStatusChange(detailProposal, s)}
             onGerarPDF={handleGerarPDF}
+            onOpenBilling={() => { setDetailProposal(null); setBillingProposal(detailProposal); }}
             gerandoPDF={gerandoPDF}
+            isDiretorOrGerente={isDiretorOrGerente}
             onDelete={(p) => {
               if (confirm(`Excluir a proposta "${p.project_name}"? Esta ação não pode ser desfeita.`)) {
                 deleteProposal.mutate(p.id);
@@ -356,7 +347,7 @@ export default function ComercialPropostas() {
           />
         )}
 
-        {/* Approval discount modal */}
+        {/* Approval Discount Modal */}
         {approvalTarget && !coordinatorTarget && (
           <ApprovalDiscountModal
             proposal={approvalTarget}
@@ -368,15 +359,13 @@ export default function ComercialPropostas() {
           />
         )}
 
-        {/* Coordinator selection modal */}
+        {/* Coordinator Selection Modal */}
         {coordinatorTarget && (
           <Dialog open onOpenChange={() => setCoordinatorTarget(null)}>
             <DialogContent className="max-w-md">
               <DialogHeader><DialogTitle>Selecionar Coordenadores</DialogTitle></DialogHeader>
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Defina o coordenador técnico para cada disciplina do projeto.
-                </p>
+                <p className="text-sm text-muted-foreground">Defina o coordenador técnico para cada disciplina do projeto.</p>
                 {Object.keys(coordinatorSelections).map((disc) => (
                   <div key={disc} className="space-y-1">
                     <Label className="text-sm font-medium">{DISC_LABELS[disc] || disc}</Label>
@@ -406,19 +395,29 @@ export default function ComercialPropostas() {
             </DialogContent>
           </Dialog>
         )}
+
+        {/* Billing Schedule Modal */}
+        {billingProposal && (
+          <BillingScheduleModal
+            proposal={billingProposal}
+            userId={user?.id || ""}
+            onClose={() => setBillingProposal(null)}
+          />
+        )}
       </div>
     </AppLayout>
   );
 }
 
-/* ─── Create Form ─── */
+// ─── Create Form ──────────────────────────────────────────────────────────────
+
 function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId, calcDisciplineValue }: any) {
   const { data: history = [] } = useClientHistory(selectedClientId || null);
 
-  const valEst = calcDisciplineValue(form.pm2_estrutural, form.area_m2);
-  const valHid = calcDisciplineValue(form.pm2_hidraulica, form.area_m2);
-  const valEle = calcDisciplineValue(form.pm2_eletrica, form.area_m2);
-  const valFund = calcDisciplineValue(form.pm2_fundacoes, form.area_m2);
+  const valEst  = calcDisciplineValue(form.pm2_estrutural, form.area_m2);
+  const valHid  = calcDisciplineValue(form.pm2_hidraulica, form.area_m2);
+  const valEle  = calcDisciplineValue(form.pm2_eletrica,   form.area_m2);
+  const valFund = calcDisciplineValue(form.pm2_fundacoes,  form.area_m2);
   const totalValue = valEst + valHid + valEle + valFund;
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -464,9 +463,7 @@ function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId, 
       <div className="space-y-1">
         <Label>Escopo do Projeto *</Label>
         <Select value={form.scope} onValueChange={(v) => setForm({ ...form, scope: v })}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione o escopo..." />
-          </SelectTrigger>
+          <SelectTrigger><SelectValue placeholder="Selecione o escopo..." /></SelectTrigger>
           <SelectContent>
             <SelectItem value="residencial">Escopo Residencial</SelectItem>
           </SelectContent>
@@ -486,8 +483,8 @@ function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId, 
           {([
             { key: "pm2_estrutural", label: "Estrutural", val: valEst },
             { key: "pm2_hidraulica", label: "Hidráulica", val: valHid },
-            { key: "pm2_eletrica", label: "Elétrica", val: valEle },
-            { key: "pm2_fundacoes", label: "Fundações", val: valFund },
+            { key: "pm2_eletrica",   label: "Elétrica",   val: valEle },
+            { key: "pm2_fundacoes",  label: "Fundações",  val: valFund },
           ] as const).map((d) => (
             <div key={d.key}>
               <Label className="text-xs">{d.label} (R$/m²)</Label>
@@ -509,7 +506,8 @@ function CreateProposalForm({ form, setForm, clients, onSave, selectedClientId, 
   );
 }
 
-/* ─── Approval Discount Modal ─── */
+// ─── Approval Discount Modal ──────────────────────────────────────────────────
+
 function ApprovalDiscountModal({ proposal, discounts, setDiscounts, onConfirm, onCancel, isLoading }: {
   proposal: CommercialProposal;
   discounts: ProposalDiscounts;
@@ -536,10 +534,7 @@ function ApprovalDiscountModal({ proposal, discounts, setDiscounts, onConfirm, o
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Aprovar Proposta — Descontos</DialogTitle></DialogHeader>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Defina o desconto (%) para cada disciplina antes de confirmar a aprovação.
-          </p>
-
+          <p className="text-sm text-muted-foreground">Defina o desconto (%) para cada disciplina antes de confirmar a aprovação.</p>
           {discs.map((d) => {
             const original = proposal.disciplines[d] || 0;
             const final_ = finalValues[d] || 0;
@@ -550,9 +545,7 @@ function ApprovalDiscountModal({ proposal, discounts, setDiscounts, onConfirm, o
                 <div className="flex items-center gap-2">
                   <Label className="text-xs whitespace-nowrap">Desconto (%)</Label>
                   <Input
-                    type="number"
-                    min={0}
-                    max={100}
+                    type="number" min={0} max={100}
                     value={discounts[d] ?? 0}
                     onChange={(e) => {
                       const val = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
@@ -565,16 +558,9 @@ function ApprovalDiscountModal({ proposal, discounts, setDiscounts, onConfirm, o
               </div>
             );
           })}
-
           <div className="border-t border-border pt-3">
-            <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Total original:</span>
-              <span className="text-sm">{fmt(proposal.total_value)}</span>
-            </div>
-            <div className="flex justify-between font-bold">
-              <span>Total final:</span>
-              <span>{fmt(finalTotal)}</span>
-            </div>
+            <div className="flex justify-between"><span className="text-sm text-muted-foreground">Total original:</span><span className="text-sm">{fmt(proposal.total_value)}</span></div>
+            <div className="flex justify-between font-bold"><span>Total final:</span><span>{fmt(finalTotal)}</span></div>
           </div>
         </div>
         <DialogFooter>
@@ -588,15 +574,18 @@ function ApprovalDiscountModal({ proposal, discounts, setDiscounts, onConfirm, o
   );
 }
 
-/* ─── Detail Dialog ─── */
-function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatusChange, onGerarPDF, gerandoPDF, onDelete }: {
+// ─── Detail Dialog ────────────────────────────────────────────────────────────
+
+function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatusChange, onGerarPDF, onOpenBilling, gerandoPDF, isDiretorOrGerente, onDelete }: {
   proposal: CommercialProposal;
   onClose: () => void;
   onApprove: () => void;
   onReject: () => void;
   onStatusChange: (s: ProposalStatus) => void;
   onGerarPDF: (p: CommercialProposal) => void;
+  onOpenBilling: () => void;
   gerandoPDF: string | null;
+  isDiretorOrGerente: boolean;
   onDelete: (p: CommercialProposal) => void;
 }) {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -621,30 +610,27 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
             {proposal.approved_at && <div><span className="text-muted-foreground">Aprovada em:</span> <span className="font-medium">{new Date(proposal.approved_at).toLocaleDateString("pt-BR")}</span></div>}
           </div>
 
-          {/* Disciplines */}
           <Card className="bg-muted/30">
             <CardContent className="p-3">
               <p className="text-xs font-semibold mb-2">Valores por Disciplina</p>
               <div className="grid grid-cols-2 gap-3 text-sm">
-                {(["estrutural", "hidraulica", "eletrica", "fundacoes"] as const).filter((d) => proposal.disciplines?.[d] && proposal.disciplines[d]! > 0).map((d) => {
-                  const val = proposal.disciplines?.[d];
-                  const pm2 = proposal.price_per_m2?.[d];
-                  const disc = proposal.discounts?.[d];
-                  const finalVal = proposal.final_disciplines?.[d];
-                  return (
-                    <div key={d}>
-                      <p className="text-muted-foreground">{DISC_LABELS[d] || d}</p>
-                      {pm2 != null && pm2 > 0 && <p className="text-xs text-muted-foreground">R$ {pm2.toFixed(2)}/m²</p>}
-                      <p className="font-medium">{val ? fmt(val) : "—"}</p>
-                      {hasFinal && disc != null && disc > 0 && (
-                        <p className="text-xs text-orange-600">Desconto: {disc}%</p>
-                      )}
-                      {hasFinal && finalVal != null && (
-                        <p className="text-xs font-semibold text-green-600">Final: {fmt(finalVal)}</p>
-                      )}
-                    </div>
-                  );
-                })}
+                {(["estrutural", "hidraulica", "eletrica", "fundacoes"] as const)
+                  .filter((d) => proposal.disciplines?.[d] && proposal.disciplines[d]! > 0)
+                  .map((d) => {
+                    const val = proposal.disciplines?.[d];
+                    const pm2 = proposal.price_per_m2?.[d];
+                    const disc = proposal.discounts?.[d];
+                    const finalVal = proposal.final_disciplines?.[d];
+                    return (
+                      <div key={d}>
+                        <p className="text-muted-foreground">{DISC_LABELS[d] || d}</p>
+                        {pm2 != null && pm2 > 0 && <p className="text-xs text-muted-foreground">R$ {pm2.toFixed(2)}/m²</p>}
+                        <p className="font-medium">{val ? fmt(val) : "—"}</p>
+                        {hasFinal && disc != null && disc > 0 && <p className="text-xs text-orange-600">Desconto: {disc}%</p>}
+                        {hasFinal && finalVal != null && <p className="text-xs font-semibold text-green-600">Final: {fmt(finalVal)}</p>}
+                      </div>
+                    );
+                  })}
               </div>
             </CardContent>
           </Card>
@@ -665,17 +651,20 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
           )}
 
           <div className="flex gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              onClick={() => onGerarPDF(proposal)}
-              disabled={gerandoPDF === proposal.id}
-            >
+            <Button variant="outline" onClick={() => onGerarPDF(proposal)} disabled={gerandoPDF === proposal.id}>
               {gerandoPDF === proposal.id
                 ? <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-1" />
-                : <FileDown className="h-4 w-4 mr-1" />
-              }
+                : <FileDown className="h-4 w-4 mr-1" />}
               Gerar Documento
             </Button>
+
+            {/* Botão de Cronograma — só para aprovadas e Diretores/Gerentes */}
+            {isApproved && isDiretorOrGerente && (
+              <Button variant="outline" onClick={onOpenBilling} className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950">
+                <CalendarClock className="h-4 w-4 mr-1" />
+                Cronograma de Faturamento
+              </Button>
+            )}
 
             {proposal.status !== "aprovada" && proposal.status !== "reprovada" && (
               <>
@@ -700,6 +689,248 @@ function ProposalDetailDialog({ proposal, onClose, onApprove, onReject, onStatus
             </Button>
           </div>
         </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Billing Schedule Modal ───────────────────────────────────────────────────
+
+interface StageFormState {
+  enabled: boolean;
+  amount: string;
+  billing_month: string;   // "1" … "12"
+  billing_year: string;
+  is_installment: boolean;
+  installment_count: string;
+}
+
+function BillingScheduleModal({
+  proposal,
+  userId,
+  onClose,
+}: {
+  proposal: CommercialProposal;
+  userId: string;
+  onClose: () => void;
+}) {
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const now = new Date();
+  const totalValue = proposal.status === "aprovada" && proposal.final_total_value > 0
+    ? proposal.final_total_value
+    : proposal.total_value;
+
+  const { data: existingSchedule = [] } = useBillingSchedule(proposal.id);
+  const saveBilling = useSaveBillingSchedule();
+
+  // Inicializar form com dados existentes ou defaults
+  const buildInitialState = (): Record<BillingStageKey, StageFormState> => {
+    const result = {} as Record<BillingStageKey, StageFormState>;
+    for (const stage of BILLING_STAGES) {
+      const existing = existingSchedule.find((e) => e.stage_key === stage.key);
+      result[stage.key] = {
+        enabled: !!existing,
+        amount: existing ? String(existing.amount) : "",
+        billing_month: existing ? String(existing.billing_month) : String(now.getMonth() + 1),
+        billing_year: existing ? String(existing.billing_year) : String(now.getFullYear()),
+        is_installment: existing?.is_installment ?? false,
+        installment_count: existing?.installment_count ? String(existing.installment_count) : "2",
+      };
+    }
+    return result;
+  };
+
+  const [stageForm, setStageForm] = useState<Record<BillingStageKey, StageFormState>>(buildInitialState);
+
+  // Re-inicializar quando os dados existentes chegam do servidor
+  const [initialized, setInitialized] = useState(false);
+  if (!initialized && existingSchedule.length > 0) {
+    setStageForm(buildInitialState());
+    setInitialized(true);
+  }
+
+  const updateStage = (key: BillingStageKey, partial: Partial<StageFormState>) => {
+    setStageForm((prev) => ({ ...prev, [key]: { ...prev[key], ...partial } }));
+  };
+
+  const totalScheduled = BILLING_STAGES.reduce((sum, s) => {
+    const f = stageForm[s.key];
+    if (!f.enabled) return sum;
+    return sum + (parseFloat(f.amount) || 0);
+  }, 0);
+
+  const diff = totalValue - totalScheduled;
+
+  const availableYears = [now.getFullYear(), now.getFullYear() + 1, now.getFullYear() + 2];
+
+  const handleSave = () => {
+    const entries: UpsertBillingScheduleInput[] = [];
+    for (const stage of BILLING_STAGES) {
+      const f = stageForm[stage.key];
+      if (!f.enabled) continue;
+      const amount = parseFloat(f.amount) || 0;
+      if (amount <= 0) { toast.error(`Informe o valor da etapa "${stage.label}"`); return; }
+
+      entries.push({
+        proposal_id: proposal.id,
+        stage_key: stage.key,
+        stage_label: stage.label,
+        amount,
+        billing_year: parseInt(f.billing_year),
+        billing_month: parseInt(f.billing_month),
+        is_installment: f.is_installment,
+        installment_count: f.is_installment ? parseInt(f.installment_count) || 2 : null,
+        created_by: userId,
+      });
+    }
+    saveBilling.mutate({ proposalId: proposal.id, entries }, { onSuccess: onClose });
+  };
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CalendarClock className="h-5 w-5 text-blue-500" />
+            Cronograma de Faturamento
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground pt-1">
+            {proposal.project_name} — {proposal.client?.name}
+          </p>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Resumo do valor total */}
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border">
+            <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+            <div className="text-sm">
+              <p>Valor contratado: <strong>{fmt(totalValue)}</strong></p>
+              <p>Total agendado: <strong className={Math.abs(diff) > 0.01 ? "text-orange-500" : "text-green-500"}>{fmt(totalScheduled)}</strong></p>
+              {Math.abs(diff) > 0.01 && (
+                <p className="text-orange-500 text-xs mt-1">
+                  {diff > 0 ? `Faltam ${fmt(diff)} para totalizar o contrato` : `Excesso de ${fmt(Math.abs(diff))} sobre o contrato`}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Lista de etapas */}
+          <div className="space-y-3">
+            {BILLING_STAGES.map((stage) => {
+              const f = stageForm[stage.key];
+              return (
+                <div
+                  key={stage.key}
+                  className={`border rounded-lg p-4 transition-colors ${f.enabled ? "border-blue-500/50 bg-blue-500/5" : "border-border"}`}
+                >
+                  {/* Header da etapa */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={f.enabled}
+                        onCheckedChange={(checked) => updateStage(stage.key, { enabled: checked })}
+                      />
+                      <span className={`text-sm font-medium ${f.enabled ? "" : "text-muted-foreground"}`}>
+                        {stage.label}
+                      </span>
+                    </div>
+                    {f.enabled && f.amount && (
+                      <span className="text-xs font-semibold text-blue-500">{fmt(parseFloat(f.amount) || 0)}</span>
+                    )}
+                  </div>
+
+                  {/* Campos — aparecem apenas quando a etapa está ativa */}
+                  {f.enabled && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Valor */}
+                      <div>
+                        <Label className="text-xs">Valor (R$) *</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={f.amount}
+                          onChange={(e) => updateStage(stage.key, { amount: e.target.value })}
+                          placeholder="0,00"
+                          className="mt-1"
+                        />
+                      </div>
+
+                      {/* Mês previsto */}
+                      <div>
+                        <Label className="text-xs">Mês Previsto *</Label>
+                        <Select value={f.billing_month} onValueChange={(v) => updateStage(stage.key, { billing_month: v })}>
+                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {MONTH_LABELS.map((m, i) => (
+                              <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Ano */}
+                      <div>
+                        <Label className="text-xs">Ano *</Label>
+                        <Select value={f.billing_year} onValueChange={(v) => updateStage(stage.key, { billing_year: v })}>
+                          <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {availableYears.map((y) => (
+                              <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Parcelado */}
+                      <div className="flex flex-col gap-2">
+                        <Label className="text-xs">Recebimento Parcelado?</Label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Switch
+                            checked={f.is_installment}
+                            onCheckedChange={(checked) => updateStage(stage.key, { is_installment: checked })}
+                          />
+                          <span className="text-xs text-muted-foreground">{f.is_installment ? "Sim" : "Não"}</span>
+                        </div>
+                        {f.is_installment && (
+                          <div>
+                            <Label className="text-xs">Nº de Parcelas</Label>
+                            <Input
+                              type="number"
+                              min={2}
+                              max={24}
+                              value={f.installment_count}
+                              onChange={(e) => updateStage(stage.key, { installment_count: e.target.value })}
+                              className="mt-1 w-24"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {parseFloat(f.amount) > 0 && parseInt(f.installment_count) > 1
+                                ? `${parseInt(f.installment_count)}× de ${fmt(parseFloat(f.amount) / parseInt(f.installment_count))}`
+                                : "Informe o valor e o nº de parcelas"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button
+            onClick={handleSave}
+            disabled={saveBilling.isPending}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            {saveBilling.isPending
+              ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" />
+              : <CalendarClock className="h-4 w-4 mr-1" />}
+            Salvar Cronograma
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
