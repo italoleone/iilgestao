@@ -22,6 +22,18 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { useTimeEntries } from "@/hooks/useSupabaseData";
 
+interface EditableEntry {
+  id: string;
+  task_id: string;
+  project_id: string;
+  user_id: string;
+  user_name: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  duration_minutes: number;
+}
+
 const statusColors: Record<ProjectStatus, string> = {
   em_andamento: "bg-info text-info-foreground",
   concluido: "bg-success text-success-foreground",
