@@ -108,9 +108,12 @@ export type BillingStatus = "previsto" | "faturado" | "recebido";
 export interface BillingScheduleEntry {
   id: string;
   proposal_id: string;
+  discipline_key: string;          // 'estrutural' | 'hidraulica' | 'eletrica' | 'fundacoes'
+  discipline_label: string;
   stage_key: BillingStageKey;
   stage_label: string;
   amount: number;
+  percentage: number;              // % do valor da disciplina
   billing_year: number;
   billing_month: number;
   is_installment: boolean;
@@ -461,9 +464,12 @@ export function useAllBillingSchedules() {
 
 export interface UpsertBillingScheduleInput {
   proposal_id: string;
+  discipline_key: string;
+  discipline_label: string;
   stage_key: BillingStageKey;
   stage_label: string;
   amount: number;
+  percentage: number;
   billing_year: number;
   billing_month: number;
   is_installment: boolean;
