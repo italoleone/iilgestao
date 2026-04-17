@@ -7,18 +7,26 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { DollarSign, TrendingUp, TrendingDown, Clock, CheckCircle, ChevronDown, ChevronUp, ChevronsUpDown, Check } from "lucide-react";
+import {
+  DollarSign, TrendingUp, TrendingDown, Clock, CheckCircle,
+  ChevronDown, ChevronUp, ChevronsUpDown, Check, CalendarClock,
+} from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useReceivables, usePayables, useMarkReceived, useMarkPaid, useProjetoCusto } from "@/hooks/useFinanceiroData";
+import { useAllBillingSchedules, MONTH_LABELS } from "@/hooks/useCommercialData";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Line, ComposedChart } from "recharts";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell, Line, ComposedChart,
+} from "recharts";
 import { format, subMonths, startOfMonth, endOfMonth, addDays, isWithinInterval, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
-const fmt = (v: number | undefined | null) => (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmt = (v: number | undefined | null) =>
+  (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const PIE_COLORS: Record<string, string> = {
   salario: "hsl(220, 70%, 55%)",
@@ -42,6 +50,20 @@ const MONTH_NAMES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
+const BILLING_STATUS_LABELS: Record<string, string> = {
+  previsto: "Previsto",
+  faturado: "Faturado",
+  recebido: "Recebido",
+};
+
+const BILLING_STATUS_COLORS: Record<string, string> = {
+  previsto: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+  faturado: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  recebido: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+};
+
+// ─── Componente Principal ─────────────────────────────────────────────────────
+
 export default function FinanceiroDashboard() {
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
@@ -49,6 +71,7 @@ export default function FinanceiroDashboard() {
 
   const { data: allReceivables = [] } = useReceivables();
   const { data: allPayables = [] } = usePayables();
+  const { data: allBillingSchedules = [] } = useAllBillingSchedules();
   const markReceived = useMarkReceived();
   const markPaid = useMarkPaid();
 
@@ -63,12 +86,16 @@ export default function FinanceiroDashboard() {
 
   // KPIs
   const receitaMes = useMemo(() =>
-    allReceivables.filter(r => r.received_date && isWithinInterval(parseISO(r.received_date), { start: monthStart, end: monthEnd }))
-      .reduce((s, r) => s + Number(r.amount), 0), [allReceivables, selectedMonth, selectedYear]);
+    allReceivables
+      .filter(r => r.received_date && isWithinInterval(parseISO(r.received_date), { start: monthStart, end: monthEnd }))
+      .reduce((s, r) => s + Number(r.amount), 0),
+    [allReceivables, selectedMonth, selectedYear]);
 
   const despesaMes = useMemo(() =>
-    allPayables.filter(p => p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: monthStart, end: monthEnd }))
-      .reduce((s, p) => s + Number(p.amount), 0), [allPayables, selectedMonth, selectedYear]);
+    allPayables
+      .filter(p => p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: monthStart, end: monthEnd }))
+      .reduce((s, p) => s + Number(p.amount), 0),
+    [allPayables, selectedMonth, selectedYear]);
 
   const resultado = receitaMes - despesaMes;
 
@@ -79,39 +106,44 @@ export default function FinanceiroDashboard() {
       .reduce((s, r) => s + Number(r.amount), 0);
   }, [allReceivables, selectedMonth, selectedYear]);
 
-  // Cash flow: 6 months ending at selected month
+  // Cash flow: 6 months
   const cashFlowData = useMemo(() => {
     const ref = new Date(selectedYear, selectedMonth, 15);
     const months: any[] = [];
     for (let i = 5; i >= 0; i--) {
       const d = subMonths(ref, i);
       const ms = startOfMonth(d); const me = endOfMonth(d);
-      const rec = allReceivables.filter(r => r.received_date && isWithinInterval(parseISO(r.received_date), { start: ms, end: me }))
+      const rec = allReceivables
+        .filter(r => r.received_date && isWithinInterval(parseISO(r.received_date), { start: ms, end: me }))
         .reduce((s, r) => s + Number(r.amount), 0);
-      const desp = allPayables.filter(p => p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: ms, end: me }))
+      const desp = allPayables
+        .filter(p => p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: ms, end: me }))
         .reduce((s, p) => s + Number(p.amount), 0);
       months.push({ name: format(d, "MMM/yy", { locale: ptBR }), receitas: rec, despesas: desp, resultado: rec - desp });
     }
     return months;
   }, [allReceivables, allPayables, selectedMonth, selectedYear]);
 
-  // Expenses by category (selected month)
+  // Expenses by category
   const catData = useMemo(() => {
     const map: Record<string, number> = {};
-    allPayables.filter(p => p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: monthStart, end: monthEnd }))
+    allPayables
+      .filter(p => p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: monthStart, end: monthEnd }))
       .forEach(p => { map[p.category] = (map[p.category] || 0) + Number(p.amount); });
     return Object.entries(map).map(([k, v]) => ({ name: CAT_LABELS[k] || k, value: v, color: PIE_COLORS[k] || PIE_COLORS.outros }));
   }, [allPayables, selectedMonth, selectedYear]);
 
-  // Upcoming receivables (15 days from month start)
+  // Upcoming receivables
   const upcoming15Rec = useMemo(() => {
-    const limit = addDays(monthStart, 15);
-    return allReceivables.filter(r => r.status === "pendente" && isWithinInterval(parseISO(r.due_date), { start: monthStart, end: addDays(monthEnd, 15) })).slice(0, 8);
+    return allReceivables
+      .filter(r => r.status === "pendente" && isWithinInterval(parseISO(r.due_date), { start: monthStart, end: addDays(monthEnd, 15) }))
+      .slice(0, 8);
   }, [allReceivables, selectedMonth, selectedYear]);
 
-  // Upcoming payables (15 days)
   const upcoming15Pay = useMemo(() => {
-    return allPayables.filter(p => p.status === "pendente" && isWithinInterval(parseISO(p.due_date), { start: monthStart, end: addDays(monthEnd, 15) })).slice(0, 8);
+    return allPayables
+      .filter(p => p.status === "pendente" && isWithinInterval(parseISO(p.due_date), { start: monthStart, end: addDays(monthEnd, 15) }))
+      .slice(0, 8);
   }, [allPayables, selectedMonth, selectedYear]);
 
   const [datePickerFor, setDatePickerFor] = useState<{ type: "rec" | "pay"; id: string } | null>(null);
@@ -132,7 +164,39 @@ export default function FinanceiroDashboard() {
     { title: "A Receber (período)", value: fmt(aReceber30), icon: Clock, color: "text-accent" },
   ];
 
-  // ---- Análise por Projeto ----
+  // ── Fluxo de Caixa Previsto (Billing Schedule) ────────────────────────────
+  const [billingViewYear, setBillingViewYear] = useState(now.getFullYear());
+
+  // Meses com itens agendados para o ano selecionado
+  const billingByMonth = useMemo(() => {
+    const map: Record<number, typeof allBillingSchedules> = {};
+    for (let m = 1; m <= 12; m++) map[m] = [];
+    allBillingSchedules
+      .filter(e => e.billing_year === billingViewYear)
+      .forEach(e => {
+        if (!map[e.billing_month]) map[e.billing_month] = [];
+        map[e.billing_month].push(e);
+      });
+    return map;
+  }, [allBillingSchedules, billingViewYear]);
+
+  const billingChartData = useMemo(() => {
+    return MONTH_LABELS.map((label, idx) => {
+      const entries = billingByMonth[idx + 1] || [];
+      const previsto = entries.filter(e => e.status === "previsto").reduce((s, e) => s + Number(e.amount), 0);
+      const faturado = entries.filter(e => e.status === "faturado").reduce((s, e) => s + Number(e.amount), 0);
+      const recebido = entries.filter(e => e.status === "recebido").reduce((s, e) => s + Number(e.amount), 0);
+      return { name: label.slice(0, 3), previsto, faturado, recebido, total: previsto + faturado + recebido };
+    });
+  }, [billingByMonth]);
+
+  const totalPrevistoAno = billingChartData.reduce((s, d) => s + d.previsto + d.faturado + d.recebido, 0);
+
+  // Itens do mês selecionado no fluxo previsto
+  const [billingDetailMonth, setBillingDetailMonth] = useState<number | null>(null);
+  const billingDetailItems = billingDetailMonth ? (billingByMonth[billingDetailMonth] || []) : [];
+
+  // ── Análise por Projeto ──────────────────────────────────────────────────
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [projectPopoverOpen, setProjectPopoverOpen] = useState(false);
@@ -158,17 +222,17 @@ export default function FinanceiroDashboard() {
     ? showAllTasks ? projetoCusto.detalhesPorTarefa : projetoCusto.detalhesPorTarefa.slice(0, 10)
     : [];
 
+  const billingYearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1, now.getFullYear() + 2];
+
   return (
     <AppLayout>
       <div className="space-y-6 p-6">
-        {/* Header with filters */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <h1 className="text-2xl font-bold">Dashboard Financeiro</h1>
           <div className="flex items-center gap-2">
             <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(Number(v))}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {MONTH_NAMES.map((m, i) => (
                   <SelectItem key={i} value={String(i)}>{m}</SelectItem>
@@ -176,9 +240,7 @@ export default function FinanceiroDashboard() {
               </SelectContent>
             </Select>
             <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
-              <SelectTrigger className="w-[100px]">
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {years.map(y => (
                   <SelectItem key={y} value={String(y)}>{y}</SelectItem>
@@ -233,7 +295,8 @@ export default function FinanceiroDashboard() {
               ) : (
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
-                    <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                    <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
                       {catData.map((c, i) => <Cell key={i} fill={c.color} />)}
                     </Pie>
                     <Tooltip formatter={(v: number) => fmt(v)} />
@@ -313,7 +376,145 @@ export default function FinanceiroDashboard() {
           </Card>
         </div>
 
-        {/* ---- Análise por Projeto ---- */}
+        {/* ════════════════════════════════════════════════════════════════
+            FLUXO DE CAIXA PREVISTO — Cronograma de Propostas Aprovadas
+        ════════════════════════════════════════════════════════════════ */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <CalendarClock className="h-4 w-4 text-blue-400" />
+                Fluxo de Caixa Previsto — Propostas Aprovadas
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Select value={String(billingViewYear)} onValueChange={(v) => { setBillingViewYear(Number(v)); setBillingDetailMonth(null); }}>
+                  <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {billingYearOptions.map(y => (
+                      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {totalPrevistoAno === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <CalendarClock className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Nenhum faturamento previsto para {billingViewYear}.</p>
+                <p className="text-xs mt-1">Configure o cronograma de faturamento nas Propostas Aprovadas.</p>
+              </div>
+            ) : (
+              <>
+                {/* KPI total do ano */}
+                <div className="flex gap-4 flex-wrap">
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3">
+                    <p className="text-xs text-muted-foreground">Total Previsto {billingViewYear}</p>
+                    <p className="text-xl font-bold text-blue-400">{fmt(totalPrevistoAno)}</p>
+                  </div>
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-4 py-3">
+                    <p className="text-xs text-muted-foreground">Faturado</p>
+                    <p className="text-xl font-bold text-yellow-400">{fmt(billingChartData.reduce((s, d) => s + d.faturado, 0))}</p>
+                  </div>
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-4 py-3">
+                    <p className="text-xs text-muted-foreground">Recebido</p>
+                    <p className="text-xl font-bold text-emerald-400">{fmt(billingChartData.reduce((s, d) => s + d.recebido, 0))}</p>
+                  </div>
+                </div>
+
+                {/* Gráfico de barras */}
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart
+                    data={billingChartData}
+                    onClick={(data) => {
+                      if (data?.activeTooltipIndex !== undefined) {
+                        const month = data.activeTooltipIndex + 1;
+                        setBillingDetailMonth(billingDetailMonth === month ? null : month);
+                      }
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                    <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                    <Tooltip
+                      formatter={(v: number) => fmt(v)}
+                      contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}
+                      cursor={{ fill: "hsl(var(--accent))", opacity: 0.15 }}
+                    />
+                    <Legend />
+                    <Bar dataKey="previsto" name="Previsto" fill="hsl(220, 70%, 55%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="faturado" name="Faturado" fill="hsl(45, 80%, 50%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="recebido" name="Recebido" fill="hsl(150, 60%, 45%)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  Clique em um mês no gráfico para ver o detalhamento dos faturamentos previstos.
+                </p>
+
+                {/* Detalhamento do mês clicado */}
+                {billingDetailMonth !== null && (
+                  <Card className="border-blue-500/30 bg-blue-500/5">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">
+                        Detalhamento — {MONTH_LABELS[billingDetailMonth - 1]}/{billingViewYear}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {billingDetailItems.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Nenhum faturamento previsto neste mês.</p>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Projeto</TableHead>
+                              <TableHead>Cliente</TableHead>
+                              <TableHead>Etapa</TableHead>
+                              <TableHead>Parcelado</TableHead>
+                              <TableHead className="text-right">Valor</TableHead>
+                              <TableHead>Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {billingDetailItems.map((entry) => (
+                              <TableRow key={entry.id}>
+                                <TableCell className="font-medium text-sm">
+                                  {(entry as any).commercial_proposals?.project_name || "—"}
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {(entry as any).commercial_proposals?.commercial_clients?.name || "—"}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="text-xs">{entry.stage_label}</Badge>
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                  {entry.is_installment ? (
+                                    <span className="text-blue-400">
+                                      {entry.installment_count}× de {fmt(Number(entry.amount) / (entry.installment_count || 1))}
+                                    </span>
+                                  ) : "—"}
+                                </TableCell>
+                                <TableCell className="text-right font-semibold">{fmt(Number(entry.amount))}</TableCell>
+                                <TableCell>
+                                  <Badge className={BILLING_STATUS_COLORS[entry.status] || ""}>
+                                    {BILLING_STATUS_LABELS[entry.status] || entry.status}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ════ Análise por Projeto ════ */}
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">Análise por Projeto</CardTitle>
@@ -371,7 +572,6 @@ export default function FinanceiroDashboard() {
 
             {projetoCusto && (
               <>
-                {/* Project KPIs */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   <Card>
                     <CardContent className="pt-6">
@@ -410,7 +610,6 @@ export default function FinanceiroDashboard() {
                   </Card>
                 </div>
 
-                {/* Progress bar */}
                 <Card>
                   <CardContent className="pt-6 space-y-2">
                     <div className="flex justify-between text-xs text-muted-foreground">
@@ -430,9 +629,7 @@ export default function FinanceiroDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Two tables side by side */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* By User */}
                   <Card>
                     <CardHeader><CardTitle className="text-sm">Custo por Colaborador</CardTitle></CardHeader>
                     <CardContent>
@@ -465,7 +662,6 @@ export default function FinanceiroDashboard() {
                     </CardContent>
                   </Card>
 
-                  {/* By Task */}
                   <Card>
                     <CardHeader><CardTitle className="text-sm">Custo por Tarefa</CardTitle></CardHeader>
                     <CardContent>
@@ -497,7 +693,9 @@ export default function FinanceiroDashboard() {
                           </Table>
                           {projetoCusto.detalhesPorTarefa.length > 10 && (
                             <Button variant="ghost" size="sm" className="mt-2 w-full" onClick={() => setShowAllTasks(!showAllTasks)}>
-                              {showAllTasks ? <><ChevronUp className="h-4 w-4 mr-1" /> Mostrar menos</> : <><ChevronDown className="h-4 w-4 mr-1" /> Ver todas ({projetoCusto.detalhesPorTarefa.length})</>}
+                              {showAllTasks
+                                ? <><ChevronUp className="h-4 w-4 mr-1" /> Mostrar menos</>
+                                : <><ChevronDown className="h-4 w-4 mr-1" /> Ver todas ({projetoCusto.detalhesPorTarefa.length})</>}
                             </Button>
                           )}
                         </>
