@@ -439,6 +439,7 @@ export default function ProjetoDetalhe() {
                       <th className="text-left py-2 px-3 font-medium text-muted-foreground">Início</th>
                       <th className="text-left py-2 px-3 font-medium text-muted-foreground">Término</th>
                       <th className="text-right py-2 px-3 font-medium text-muted-foreground">Horas</th>
+                      {canEditTimeEntries && <th className="py-2 px-3"></th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -454,6 +455,32 @@ export default function ProjetoDetalhe() {
                         <td className="py-2 px-3 tabular-nums text-right font-medium">
                           {(entry.duration_minutes / 60).toFixed(1)}h
                         </td>
+                        {canEditTimeEntries && (
+                          <td className="py-2 px-3 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                const e: EditableEntry = {
+                                  id: entry.id,
+                                  task_id: entry.task_id,
+                                  project_id: entry.project_id,
+                                  user_id: entry.user_id,
+                                  user_name: entry.user_name,
+                                  date: entry.date,
+                                  start_time: entry.start_time,
+                                  end_time: entry.end_time,
+                                  duration_minutes: entry.duration_minutes,
+                                };
+                                setEditingEntry(e);
+                                setEditEntryData({ date: entry.date, start_time: entry.start_time, end_time: entry.end_time });
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
