@@ -408,6 +408,7 @@ export default function TarefaDetalhe() {
     } else {
       setAttachments(prev => prev.filter(a => a.id !== att.id));
       toast.success("Arquivo excluído com sucesso!");
+    }
   };
 
   const handleSaveEntry = async () => {
