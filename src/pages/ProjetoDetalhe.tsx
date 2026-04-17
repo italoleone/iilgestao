@@ -91,7 +91,13 @@ export default function ProjetoDetalhe() {
   const [editActiveUsers, setEditActiveUsers] = useState<{ id: string; name: string }[]>([]);
   const [editSaving, setEditSaving] = useState(false);
 
+  // Edit time entry state
+  const [editingEntry, setEditingEntry] = useState<EditableEntry | null>(null);
+  const [editEntryData, setEditEntryData] = useState<{ date: string; start_time: string; end_time: string }>({ date: "", start_time: "", end_time: "" });
+  const [savingEntry, setSavingEntry] = useState(false);
+
   const canEdit = authProfile?.role === "admin_geral" || authProfile?.role === "admin" || authProfile?.role === "planejamento";
+  const canEditTimeEntries = authProfile?.role === "admin_geral" || authProfile?.role === "admin" || authProfile?.role === "planejamento" || authProfile?.role === "coordenador";
 
   const fetchProject = () => {
     if (!id) return;
