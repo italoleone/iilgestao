@@ -5,6 +5,8 @@ import { toast } from "sonner";
 
 import { DEFAULT_TASKS_BY_DISCIPLINE } from "@/data/defaultTasks";
 
+// ─── Tipos de Clientes ───────────────────────────────────────────────────────
+
 export interface CommercialClient {
   id: string;
   name: string;
@@ -15,6 +17,8 @@ export interface CommercialClient {
   notes: string | null;
   created_at: string;
 }
+
+// ─── Tipos de Proposta ────────────────────────────────────────────────────────
 
 export interface ProposalDisciplines {
   estrutural?: number;
@@ -37,7 +41,14 @@ export interface ProposalDiscounts {
   fundacoes?: number;
 }
 
-export type ProposalStatus = "lead" | "contato_feito" | "em_elaboracao" | "enviada" | "em_negociacao" | "aprovada" | "reprovada";
+export type ProposalStatus =
+  | "lead"
+  | "contato_feito"
+  | "em_elaboracao"
+  | "enviada"
+  | "em_negociacao"
+  | "aprovada"
+  | "reprovada";
 
 export const PROPOSAL_STATUS_LABELS: Record<ProposalStatus, string> = {
   lead: "Lead",
@@ -50,7 +61,13 @@ export const PROPOSAL_STATUS_LABELS: Record<ProposalStatus, string> = {
 };
 
 export const PIPELINE_COLUMNS: ProposalStatus[] = [
-  "lead", "contato_feito", "em_elaboracao", "enviada", "em_negociacao", "aprovada", "reprovada",
+  "lead",
+  "contato_feito",
+  "em_elaboracao",
+  "enviada",
+  "em_negociacao",
+  "aprovada",
+  "reprovada",
 ];
 
 export interface CommercialProposal {
@@ -76,6 +93,51 @@ export interface CommercialProposal {
   client?: CommercialClient;
 }
 
+// ─── Tipos de Cronograma de Faturamento ──────────────────────────────────────
+
+export type BillingStageKey =
+  | "sinal"
+  | "ep"
+  | "ap"
+  | "pre_executivo"
+  | "executivo"
+  | "liberado_obra";
+
+export type BillingStatus = "previsto" | "faturado" | "recebido";
+
+export interface BillingScheduleEntry {
+  id: string;
+  proposal_id: string;
+  stage_key: BillingStageKey;
+  stage_label: string;
+  amount: number;
+  billing_year: number;
+  billing_month: number;
+  is_installment: boolean;
+  installment_count: number | null;
+  status: BillingStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Configuração das etapas de faturamento — ordem e labels fixos */
+export const BILLING_STAGES: { key: BillingStageKey; label: string }[] = [
+  { key: "sinal",         label: "Sinal"             },
+  { key: "ep",            label: "Estudo Preliminar" },
+  { key: "ap",            label: "Ante Projeto"      },
+  { key: "pre_executivo", label: "Pré Executivo"     },
+  { key: "executivo",     label: "Executivo"         },
+  { key: "liberado_obra", label: "Liberado para Obra"},
+];
+
+export const MONTH_LABELS = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+];
+
+// ─── Hooks de Clientes ────────────────────────────────────────────────────────
+
 export function useCommercialClients() {
   return useQuery({
     queryKey: ["commercial-clients"],
@@ -86,29 +148,6 @@ export function useCommercialClients() {
         .order("name");
       if (error) throw error;
       return data as CommercialClient[];
-    },
-  });
-}
-
-export function useCommercialProposals() {
-  return useQuery({
-    queryKey: ["commercial-proposals"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("commercial_proposals")
-        .select("*, commercial_clients(*)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data || []).map((p: any) => ({
-        ...p,
-        disciplines: p.disciplines as ProposalDisciplines,
-        price_per_m2: (p.price_per_m2 || {}) as ProposalPricePerM2,
-        discounts: (p.discounts || {}) as ProposalDiscounts,
-        final_disciplines: (p.final_disciplines || {}) as ProposalDisciplines,
-        final_total_value: p.final_total_value || 0,
-        status: p.status as ProposalStatus,
-        client: p.commercial_clients as CommercialClient,
-      })) as CommercialProposal[];
     },
   });
 }
@@ -170,6 +209,31 @@ export function useUpdateClient() {
       toast.success("Cliente atualizado");
     },
     onError: (e: any) => toast.error(e.message),
+  });
+}
+
+// ─── Hooks de Propostas ───────────────────────────────────────────────────────
+
+export function useCommercialProposals() {
+  return useQuery({
+    queryKey: ["commercial-proposals"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("commercial_proposals")
+        .select("*, commercial_clients(*)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []).map((p: any) => ({
+        ...p,
+        disciplines: p.disciplines as ProposalDisciplines,
+        price_per_m2: (p.price_per_m2 || {}) as ProposalPricePerM2,
+        discounts: (p.discounts || {}) as ProposalDiscounts,
+        final_disciplines: (p.final_disciplines || {}) as ProposalDisciplines,
+        final_total_value: p.final_total_value || 0,
+        status: p.status as ProposalStatus,
+        client: p.commercial_clients as CommercialClient,
+      })) as CommercialProposal[];
+    },
   });
 }
 
@@ -240,7 +304,7 @@ export function useApproveProposal() {
         throw new Error("Proposta já possui projeto vinculado");
       }
 
-      // Calculate final values with discounts
+      // Calcular valores finais com descontos
       const finalDisciplines: ProposalDisciplines = {};
       const disciplines = proposal.disciplines;
       const disciplineKeys = (Object.keys(disciplines) as (keyof ProposalDisciplines)[]).filter(
@@ -255,7 +319,7 @@ export function useApproveProposal() {
 
       const finalTotal = Object.values(finalDisciplines).reduce((s, v) => s + (v || 0), 0);
 
-      // Create projects in planning for each discipline using FINAL values
+      // Criar projetos no planejamento para cada disciplina
       const createdProjectIds: string[] = [];
 
       for (const disc of disciplineKeys) {
@@ -277,30 +341,37 @@ export function useApproveProposal() {
           .select()
           .single();
         if (projError) throw projError;
-      if (project) {
-        createdProjectIds.push((project as any).id);
 
-        // Create default tasks for each stage
-        const STAGE_NAMES = ["Estudo Preliminar","Anteprojeto","Pré-executivo","Executivo","Liberação para Obra","Revisão"];
-        const discTasks = DEFAULT_TASKS_BY_DISCIPLINE[disc] || {};
-        const taskRows = STAGE_NAMES.flatMap((stageName) =>
-          (discTasks[stageName] || []).map((taskName: string) => ({
-            name: taskName,
-            project_id: (project as any).id,
-            discipline: disc,
-            stage_name: stageName,
-            estimated_hours: 0,
-            hours_worked: 0,
-            status: "nao_iniciada",
-          }))
-        );
-        if (taskRows.length > 0) {
-          await supabase.from("tasks").insert(taskRows as any);
+        if (project) {
+          createdProjectIds.push((project as any).id);
+
+          const STAGE_NAMES = [
+            "Estudo Preliminar",
+            "Anteprojeto",
+            "Pré-executivo",
+            "Executivo",
+            "Liberação para Obra",
+            "Revisão",
+          ];
+          const discTasks = DEFAULT_TASKS_BY_DISCIPLINE[disc] || {};
+          const taskRows = STAGE_NAMES.flatMap((stageName) =>
+            (discTasks[stageName] || []).map((taskName: string) => ({
+              name: taskName,
+              project_id: (project as any).id,
+              discipline: disc,
+              stage_name: stageName,
+              estimated_hours: 0,
+              hours_worked: 0,
+              status: "nao_iniciada",
+            }))
+          );
+          if (taskRows.length > 0) {
+            await supabase.from("tasks").insert(taskRows as any);
+          }
         }
       }
-      }
 
-      // Update proposal with approval data
+      // Atualizar proposta com dados de aprovação
       const { error } = await supabase
         .from("commercial_proposals")
         .update({
@@ -340,6 +411,114 @@ export function useDeleteProposal() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["commercial-proposals"] });
       toast.success("Proposta excluída");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
+// ─── Hooks de Cronograma de Faturamento ───────────────────────────────────────
+
+/** Busca todas as entradas de cronograma de uma proposta específica */
+export function useBillingSchedule(proposalId: string | null) {
+  return useQuery({
+    queryKey: ["billing-schedule", proposalId],
+    queryFn: async () => {
+      if (!proposalId) return [];
+      const { data, error } = await supabase
+        .from("proposal_billing_schedule")
+        .select("*")
+        .eq("proposal_id", proposalId)
+        .order("billing_year")
+        .order("billing_month");
+      if (error) throw error;
+      return (data || []) as BillingScheduleEntry[];
+    },
+    enabled: !!proposalId,
+  });
+}
+
+/** Busca TODAS as entradas de cronograma (para o Dashboard Financeiro) */
+export function useAllBillingSchedules() {
+  return useQuery({
+    queryKey: ["billing-schedule-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("proposal_billing_schedule")
+        .select("*, commercial_proposals(project_name, client_id, commercial_clients(name))")
+        .order("billing_year")
+        .order("billing_month");
+      if (error) throw error;
+      return (data || []) as (BillingScheduleEntry & {
+        commercial_proposals: {
+          project_name: string;
+          client_id: string;
+          commercial_clients: { name: string } | null;
+        } | null;
+      })[];
+    },
+  });
+}
+
+export interface UpsertBillingScheduleInput {
+  proposal_id: string;
+  stage_key: BillingStageKey;
+  stage_label: string;
+  amount: number;
+  billing_year: number;
+  billing_month: number;
+  is_installment: boolean;
+  installment_count?: number | null;
+  created_by: string;
+}
+
+/** Cria ou substitui entradas do cronograma de uma proposta (upsert por proposta completa) */
+export function useSaveBillingSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      proposalId,
+      entries,
+    }: {
+      proposalId: string;
+      entries: UpsertBillingScheduleInput[];
+    }) => {
+      // Remove entradas anteriores desta proposta e re-insere
+      const { error: delError } = await supabase
+        .from("proposal_billing_schedule")
+        .delete()
+        .eq("proposal_id", proposalId);
+      if (delError) throw delError;
+
+      if (entries.length === 0) return;
+
+      const { error: insError } = await supabase
+        .from("proposal_billing_schedule")
+        .insert(entries as any);
+      if (insError) throw insError;
+    },
+    onSuccess: (_, { proposalId }) => {
+      qc.invalidateQueries({ queryKey: ["billing-schedule", proposalId] });
+      qc.invalidateQueries({ queryKey: ["billing-schedule-all"] });
+      toast.success("Cronograma de faturamento salvo!");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+}
+
+export function useUpdateBillingStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: BillingStatus }) => {
+      const { error } = await supabase
+        .from("proposal_billing_schedule")
+        .update({ status, updated_at: new Date().toISOString() } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["billing-schedule-all"] });
+      qc.invalidateQueries({ queryKey: ["billing-schedule"] });
+      toast.success("Status atualizado");
     },
     onError: (e: any) => toast.error(e.message),
   });
