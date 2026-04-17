@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Progress } from "@/components/ui/progress";
 import {
   DollarSign, TrendingUp, TrendingDown, Clock, CheckCircle,
-  ChevronDown, ChevronUp, ChevronsUpDown, Check, CalendarClock,
+  ChevronDown, ChevronUp, ChevronsUpDown, Check, CalendarClock, XCircle,
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useReceivables, usePayables, useMarkReceived, useMarkPaid, useProjetoCusto } from "@/hooks/useFinanceiroData";
@@ -17,7 +17,7 @@ import { useAllBillingSchedules, MONTH_LABELS } from "@/hooks/useCommercialData"
 import { supabase } from "@/integrations/supabase/client";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, PieChart, Pie, Cell, Line, ComposedChart,
+  ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line,
 } from "recharts";
 import { format, subMonths, startOfMonth, endOfMonth, addDays, isWithinInterval, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -106,23 +106,20 @@ export default function FinanceiroDashboard() {
       .reduce((s, r) => s + Number(r.amount), 0);
   }, [allReceivables, selectedMonth, selectedYear]);
 
-  // Cash flow: 6 months
-  const cashFlowData = useMemo(() => {
-    const ref = new Date(selectedYear, selectedMonth, 15);
-    const months: any[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = subMonths(ref, i);
-      const ms = startOfMonth(d); const me = endOfMonth(d);
+  // ── Fluxo de Caixa Real — 12 meses do ano selecionado ──────────────────
+  const realCashFlowData = useMemo(() => {
+    return MONTH_NAMES.map((label, idx) => {
+      const ms = startOfMonth(new Date(selectedYear, idx));
+      const me = endOfMonth(new Date(selectedYear, idx));
       const rec = allReceivables
         .filter(r => r.received_date && isWithinInterval(parseISO(r.received_date), { start: ms, end: me }))
         .reduce((s, r) => s + Number(r.amount), 0);
       const desp = allPayables
         .filter(p => p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: ms, end: me }))
         .reduce((s, p) => s + Number(p.amount), 0);
-      months.push({ name: format(d, "MMM/yy", { locale: ptBR }), receitas: rec, despesas: desp, resultado: rec - desp });
-    }
-    return months;
-  }, [allReceivables, allPayables, selectedMonth, selectedYear]);
+      return { name: label.slice(0, 3), receitas: rec, despesas: desp, resultado: rec - desp };
+    });
+  }, [allReceivables, allPayables, selectedYear]);
 
   // Expenses by category
   const catData = useMemo(() => {
@@ -267,45 +264,25 @@ export default function FinanceiroDashboard() {
           ))}
         </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader><CardTitle className="text-sm">Fluxo de Caixa — Últimos 6 Meses</CardTitle></CardHeader>
-            <CardContent>
+        {/* Despesas por Categoria + Upcoming header */}
+        <Card>
+          <CardHeader><CardTitle className="text-sm">Despesas por Categoria — {MONTH_NAMES[selectedMonth]}/{selectedYear}</CardTitle></CardHeader>
+          <CardContent>
+            {catData.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-16">Sem despesas pagas neste mês</p>
+            ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <ComposedChart data={cashFlowData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                  <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                  <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }} />
-                  <Legend />
-                  <Bar dataKey="receitas" name="Receitas" fill="hsl(150, 60%, 45%)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="despesas" name="Despesas" fill="hsl(0, 60%, 50%)" radius={[4, 4, 0, 0]} />
-                  <Line type="monotone" dataKey="resultado" name="Resultado" stroke="hsl(65, 80%, 45%)" strokeWidth={2} dot={{ r: 4 }} />
-                </ComposedChart>
+                <PieChart>
+                  <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                    {catData.map((c, i) => <Cell key={i} fill={c.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(v: number) => fmt(v)} />
+                </PieChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader><CardTitle className="text-sm">Despesas por Categoria — {MONTH_NAMES[selectedMonth]}/{selectedYear}</CardTitle></CardHeader>
-            <CardContent>
-              {catData.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-16">Sem despesas pagas neste mês</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                      {catData.map((c, i) => <Cell key={i} fill={c.color} />)}
-                    </Pie>
-                    <Tooltip formatter={(v: number) => fmt(v)} />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Upcoming */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -407,20 +384,15 @@ export default function FinanceiroDashboard() {
               </div>
             ) : (
               <>
-                {/* KPI total do ano */}
-                <div className="flex gap-4 flex-wrap">
+                {/* KPI total do ano — apenas orientativo */}
+                <div className="flex gap-4 flex-wrap items-center">
                   <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3">
                     <p className="text-xs text-muted-foreground">Total Previsto {billingViewYear}</p>
                     <p className="text-xl font-bold text-blue-400">{fmt(totalPrevistoAno)}</p>
                   </div>
-                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-4 py-3">
-                    <p className="text-xs text-muted-foreground">Faturado</p>
-                    <p className="text-xl font-bold text-yellow-400">{fmt(billingChartData.reduce((s, d) => s + d.faturado, 0))}</p>
-                  </div>
-                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-4 py-3">
-                    <p className="text-xs text-muted-foreground">Recebido</p>
-                    <p className="text-xl font-bold text-emerald-400">{fmt(billingChartData.reduce((s, d) => s + d.recebido, 0))}</p>
-                  </div>
+                  <p className="text-xs text-muted-foreground italic">
+                    ℹ️ Valores orientativos — baseados no cronograma de propostas aprovadas.
+                  </p>
                 </div>
 
                 {/* Gráfico de barras */}
@@ -444,8 +416,6 @@ export default function FinanceiroDashboard() {
                     />
                     <Legend />
                     <Bar dataKey="previsto" name="Previsto" fill="hsl(220, 70%, 55%)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="faturado" name="Faturado" fill="hsl(45, 80%, 50%)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="recebido" name="Recebido" fill="hsl(150, 60%, 45%)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
 
@@ -457,9 +427,20 @@ export default function FinanceiroDashboard() {
                 {billingDetailMonth !== null && (
                   <Card className="border-blue-500/30 bg-blue-500/5">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">
-                        Detalhamento — {MONTH_LABELS[billingDetailMonth - 1]}/{billingViewYear}
-                      </CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm">
+                          Detalhamento — {MONTH_LABELS[billingDetailMonth - 1]}/{billingViewYear}
+                        </CardTitle>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => setBillingDetailMonth(null)}
+                          title="Fechar detalhamento"
+                        >
+                          <XCircle className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       {billingDetailItems.length === 0 ? (
@@ -514,7 +495,76 @@ export default function FinanceiroDashboard() {
           </CardContent>
         </Card>
 
-        {/* ════ Análise por Projeto ════ */}
+        {/* ════════════════════════════════════════════════════════════════
+            FLUXO DE CAIXA REAL — Contas a Receber / Contas a Pagar
+        ════════════════════════════════════════════════════════════════ */}
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-emerald-400" />
+                Fluxo de Caixa Real — {selectedYear}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground italic">Baseado nos lançamentos de Contas a Receber e Contas a Pagar</p>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* KPIs do ano */}
+            <div className="flex gap-4 flex-wrap">
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-4 py-3">
+                <p className="text-xs text-muted-foreground">Total Recebido {selectedYear}</p>
+                <p className="text-xl font-bold text-emerald-400">
+                  {fmt(realCashFlowData.reduce((s, d) => s + d.receitas, 0))}
+                </p>
+              </div>
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
+                <p className="text-xs text-muted-foreground">Total Pago {selectedYear}</p>
+                <p className="text-xl font-bold text-red-400">
+                  {fmt(realCashFlowData.reduce((s, d) => s + d.despesas, 0))}
+                </p>
+              </div>
+              <div className={cn(
+                "rounded-lg px-4 py-3 border",
+                realCashFlowData.reduce((s, d) => s + d.resultado, 0) >= 0
+                  ? "bg-emerald-500/10 border-emerald-500/30"
+                  : "bg-red-500/10 border-red-500/30"
+              )}>
+                <p className="text-xs text-muted-foreground">Resultado Acumulado {selectedYear}</p>
+                <p className={cn("text-xl font-bold",
+                  realCashFlowData.reduce((s, d) => s + d.resultado, 0) >= 0 ? "text-emerald-400" : "text-red-400"
+                )}>
+                  {fmt(realCashFlowData.reduce((s, d) => s + d.resultado, 0))}
+                </p>
+              </div>
+            </div>
+
+            {/* Gráfico barras + linha resultado */}
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={realCashFlowData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                <Tooltip
+                  formatter={(v: number) => fmt(v)}
+                  contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}
+                />
+                <Legend />
+                <Bar dataKey="receitas" name="Recebido" fill="hsl(150, 60%, 45%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="despesas" name="Pago" fill="hsl(0, 60%, 50%)" radius={[4, 4, 0, 0]} />
+                <Line
+                  type="monotone"
+                  dataKey="resultado"
+                  name="Resultado"
+                  stroke="hsl(65, 80%, 45%)"
+                  strokeWidth={2}
+                  dot={{ r: 4 }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+                {/* ════ Análise por Projeto ════ */}
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">Análise por Projeto</CardTitle>
