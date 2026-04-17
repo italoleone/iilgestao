@@ -22,6 +22,18 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { useTimeEntries } from "@/hooks/useSupabaseData";
 
+interface EditableEntry {
+  id: string;
+  task_id: string;
+  project_id: string;
+  user_id: string;
+  user_name: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  duration_minutes: number;
+}
+
 const statusColors: Record<ProjectStatus, string> = {
   em_andamento: "bg-info text-info-foreground",
   concluido: "bg-success text-success-foreground",
@@ -79,7 +91,13 @@ export default function ProjetoDetalhe() {
   const [editActiveUsers, setEditActiveUsers] = useState<{ id: string; name: string }[]>([]);
   const [editSaving, setEditSaving] = useState(false);
 
+  // Edit time entry state
+  const [editingEntry, setEditingEntry] = useState<EditableEntry | null>(null);
+  const [editEntryData, setEditEntryData] = useState<{ date: string; start_time: string; end_time: string }>({ date: "", start_time: "", end_time: "" });
+  const [savingEntry, setSavingEntry] = useState(false);
+
   const canEdit = authProfile?.role === "admin_geral" || authProfile?.role === "admin" || authProfile?.role === "planejamento";
+  const canEditTimeEntries = authProfile?.role === "admin_geral" || authProfile?.role === "admin" || authProfile?.role === "planejamento" || authProfile?.role === "coordenador";
 
   const fetchProject = () => {
     if (!id) return;
@@ -225,6 +243,39 @@ export default function ProjetoDetalhe() {
       toast.success("Projeto excluído com sucesso.");
       navigate("/projetos");
     }
+  };
+
+  const handleSaveEntry = async () => {
+    if (!editingEntry) return;
+    setSavingEntry(true);
+    const [sh, sm] = editEntryData.start_time.split(":").map(Number);
+    const [eh, em] = editEntryData.end_time.split(":").map(Number);
+    let duration = (eh * 60 + em) - (sh * 60 + sm);
+    if (duration <= 0) duration = 1;
+    const { error } = await supabase
+      .from("time_entries")
+      .update({
+        date: editEntryData.date,
+        start_time: editEntryData.start_time,
+        end_time: editEntryData.end_time,
+        duration_minutes: duration,
+      })
+      .eq("id", editingEntry.id);
+    if (error) {
+      toast.error("Erro ao salvar: " + error.message);
+      setSavingEntry(false);
+      return;
+    }
+    const { data: allEntries } = await supabase
+      .from("time_entries")
+      .select("duration_minutes")
+      .eq("task_id", editingEntry.task_id);
+    const totalMinutes = (allEntries || []).reduce((sum: number, e: { duration_minutes: number }) => sum + e.duration_minutes, 0);
+    const newHoursWorked = Math.round((totalMinutes / 60) * 100) / 100;
+    await supabase.from("tasks").update({ hours_worked: newHoursWorked }).eq("id", editingEntry.task_id);
+    setSavingEntry(false);
+    setEditingEntry(null);
+    toast.success("Registro de horas atualizado!");
   };
 
   return (
@@ -388,6 +439,7 @@ export default function ProjetoDetalhe() {
                       <th className="text-left py-2 px-3 font-medium text-muted-foreground">Início</th>
                       <th className="text-left py-2 px-3 font-medium text-muted-foreground">Término</th>
                       <th className="text-right py-2 px-3 font-medium text-muted-foreground">Horas</th>
+                      {canEditTimeEntries && <th className="py-2 px-3"></th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -403,6 +455,32 @@ export default function ProjetoDetalhe() {
                         <td className="py-2 px-3 tabular-nums text-right font-medium">
                           {(entry.duration_minutes / 60).toFixed(1)}h
                         </td>
+                        {canEditTimeEntries && (
+                          <td className="py-2 px-3 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                const e: EditableEntry = {
+                                  id: entry.id,
+                                  task_id: entry.task_id,
+                                  project_id: entry.project_id,
+                                  user_id: entry.user_id,
+                                  user_name: entry.user_name,
+                                  date: entry.date,
+                                  start_time: entry.start_time,
+                                  end_time: entry.end_time,
+                                  duration_minutes: entry.duration_minutes,
+                                };
+                                setEditingEntry(e);
+                                setEditEntryData({ date: entry.date, start_time: entry.start_time, end_time: entry.end_time });
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -510,6 +588,57 @@ export default function ProjetoDetalhe() {
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
             <Button onClick={handleEditSave} disabled={editSaving}>
               {editSaving ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Time Entry Dialog */}
+      <Dialog open={!!editingEntry} onOpenChange={(open) => { if (!open) setEditingEntry(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar Registro de Horas</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Usuário: <span className="font-medium text-foreground">{editingEntry?.user_name}</span>
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Tarefa: <span className="font-medium text-foreground">{editingEntry ? (taskNameMap[editingEntry.task_id] || "—") : "—"}</span>
+            </p>
+            <div className="space-y-2">
+              <Label>Data</Label>
+              <Input
+                type="date"
+                value={editEntryData.date}
+                onChange={(e) => setEditEntryData(prev => ({ ...prev, date: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Início (Play)</Label>
+                <Input
+                  type="time"
+                  value={editEntryData.start_time}
+                  onChange={(e) => setEditEntryData(prev => ({ ...prev, start_time: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Término (Pause)</Label>
+                <Input
+                  type="time"
+                  value={editEntryData.end_time}
+                  onChange={(e) => setEditEntryData(prev => ({ ...prev, end_time: e.target.value }))}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">A duração será recalculada automaticamente.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingEntry(null)}>Cancelar</Button>
+            <Button onClick={handleSaveEntry} disabled={savingEntry}>
+              {savingEntry && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
