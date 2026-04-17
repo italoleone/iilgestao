@@ -59,6 +59,20 @@ interface TaskAttachment {
   id: string; task_id: string; file_name: string; file_path: string; file_size: number; uploaded_by: string; created_at: string; sheet_title: string;
 }
 
+interface EditableEntry {
+  id: string;
+  task_id: string;
+  project_id: string;
+  user_id: string;
+  user_name: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  duration_minutes: number;
+  cost: number;
+  costPerHour: number;
+}
+
 export default function TarefaDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
