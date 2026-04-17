@@ -592,6 +592,57 @@ export default function ProjetoDetalhe() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Time Entry Dialog */}
+      <Dialog open={!!editingEntry} onOpenChange={(open) => { if (!open) setEditingEntry(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar Registro de Horas</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Usuário: <span className="font-medium text-foreground">{editingEntry?.user_name}</span>
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Tarefa: <span className="font-medium text-foreground">{editingEntry ? (taskNameMap[editingEntry.task_id] || "—") : "—"}</span>
+            </p>
+            <div className="space-y-2">
+              <Label>Data</Label>
+              <Input
+                type="date"
+                value={editEntryData.date}
+                onChange={(e) => setEditEntryData(prev => ({ ...prev, date: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Início (Play)</Label>
+                <Input
+                  type="time"
+                  value={editEntryData.start_time}
+                  onChange={(e) => setEditEntryData(prev => ({ ...prev, start_time: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Término (Pause)</Label>
+                <Input
+                  type="time"
+                  value={editEntryData.end_time}
+                  onChange={(e) => setEditEntryData(prev => ({ ...prev, end_time: e.target.value }))}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">A duração será recalculada automaticamente.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingEntry(null)}>Cancelar</Button>
+            <Button onClick={handleSaveEntry} disabled={savingEntry}>
+              {savingEntry && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
