@@ -245,6 +245,39 @@ export default function ProjetoDetalhe() {
     }
   };
 
+  const handleSaveEntry = async () => {
+    if (!editingEntry) return;
+    setSavingEntry(true);
+    const [sh, sm] = editEntryData.start_time.split(":").map(Number);
+    const [eh, em] = editEntryData.end_time.split(":").map(Number);
+    let duration = (eh * 60 + em) - (sh * 60 + sm);
+    if (duration <= 0) duration = 1;
+    const { error } = await supabase
+      .from("time_entries")
+      .update({
+        date: editEntryData.date,
+        start_time: editEntryData.start_time,
+        end_time: editEntryData.end_time,
+        duration_minutes: duration,
+      })
+      .eq("id", editingEntry.id);
+    if (error) {
+      toast.error("Erro ao salvar: " + error.message);
+      setSavingEntry(false);
+      return;
+    }
+    const { data: allEntries } = await supabase
+      .from("time_entries")
+      .select("duration_minutes")
+      .eq("task_id", editingEntry.task_id);
+    const totalMinutes = (allEntries || []).reduce((sum: number, e: { duration_minutes: number }) => sum + e.duration_minutes, 0);
+    const newHoursWorked = Math.round((totalMinutes / 60) * 100) / 100;
+    await supabase.from("tasks").update({ hours_worked: newHoursWorked }).eq("id", editingEntry.task_id);
+    setSavingEntry(false);
+    setEditingEntry(null);
+    toast.success("Registro de horas atualizado!");
+  };
+
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto space-y-6">
