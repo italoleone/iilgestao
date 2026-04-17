@@ -1,52 +1,188 @@
-import { useState, useMemo, useEffect } from "react";
-import { ProjectCombobox } from "@/components/ProjectCombobox";
-import { parseLocalDate, formatDateBR } from "@/lib/utils";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
+import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { useProjects, useTasks, useActiveProfiles, getProfileById } from "@/hooks/useSupabaseData";
-import { useAuth } from "@/contexts/AuthContext";
-import { TaskCalendar } from "@/components/TaskCalendar";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useActiveTimers, startActiveTimer, stopActiveTimer, getTimerForTask } from "@/hooks/useActiveTimers";
+import { STAGE_NAMES } from "@/types";
 import {
-  DISCIPLINE_SHORT, TASK_STATUS_LABELS, STAGE_NAMES,
-  type Discipline, type TaskStatus, type Task,
-} from "@/types";
-import {
-  Search, Plus, Clock, User, ChevronRight, ListChecks, List, Calendar, Play, Square, Loader2, Radio, CheckCircle2, AlertTriangle, Send,
+  Search, Plus, ChevronRight, Play, Square, Loader2, ListChecks,
+  Clock, User, CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useActiveTimers, startActiveTimer, stopActiveTimer, getTimerForTask } from "@/hooks/useActiveTimers";
-import { getTaskFilter } from "@/utils/permissions";
 
-const taskStatusColors: Record<TaskStatus, string> = {
-  nao_iniciada: "bg-muted text-muted-foreground",
-  em_andamento: "bg-info text-info-foreground",
-  concluida: "bg-success text-success-foreground",
-  aguardando_validacao: "bg-warning text-warning-foreground",
-  aprovada: "bg-success text-success-foreground",
-  reprovada: "bg-destructive text-destructive-foreground",
-  enviado_cliente: "bg-primary text-primary-foreground",
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type TaskStatus =
+  | "nao_iniciada"
+  | "em_andamento"
+  | "pausada"
+  | "aguardando_validacao"
+  | "aprovada"
+  | "reprovada"
+  | "concluida"
+  | "enviado_cliente";
+
+export interface Task {
+  id: string;
+  name: string;
+  project_id: string;
+  discipline: string;
+  stage_name: string;
+  responsible: string;
+  start_date: string;
+  end_date: string;
+  estimated_hours: number;
+  hours_worked: number;
+  status: TaskStatus;
+  rejection_reason: string | null;
+  created_at: string;
+}
+
+interface Profile {
+  id: string;
+  name: string;
+  role: string;
+  status: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  discipline: string;
+  responsible: string; // coordenador do projeto
+  status: string;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const STATUS_LABELS: Record<TaskStatus, string> = {
+  nao_iniciada: "Não iniciada",
+  em_andamento: "Em andamento",
+  pausada: "Pausada",
+  aguardando_validacao: "Aguard. Validação",
+  aprovada: "Aprovada",
+  reprovada: "Reprovada",
+  concluida: "Concluída",
+  enviado_cliente: "Enviado ao Cliente",
 };
 
+const STATUS_COLORS: Record<TaskStatus, string> = {
+  nao_iniciada: "bg-slate-100 text-slate-600 border-slate-200",
+  em_andamento: "bg-blue-100 text-blue-700 border-blue-200",
+  pausada: "bg-orange-100 text-orange-700 border-orange-200",
+  aguardando_validacao: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  aprovada: "bg-green-100 text-green-700 border-green-200",
+  reprovada: "bg-red-100 text-red-700 border-red-200",
+  concluida: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  enviado_cliente: "bg-purple-100 text-purple-700 border-purple-200",
+};
+
+// Roles que podem criar/editar/excluir tarefas
+const CAN_MANAGE = ["admin_geral", "admin", "coordenador", "planejamento"];
+
+function canManageTasks(role: string) {
+  return CAN_MANAGE.includes(role);
+}
+
+function parseLocalDate(dateStr: string | null | undefined): Date | null {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function formatDateBR(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  const d = parseLocalDate(dateStr);
+  if (!d) return "—";
+  return d.toLocaleDateString("pt-BR");
+}
+
+function isOverdue(task: Task): boolean {
+  const end = parseLocalDate(task.end_date);
+  if (!end) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return end < today && !["concluida", "aprovada", "enviado_cliente"].includes(task.status);
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function Tarefas() {
-  const { isProjetista, isCoordenador, canCreateTasks, profile } = useAuth();
   const navigate = useNavigate();
-  const { projects } = useProjects();
-  const { tasks: allTasks, loading, refetch: refetchTasks } = useTasks();
-  const { profiles } = useActiveProfiles();
+  const { profile } = useAuth();
   const { activeTimers, loaded: timersLoaded } = useActiveTimers();
+
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Timer state
   const [activeTimerTaskId, setActiveTimerTaskId] = useState<string | null>(null);
   const [timerStart, setTimerStart] = useState<Date | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
-  // Restore timer state from backend on mount / when activeTimers change
+  // Filters
+  const [search, setSearch] = useState("");
+  const [filterProject, setFilterProject] = useState("all");
+  const [filterStatus, setFilterStatus] = useState<TaskStatus | "all">("all");
+  const [filterStage, setFilterStage] = useState("all");
+
+  // Create dialog
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState({
+    name: "", project_id: "", stage_name: "", responsible: "",
+    start_date: "", end_date: "", estimated_hours: "",
+  });
+  const [saving, setSaving] = useState(false);
+
+  // ─── Data fetching ───────────────────────────────────────────────────────
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    const [tasksRes, projectsRes, profilesRes] = await Promise.all([
+      supabase.from("tasks").select("*").order("created_at", { ascending: false }),
+      supabase.from("projects").select("id, name, discipline, responsible, status").order("name"),
+      supabase.from("profiles").select("id, name, status").eq("status", "active").order("name"),
+    ]);
+    if (tasksRes.data) setTasks(tasksRes.data as Task[]);
+    if (projectsRes.data) setProjects(projectsRes.data as Project[]);
+    if (profilesRes.data) setProfiles(profilesRes.data as Profile[]);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchAll();
+
+    // Realtime subscription
+    const channel = supabase
+      .channel(`tasks-realtime-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
+        fetchAll();
+      })
+      .subscribe();
+
+    const interval = setInterval(fetchAll, 60000);
+    const onVisibility = () => { if (document.visibilityState === "visible") fetchAll(); };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [fetchAll]);
+
+  // ─── Timer sync ─────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!profile || !timersLoaded) return;
     const myTimer = activeTimers.find(t => t.user_id === profile.id);
@@ -56,7 +192,6 @@ export default function Tarefas() {
       setTimerStart(startedAt);
       setElapsed(Math.floor((Date.now() - startedAt.getTime()) / 1000));
     } else if (activeTimerTaskId) {
-      // Only clear if we previously had a timer (it was stopped)
       setActiveTimerTaskId(null);
       setTimerStart(null);
       setElapsed(0);
@@ -71,391 +206,445 @@ export default function Tarefas() {
     return () => clearInterval(interval);
   }, [timerStart]);
 
-  const formatTimer = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  const formatTimer = (s: number) => {
+    const h = Math.floor(s / 3600).toString().padStart(2, "0");
+    const m = Math.floor((s % 3600) / 60).toString().padStart(2, "0");
+    const sec = (s % 60).toString().padStart(2, "0");
+    return `${h}:${m}:${sec}`;
   };
+
+  // ─── Filtered tasks (sem filtro que some tarefa por data) ────────────────
+  // Regra: só aparece tarefa que tem start_date E end_date definidos.
+  // O filtro por papel é feito aqui, sem nenhuma lógica extra que possa
+  // esconder tarefas de forma inesperada.
+
+  const visibleTasks = useMemo(() => {
+    if (!profile) return [];
+    const role = profile.role;
+
+    // 1. Apenas tarefas com datas definidas (regra de negócio)
+    let filtered = tasks.filter(t => t.start_date && t.end_date);
+
+    // 2. Filtro por papel
+    if (role === "projetista") {
+      // Projetista só vê as próprias tarefas, exceto as já finalizadas
+      filtered = filtered.filter(t =>
+        t.responsible === profile.id &&
+        !["concluida", "enviado_cliente"].includes(t.status)
+      );
+    } else if (role === "coordenador") {
+      // Coordenador vê tarefas dos projetos onde ele é o responsible
+      const myProjectIds = new Set(
+        projects.filter(p => p.responsible === profile.id).map(p => p.id)
+      );
+      if (filterProject !== "all") {
+        filtered = filtered.filter(t => t.project_id === filterProject);
+      } else {
+        filtered = filtered.filter(t =>
+          myProjectIds.has(t.project_id) &&
+          !["concluida", "enviado_cliente"].includes(t.status)
+        );
+      }
+    } else {
+      // Diretor, Gerente, Planejamento — veem tudo (exceto finalizadas na visão padrão)
+      if (filterProject !== "all") {
+        filtered = filtered.filter(t => t.project_id === filterProject);
+      } else {
+        filtered = filtered.filter(t =>
+          !["concluida", "enviado_cliente"].includes(t.status)
+        );
+      }
+    }
+
+    // 3. Filtros adicionais da UI
+    if (search) {
+      const s = search.toLowerCase();
+      filtered = filtered.filter(t => t.name.toLowerCase().includes(s));
+    }
+    if (filterStatus !== "all") filtered = filtered.filter(t => t.status === filterStatus);
+    if (filterStage !== "all") filtered = filtered.filter(t => t.stage_name === filterStage);
+
+    // 4. Ordenação: atrasadas primeiro, depois por end_date
+    return filtered.sort((a, b) => {
+      const aLate = isOverdue(a);
+      const bLate = isOverdue(b);
+      if (aLate && !bLate) return -1;
+      if (!aLate && bLate) return 1;
+      return (a.end_date || "").localeCompare(b.end_date || "");
+    });
+  }, [tasks, profile, projects, search, filterProject, filterStatus, filterStage]);
+
+  // ─── Create task ─────────────────────────────────────────────────────────
+
+  const handleCreate = async () => {
+    if (!form.name.trim() || !form.project_id || !form.stage_name ||
+      !form.responsible || !form.start_date || !form.end_date) {
+      toast.error("Preencha todos os campos obrigatórios.");
+      return;
+    }
+    if (form.start_date > form.end_date) {
+      toast.error("A data de início não pode ser maior que a data de fim.");
+      return;
+    }
+    setSaving(true);
+    const project = projects.find(p => p.id === form.project_id);
+    const { error } = await supabase.from("tasks").insert({
+      name: form.name.trim(),
+      project_id: form.project_id,
+      discipline: project?.discipline || "estrutural",
+      stage_name: form.stage_name,
+      responsible: form.responsible,
+      start_date: form.start_date,
+      end_date: form.end_date,
+      estimated_hours: Number(form.estimated_hours) || 0,
+      hours_worked: 0,
+      status: "nao_iniciada",
+    });
+    setSaving(false);
+    if (error) {
+      toast.error("Erro ao criar tarefa: " + error.message);
+      return;
+    }
+    setCreateOpen(false);
+    setForm({ name: "", project_id: "", stage_name: "", responsible: "", start_date: "", end_date: "", estimated_hours: "" });
+    fetchAll();
+    toast.success("Tarefa criada com sucesso!");
+  };
+
+  // ─── Timer toggle ────────────────────────────────────────────────────────
 
   const toggleTimer = async (taskId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!profile) return;
+
     if (activeTimerTaskId === taskId && timerStart) {
-      // Stop timer - all logic handled atomically by backend
+      // Parar timer → status vira "pausada"
       try {
         const result = await stopActiveTimer();
         if (result.stopped) {
+          // Atualiza status para "pausada" se estava em_andamento
+          await supabase.from("tasks")
+            .update({ status: "pausada" })
+            .eq("id", taskId)
+            .eq("status", "em_andamento");
           setActiveTimerTaskId(null);
           setTimerStart(null);
           setElapsed(0);
-          refetchTasks();
-          toast.success("Atividade registrada!");
+          fetchAll();
+          toast.success("Timer parado. Tarefa pausada.");
         }
       } catch (err: any) {
         toast.error("Erro ao parar timer: " + err.message);
       }
     } else {
-      // Start new timer - backend atomically stops any existing timer
+      // Iniciar timer → status vira "em_andamento"
       try {
-        const task = allTasks.find(t => t.id === taskId);
-        if (!task || !profile) return;
-        await startActiveTimer(taskId, task.projectId);
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+        await startActiveTimer(taskId, task.project_id);
+        // Atualiza status para "em_andamento"
+        await supabase.from("tasks")
+          .update({ status: "em_andamento" })
+          .eq("id", taskId)
+          .in("status", ["nao_iniciada", "pausada", "reprovada"]);
         setActiveTimerTaskId(taskId);
         setTimerStart(new Date());
         setElapsed(0);
-        if (task.status === "nao_iniciada") {
-          refetchTasks();
-        }
+        fetchAll();
       } catch (err: any) {
         toast.error("Erro ao iniciar timer: " + err.message);
       }
     }
   };
 
-  const [search, setSearch] = useState("");
-  const [filterProject, setFilterProject] = useState<string>("all");
-  const [filterDiscipline, setFilterDiscipline] = useState<Discipline | "all">("all");
-  const [filterStatus, setFilterStatus] = useState<TaskStatus | "all">("all");
-  const [filterResponsible, setFilterResponsible] = useState<string>("all");
-  const [filterStage, setFilterStage] = useState<string>("all");
-  const [createOpen, setCreateOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
-  const [calMonth, setCalMonth] = useState(new Date().getMonth());
-  const [calYear, setCalYear] = useState(new Date().getFullYear());
+  // ─── Helpers ─────────────────────────────────────────────────────────────
 
-  const [form, setForm] = useState({
-    name: "", projectId: "", stageName: "", responsible: "", startDate: "", endDate: "", estimatedHours: "",
-  });
+  const getProject = (id: string) => projects.find(p => p.id === id);
+  const getProfile = (id: string) => profiles.find(p => p.id === id);
+  const role = profile?.role || "";
+  const canCreate = canManageTasks(role);
 
-  const visibleTasks = useMemo(() => {
-    let filtered = allTasks;
-
-    if (!profile) return [];
-
-    const role = profile.role;
-
-    // PROJETISTA: vê todas suas tarefas ativas (com ou sem data)
-    // Exceto as que já foram concluídas/enviadas ao cliente
-    if (role === "projetista") {
-      filtered = filtered.filter(t =>
-        t.responsible === profile.id &&
-        !["concluida", "enviado_cliente"].includes(t.status)
-      );
-    }
-    // COORDENADOR: vê tarefas dos projetos que coordena
-    // Com ou sem data — Bug 4 era causado por exigir startDate
-    else if (role === "coordenador") {
-      const coordinatedProjectIds = new Set(
-        projects.filter(p => p.responsible === profile.id).map(p => p.id)
-      );
-      if (filterProject !== "all") {
-        filtered = filtered.filter(t => t.projectId === filterProject);
-      } else {
-        filtered = filtered.filter(t =>
-          coordinatedProjectIds.has(t.projectId) &&
-          !["enviado_cliente", "concluida"].includes(t.status)
-        );
-      }
-    }
-    // PLANEJAMENTO / ADMIN / ADMIN_GERAL: vê todas com filtro de projeto
-    else if (["planejamento", "admin", "admin_geral"].includes(role)) {
-      if (filterProject !== "all") {
-        filtered = filtered.filter(t => t.projectId === filterProject);
-      } else {
-        // Sem projeto selecionado: mostrar apenas tarefas com data definida
-        // para evitar mostrar as 1000 tarefas sem data (Bug 3)
-        filtered = filtered.filter(t =>
-          (t.startDate || t.endDate) &&
-          !["enviado_cliente", "concluida"].includes(t.status)
-        );
-      }
-    }
-
-    // Aplicar filtros adicionais
-    if (search) filtered = filtered.filter(t =>
-      t.name.toLowerCase().includes(search.toLowerCase())
-    );
-    if (filterDiscipline !== "all") filtered = filtered.filter(t => t.discipline === filterDiscipline);
-    if (filterStatus !== "all") filtered = filtered.filter(t => t.status === filterStatus);
-    if (filterStage !== "all") filtered = filtered.filter(t => t.stageName === filterStage);
-    if (filterResponsible !== "all") filtered = filtered.filter(t => t.responsible === filterResponsible);
-
-    // Ordenar: atrasadas primeiro, depois por data de término
-    return filtered.sort((a, b) => {
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      const aOverdue = a.endDate && new Date(a.endDate) < now && !["concluida", "aprovada", "enviado_cliente"].includes(a.status);
-      const bOverdue = b.endDate && new Date(b.endDate) < now && !["concluida", "aprovada", "enviado_cliente"].includes(b.status);
-      if (aOverdue && !bOverdue) return -1;
-      if (!aOverdue && bOverdue) return 1;
-      if (!a.endDate && !b.endDate) return 0;
-      if (!a.endDate) return 1;
-      if (!b.endDate) return -1;
-      return a.endDate.localeCompare(b.endDate);
-    });
-  }, [allTasks, profile, projects, activeTimers, search, filterProject, filterDiscipline, filterStatus, filterStage, filterResponsible]);
-
-  const handleCreate = async () => {
-    if (!form.name || !form.projectId || !form.stageName || !form.responsible || !form.startDate || !form.endDate) {
-      toast.error("Preencha todos os campos obrigatórios.");
-      return;
-    }
-    const project = projects.find(p => p.id === form.projectId);
-    if (!project) return;
-
-    const { error } = await supabase.from("tasks").insert({
-      name: form.name,
-      project_id: form.projectId,
-      discipline: project.discipline,
-      stage_name: form.stageName,
-      responsible: form.responsible,
-      start_date: form.startDate,
-      end_date: form.endDate,
-      estimated_hours: Number(form.estimatedHours) || 0,
-      hours_worked: 0,
-      status: "nao_iniciada",
-    });
-
-    if (error) {
-      toast.error("Erro ao criar tarefa: " + error.message);
-      return;
-    }
-
-    setCreateOpen(false);
-    setForm({ name: "", projectId: "", stageName: "", responsible: "", startDate: "", endDate: "", estimatedHours: "" });
-    refetchTasks();
-    toast.success("Tarefa criada com sucesso!");
-  };
-
-  const countEmAndamento = visibleTasks.filter(t => t.status === "em_andamento").length;
-  const countNaoIniciadas = visibleTasks.filter(t => t.status === "nao_iniciada").length;
-  const countConcluidas = visibleTasks.filter(t => ["concluida", "aprovada"].includes(t.status)).length;
-  const totalHorasWorked = visibleTasks.reduce((s, t) => s + t.hoursWorked, 0);
-  const totalHorasEstimated = visibleTasks.reduce((s, t) => s + t.estimatedHours, 0);
-
+  // Stats
   const stats = useMemo(() => ({
-    active: countEmAndamento,
-    pending: countNaoIniciadas,
-    done: countConcluidas,
-    totalEstimated: totalHorasEstimated,
-    totalWorked: totalHorasWorked,
-  }), [countEmAndamento, countNaoIniciadas, countConcluidas, totalHorasEstimated, totalHorasWorked]);
+    emAndamento: visibleTasks.filter(t => t.status === "em_andamento").length,
+    naoIniciadas: visibleTasks.filter(t => t.status === "nao_iniciada").length,
+    aguardando: visibleTasks.filter(t => t.status === "aguardando_validacao").length,
+    atrasadas: visibleTasks.filter(t => isOverdue(t)).length,
+  }), [visibleTasks]);
 
-  const handleTaskClick = (task: Task) => { navigate(`/tarefas/${task.id}`); };
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <AppLayout>
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between animate-reveal-up" style={{ animationFillMode: "backwards" }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Tarefas</h1>
             <p className="text-muted-foreground mt-1">
-              {isProjetista
-                ? `${visibleTasks.length} tarefa${visibleTasks.length !== 1 ? "s" : ""} atribuída${visibleTasks.length !== 1 ? "s" : ""}`
-                : `${visibleTasks.length} tarefa${visibleTasks.length !== 1 ? "s" : ""}`}
+              {visibleTasks.length} tarefa{visibleTasks.length !== 1 ? "s" : ""}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center border rounded-md">
-              <Button variant={viewMode === "list" ? "default" : "ghost"} size="sm" className="gap-1.5 rounded-r-none" onClick={() => setViewMode("list")}>
-                <List className="h-4 w-4" /> Lista
-              </Button>
-              <Button variant={viewMode === "calendar" ? "default" : "ghost"} size="sm" className="gap-1.5 rounded-l-none" onClick={() => setViewMode("calendar")}>
-                <Calendar className="h-4 w-4" /> Calendário
-              </Button>
-            </div>
-            {!isProjetista && (
-              <Button onClick={() => setCreateOpen(true)} className="gap-2">
-                <Plus className="h-4 w-4" /> Nova Tarefa
-              </Button>
-            )}
-          </div>
+          {canCreate && (
+            <Button onClick={() => setCreateOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" /> Nova Tarefa
+            </Button>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 animate-reveal-up delay-1" style={{ animationFillMode: "backwards" }}>
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: "Em andamento", value: stats.active, color: "text-info" },
-            { label: "Não iniciadas", value: stats.pending, color: "text-muted-foreground" },
-            { label: "Concluídas", value: stats.done, color: "text-success" },
-            { label: "Horas", value: `${stats.totalWorked}/${stats.totalEstimated}h`, color: "" },
-          ].map((kpi) => (
+            { label: "Em andamento", value: stats.emAndamento, color: "text-blue-600" },
+            { label: "Não iniciadas", value: stats.naoIniciadas, color: "text-slate-500" },
+            { label: "Aguard. validação", value: stats.aguardando, color: "text-yellow-600" },
+            { label: "Atrasadas", value: stats.atrasadas, color: "text-red-600" },
+          ].map(kpi => (
             <Card key={kpi.label} className="shadow-sm">
               <CardContent className="pt-4 pb-3">
                 <p className="text-xs text-muted-foreground">{kpi.label}</p>
-                <p className={`text-xl font-bold tabular-nums ${kpi.color}`}>{kpi.value}</p>
+                <p className={`text-2xl font-bold tabular-nums ${kpi.color}`}>{kpi.value}</p>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        <div className="flex flex-wrap gap-3 animate-reveal-up delay-2" style={{ animationFillMode: "backwards" }}>
+        {/* Filters */}
+        <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Buscar tarefa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input
+              placeholder="Buscar tarefa..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="pl-9"
+            />
           </div>
-          <ProjectCombobox
-            projects={projects}
-            value={filterProject}
-            onValueChange={setFilterProject}
-            includeAll
-            allLabel="Todos projetos"
-            triggerClassName="h-10 text-sm w-[200px]"
-          />
-          <select value={filterDiscipline} onChange={(e) => setFilterDiscipline(e.target.value as Discipline | "all")} className="h-10 rounded-md border bg-card px-3 text-sm">
-            <option value="all">Todas disciplinas</option>
-            <option value="estrutural">Estrutural</option>
-            <option value="hidraulica">Hidráulica</option>
-            <option value="eletrica">Elétrica</option>
-          </select>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as TaskStatus | "all")} className="h-10 rounded-md border bg-card px-3 text-sm">
-            <option value="all">Todos status</option>
-            <option value="nao_iniciada">Não iniciada</option>
-            <option value="em_andamento">Em andamento</option>
-            <option value="concluida">Concluída</option>
-            <option value="aguardando_validacao">Aguardando Validação</option>
-            <option value="aprovada">Aprovada</option>
-            <option value="reprovada">Reprovada</option>
-            <option value="enviado_cliente">Enviado ao Cliente</option>
-          </select>
-          <select value={filterStage} onChange={(e) => setFilterStage(e.target.value)} className="h-10 rounded-md border bg-card px-3 text-sm">
-            <option value="all">Todas etapas</option>
+
+          {role !== "projetista" && (
+            <ProjectCombobox
+              projects={projects.filter(p => p.status !== "concluido")}
+              value={filterProject}
+              onValueChange={setFilterProject}
+              includeAll
+              allLabel="Todos os projetos"
+              triggerClassName="h-10 text-sm w-[200px]"
+            />
+          )}
+
+          <select
+            value={filterStage}
+            onChange={e => setFilterStage(e.target.value)}
+            className="h-10 rounded-md border bg-card px-3 text-sm"
+          >
+            <option value="all">Todas as etapas</option>
             {STAGE_NAMES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-          {!isProjetista && (
-            <select value={filterResponsible} onChange={(e) => setFilterResponsible(e.target.value)} className="h-10 rounded-md border bg-card px-3 text-sm">
-              <option value="all">Todos responsáveis</option>
-              {profiles.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
-          )}
+
+          <select
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value as TaskStatus | "all")}
+            className="h-10 rounded-md border bg-card px-3 text-sm"
+          >
+            <option value="all">Todos os status</option>
+            {(Object.keys(STATUS_LABELS) as TaskStatus[]).map(s => (
+              <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+            ))}
+          </select>
         </div>
 
-        <div className="animate-reveal-up delay-3" style={{ animationFillMode: "backwards" }}>
-          {loading ? (
-            <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-          ) : viewMode === "list" ? (
-            <div className="space-y-2">
-              {visibleTasks.map((task) => {
-                const project = projects.find(p => p.id === task.projectId);
-                const responsible = getProfileById(profiles, task.responsible);
-                const hoursProgress = task.estimatedHours > 0 ? Math.round((task.hoursWorked / task.estimatedHours) * 100) : 0;
-                const isOverdue = parseLocalDate(task.endDate) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "aprovada", "enviado_cliente"].includes(task.status);
-                const taskActiveTimers = getTimerForTask(activeTimers, task.id);
-                const hasActiveUsers = taskActiveTimers.length > 0;
-                return (
-                  <Card key={task.id} className={`shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.99] ${isOverdue ? "border-destructive/40" : ""} ${hasActiveUsers ? "border-l-4 border-l-success" : ""}`} onClick={() => handleTaskClick(task)}>
-                    <CardContent className="py-3 px-4">
-                      <div className="flex items-center gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="text-sm font-medium truncate">{task.name}</p>
-                            {isOverdue && <Badge variant="destructive" className="text-xs shrink-0">Atrasada</Badge>}
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span>{project?.name}</span><span>·</span><span>{task.stageName}</span><span>·</span>
-                            <span className="flex items-center gap-1"><User className="h-3 w-3" />{responsible?.name?.split(" ")[0] || "—"}</span>
-                          </div>
+        {/* Task List */}
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : visibleTasks.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <ListChecks className="h-10 w-10 mx-auto mb-3 opacity-40" />
+            <p className="font-medium">Nenhuma tarefa encontrada.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {visibleTasks.map(task => {
+              const project = getProject(task.project_id);
+              const responsible = getProfile(task.responsible);
+              const overdue = isOverdue(task);
+              const hasActiveTimer = getTimerForTask(activeTimers, task.id).length > 0;
+              const isMyTimer = activeTimerTaskId === task.id;
+              const canPlayTimer = role === "projetista" &&
+                ["nao_iniciada", "pausada", "reprovada", "em_andamento"].includes(task.status);
+
+              return (
+                <Card
+                  key={task.id}
+                  className={[
+                    "shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.99]",
+                    overdue ? "border-red-300" : "",
+                    hasActiveTimer ? "border-l-4 border-l-green-500" : "",
+                  ].join(" ")}
+                  onClick={() => navigate(`/tarefas/${task.id}`)}
+                >
+                  <CardContent className="py-3 px-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium truncate">{task.name}</p>
+                          {overdue && (
+                            <Badge variant="destructive" className="text-xs shrink-0">Atrasada</Badge>
+                          )}
                         </div>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <div className="hidden sm:flex items-center gap-2 w-28">
-                            <Progress value={Math.min(hoursProgress, 100)} className={`h-1.5 flex-1 ${hoursProgress > 100 ? "[&>div]:bg-destructive" : ""}`} />
-                            <span className="text-xs tabular-nums text-muted-foreground">{task.hoursWorked}/{task.estimatedHours}h</span>
-                          </div>
-                          {activeTimerTaskId === task.id && (
-                            <span className="text-xs font-mono font-medium text-primary tabular-nums">{formatTimer(elapsed)}</span>
-                          )}
-                          {!["concluida", "aguardando_validacao", "aprovada"].includes(task.status) && (
-                            <Button variant={activeTimerTaskId === task.id ? "destructive" : "outline"} size="icon" className="h-8 w-8 shrink-0" onClick={(e) => toggleTimer(task.id, e)}>
-                              {activeTimerTaskId === task.id ? <Square className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                            </Button>
-                          )}
-                          <div className="hidden sm:block text-xs text-muted-foreground tabular-nums w-20 text-right">
-                            {formatDateBR(task.endDate)}
-                          </div>
-                          {(() => {
-                            const hasTimer = getTimerForTask(activeTimers, task.id).length > 0;
-                            if (hasTimer) return null;
-                            if (task.status === "em_andamento") return <Badge className="bg-orange-100 text-orange-800 border-orange-300 shrink-0">Pausada</Badge>;
-                            if (task.status === "nao_iniciada") return <Badge variant="secondary" className="shrink-0">Não iniciada</Badge>;
-                            if (task.status === "aguardando_validacao") return <Badge className="bg-warning text-warning-foreground shrink-0">Aguard. Validação</Badge>;
-                            if (task.status === "aprovada") return <Badge className="bg-success text-success-foreground shrink-0">Aprovada</Badge>;
-                            if (task.status === "reprovada") return <Badge variant="destructive" className="shrink-0">Reprovada</Badge>;
-                            if (["concluida", "enviado_cliente"].includes(task.status)) return <Badge className="bg-success text-success-foreground shrink-0">Concluída</Badge>;
-                            return null;
-                          })()}
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                          <span className="flex items-center gap-1">
+                            {project?.name || "—"}
+                          </span>
+                          <span>·</span>
+                          <span>{task.stage_name}</span>
+                          <span>·</span>
+                          <span className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            {responsible?.name?.split(" ")[0] || "—"}
+                          </span>
+                          <span>·</span>
+                          <span className="flex items-center gap-1">
+                            <CalendarDays className="h-3 w-3" />
+                            {formatDateBR(task.end_date)}
+                          </span>
+                          <span>·</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {task.hours_worked}/{task.estimated_hours}h
+                          </span>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-              {visibleTasks.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">
-                  <ListChecks className="h-8 w-8 mx-auto mb-2 opacity-50" /><p>Nenhuma tarefa encontrada.</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <Card className="shadow-sm">
-              <CardContent className="pt-4">
-                <TaskCalendar tasks={visibleTasks} projects={projects} month={calMonth} year={calYear} onMonthChange={(m, y) => { setCalMonth(m); setCalYear(y); }} />
-              </CardContent>
-            </Card>
-          )}
-        </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        {isMyTimer && (
+                          <span className="text-xs font-mono font-bold text-blue-600 tabular-nums">
+                            {formatTimer(elapsed)}
+                          </span>
+                        )}
+
+                        {canPlayTimer && (
+                          <Button
+                            variant={isMyTimer ? "destructive" : "outline"}
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={e => toggleTimer(task.id, e)}
+                          >
+                            {isMyTimer
+                              ? <Square className="h-3.5 w-3.5" />
+                              : <Play className="h-3.5 w-3.5" />}
+                          </Button>
+                        )}
+
+                        <Badge className={`text-xs border shrink-0 ${STATUS_COLORS[task.status]}`}>
+                          {STATUS_LABELS[task.status]}
+                        </Badge>
+
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
 
+      {/* Create Task Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>Nova Tarefa</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Nova Tarefa</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Nome da Tarefa *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: Armação de Lajes do Térreo" />
+              <Input
+                value={form.name}
+                onChange={e => setForm({ ...form, name: e.target.value })}
+                placeholder="Ex: Elaboração das Formas – Térreo"
+              />
             </div>
+
             <div className="space-y-2">
               <Label>Projeto *</Label>
               <ProjectCombobox
                 projects={projects.filter(p => p.status !== "concluido")}
-                value={form.projectId}
-                onValueChange={(v) => setForm({ ...form, projectId: v, responsible: "" })}
-                placeholder="Selecione..."
+                value={form.project_id}
+                onValueChange={v => setForm({ ...form, project_id: v, responsible: "" })}
+                placeholder="Selecione o projeto..."
               />
             </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Etapa *</Label>
-                <select value={form.stageName} onChange={(e) => setForm({ ...form, stageName: e.target.value })} className="h-10 w-full rounded-md border bg-card px-3 text-sm">
+                <select
+                  value={form.stage_name}
+                  onChange={e => setForm({ ...form, stage_name: e.target.value })}
+                  className="h-10 w-full rounded-md border bg-card px-3 text-sm"
+                >
                   <option value="">Selecione...</option>
                   {STAGE_NAMES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
+
               <div className="space-y-2">
                 <Label>Projetista Responsável *</Label>
-                <select value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })} className="h-10 w-full rounded-md border bg-card px-3 text-sm">
+                <select
+                  value={form.responsible}
+                  onChange={e => setForm({ ...form, responsible: e.target.value })}
+                  className="h-10 w-full rounded-md border bg-card px-3 text-sm"
+                >
                   <option value="">Selecione...</option>
-                  {profiles.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  {profiles.map(u => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
                 </select>
               </div>
             </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Data de Início *</Label>
-                <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+                <Input
+                  type="date"
+                  value={form.start_date}
+                  onChange={e => setForm({ ...form, start_date: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Data de Término *</Label>
-                <Input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
+                <Input
+                  type="date"
+                  value={form.end_date}
+                  min={form.start_date}
+                  onChange={e => setForm({ ...form, end_date: e.target.value })}
+                />
               </div>
             </div>
+
             <div className="space-y-2">
               <Label>Horas Estimadas</Label>
-              <Input type="number" value={form.estimatedHours} onChange={(e) => setForm({ ...form, estimatedHours: e.target.value })} placeholder="Ex: 24" />
+              <Input
+                type="number"
+                min="0"
+                step="0.5"
+                value={form.estimated_hours}
+                onChange={e => setForm({ ...form, estimated_hours: e.target.value })}
+                placeholder="Ex: 24"
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreate}>Criar Tarefa</Button>
+            <Button onClick={handleCreate} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Criar Tarefa
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
