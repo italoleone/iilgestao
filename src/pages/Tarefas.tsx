@@ -222,8 +222,11 @@ export default function Tarefas() {
     if (!profile) return [];
     const role = profile.role;
 
-    // 1. Apenas tarefas com datas definidas (regra de negócio)
-    let filtered = tasks.filter(t => t.start_date && t.end_date);
+    // 1. Para projetista: mostrar todas as tarefas atribuídas, independente de datas.
+    //    Para os demais papéis: manter regra de exigir start_date e end_date.
+    let filtered = role === "projetista"
+      ? tasks
+      : tasks.filter(t => t.start_date && t.end_date);
 
     // 2. Filtro por papel
     if (role === "projetista") {
