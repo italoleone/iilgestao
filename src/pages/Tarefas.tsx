@@ -331,7 +331,7 @@ export default function Tarefas() {
       try {
         const result = await stopActiveTimer();
         if (result.stopped) {
-          // Atualiza status para "pausada" se estava em_andamento
+          // Aguarda update de status concluir ANTES de fetchAll (evita race condition)
           await supabase.from("tasks")
             .update({ status: "pausada" })
             .eq("id", taskId)
@@ -339,7 +339,7 @@ export default function Tarefas() {
           setActiveTimerTaskId(null);
           setTimerStart(null);
           setElapsed(0);
-          fetchAll();
+          await fetchAll();
           toast.success("Timer parado. Tarefa pausada.");
         }
       } catch (err: any) {
@@ -351,7 +351,7 @@ export default function Tarefas() {
         const task = tasks.find(t => t.id === taskId);
         if (!task) return;
         await startActiveTimer(taskId, task.project_id);
-        // Atualiza status para "em_andamento"
+        // Aguarda update de status concluir ANTES de fetchAll (evita race condition)
         await supabase.from("tasks")
           .update({ status: "em_andamento" })
           .eq("id", taskId)
@@ -359,7 +359,7 @@ export default function Tarefas() {
         setActiveTimerTaskId(taskId);
         setTimerStart(new Date());
         setElapsed(0);
-        fetchAll();
+        await fetchAll();
       } catch (err: any) {
         toast.error("Erro ao iniciar timer: " + err.message);
       }
