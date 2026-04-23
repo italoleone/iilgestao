@@ -135,6 +135,7 @@ export default function Tarefas() {
   const [filterProject, setFilterProject] = useState("all");
   const [filterStatus, setFilterStatus] = useState<TaskStatus | "all">("all");
   const [filterStage, setFilterStage] = useState("all");
+  const [filterResponsible, setFilterResponsible] = useState("all");
 
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
@@ -272,6 +273,7 @@ export default function Tarefas() {
     }
     if (filterStatus !== "all") filtered = filtered.filter(t => t.status === filterStatus);
     if (filterStage !== "all") filtered = filtered.filter(t => t.stage_name === filterStage);
+    if (filterResponsible !== "all") filtered = filtered.filter(t => t.responsible === filterResponsible);
 
     // 4. Ordenação: atrasadas primeiro, depois por end_date
     return filtered.sort((a, b) => {
@@ -281,7 +283,7 @@ export default function Tarefas() {
       if (!aLate && bLate) return 1;
       return (a.end_date || "").localeCompare(b.end_date || "");
     });
-  }, [tasks, profile, projects, search, filterProject, filterStatus, filterStage]);
+  }, [tasks, profile, projects, search, filterProject, filterStatus, filterStage, filterResponsible]);
 
   // ─── Create task ─────────────────────────────────────────────────────────
 
@@ -450,6 +452,19 @@ export default function Tarefas() {
             <option value="all">Todas as etapas</option>
             {STAGE_NAMES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+
+          {role !== "projetista" && (
+            <select
+              value={filterResponsible}
+              onChange={e => setFilterResponsible(e.target.value)}
+              className="h-10 rounded-md border bg-card px-3 text-sm"
+            >
+              <option value="all">Todos os usuários</option>
+              {profiles.map(u => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+          )}
 
           <select
             value={filterStatus}
