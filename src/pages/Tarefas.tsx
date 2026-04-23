@@ -162,11 +162,16 @@ export default function Tarefas() {
   useEffect(() => {
     fetchAll();
 
+    // Debounce realtime handler para evitar race condition entre updates de status
+    // (timer toggle) e refetch disparado pelo canal.
+    let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
+
     // Realtime subscription
     const channel = supabase
       .channel(`tasks-realtime-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
-        fetchAll();
+        if (realtimeDebounce) clearTimeout(realtimeDebounce);
+        realtimeDebounce = setTimeout(() => fetchAll(), 300);
       })
       .subscribe();
 
@@ -175,6 +180,7 @@ export default function Tarefas() {
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
+      if (realtimeDebounce) clearTimeout(realtimeDebounce);
       supabase.removeChannel(channel);
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibility);
@@ -222,8 +228,11 @@ export default function Tarefas() {
     if (!profile) return [];
     const role = profile.role;
 
-    // 1. Apenas tarefas com datas definidas (regra de negócio)
-    let filtered = tasks.filter(t => t.start_date && t.end_date);
+    // 1. Para projetista: mostrar todas as tarefas atribuídas, independente de datas.
+    //    Para os demais papéis: manter regra de exigir start_date e end_date.
+    let filtered = role === "projetista"
+      ? tasks
+      : tasks.filter(t => t.start_date && t.end_date);
 
     // 2. Filtro por papel
     if (role === "projetista") {
@@ -322,7 +331,7 @@ export default function Tarefas() {
       try {
         const result = await stopActiveTimer();
         if (result.stopped) {
-          // Atualiza status para "pausada" se estava em_andamento
+          // Aguarda update de status concluir ANTES de fetchAll (evita race condition)
           await supabase.from("tasks")
             .update({ status: "pausada" })
             .eq("id", taskId)
@@ -330,7 +339,7 @@ export default function Tarefas() {
           setActiveTimerTaskId(null);
           setTimerStart(null);
           setElapsed(0);
-          fetchAll();
+          await fetchAll();
           toast.success("Timer parado. Tarefa pausada.");
         }
       } catch (err: any) {
@@ -342,7 +351,7 @@ export default function Tarefas() {
         const task = tasks.find(t => t.id === taskId);
         if (!task) return;
         await startActiveTimer(taskId, task.project_id);
-        // Atualiza status para "em_andamento"
+        // Aguarda update de status concluir ANTES de fetchAll (evita race condition)
         await supabase.from("tasks")
           .update({ status: "em_andamento" })
           .eq("id", taskId)
@@ -350,7 +359,7 @@ export default function Tarefas() {
         setActiveTimerTaskId(taskId);
         setTimerStart(new Date());
         setElapsed(0);
-        fetchAll();
+        await fetchAll();
       } catch (err: any) {
         toast.error("Erro ao iniciar timer: " + err.message);
       }
