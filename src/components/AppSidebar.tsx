@@ -15,6 +15,7 @@ import {
   PieChart,
   TrendingUp,
   TrendingDown,
+  Wallet,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -72,6 +73,7 @@ const modules: NavModule[] = [
       { title: "A Receber", url: "/financeiro/receber", icon: TrendingUp },
       { title: "A Pagar", url: "/financeiro/pagar", icon: TrendingDown },
       { title: "Rentabilidade", url: "/financeiro/rentabilidade", icon: PieChart },
+      { title: "Saldos de Projeto", url: "/financeiro/saldos", icon: Wallet },
     ],
   },
   {
