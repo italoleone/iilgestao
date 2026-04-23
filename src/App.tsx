@@ -15,6 +15,7 @@ import FinanceiroDashboard from "./pages/financeiro/FinanceiroDashboard";
 import FinanceiroReceber from "./pages/financeiro/FinanceiroReceber";
 import FinanceiroPagar from "./pages/financeiro/FinanceiroPagar";
 import FinanceiroRentabilidade from "./pages/financeiro/FinanceiroRentabilidade";
+import FinanceiroSaldosProjeto from "./pages/financeiro/FinanceiroSaldosProjeto";
 import Alertas from "./pages/Alertas";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
@@ -83,6 +84,7 @@ function AppRoutes() {
       <Route path="/financeiro/receber" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroReceber /></ProtectedRoute>} />
       <Route path="/financeiro/pagar" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroPagar /></ProtectedRoute>} />
       <Route path="/financeiro/rentabilidade" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroRentabilidade /></ProtectedRoute>} />
+      <Route path="/financeiro/saldos" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroSaldosProjeto /></ProtectedRoute>} />
       <Route path="/usuarios" element={<ProtectedRoute allowedRoles={["admin_geral"]}><Usuarios /></ProtectedRoute>} />
       <Route path="/alertas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><Alertas /></ProtectedRoute>} />
       <Route path="/comercial" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialDashboard /></ProtectedRoute>} />
