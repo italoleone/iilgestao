@@ -162,11 +162,16 @@ export default function Tarefas() {
   useEffect(() => {
     fetchAll();
 
+    // Debounce realtime handler para evitar race condition entre updates de status
+    // (timer toggle) e refetch disparado pelo canal.
+    let realtimeDebounce: ReturnType<typeof setTimeout> | null = null;
+
     // Realtime subscription
     const channel = supabase
       .channel(`tasks-realtime-${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
-        fetchAll();
+        if (realtimeDebounce) clearTimeout(realtimeDebounce);
+        realtimeDebounce = setTimeout(() => fetchAll(), 300);
       })
       .subscribe();
 
@@ -175,6 +180,7 @@ export default function Tarefas() {
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
+      if (realtimeDebounce) clearTimeout(realtimeDebounce);
       supabase.removeChannel(channel);
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibility);
