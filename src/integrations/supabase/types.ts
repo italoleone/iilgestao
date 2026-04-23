@@ -434,6 +434,78 @@ export type Database = {
         }
         Relationships: []
       }
+      proposal_billing_schedule: {
+        Row: {
+          amount: number
+          billing_month: number
+          billing_year: number
+          created_at: string
+          created_by: string | null
+          discipline_key: string
+          discipline_label: string
+          id: string
+          installment_count: number | null
+          is_installment: boolean
+          percentage: number
+          proposal_id: string
+          stage_key: string
+          stage_label: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          billing_month: number
+          billing_year: number
+          created_at?: string
+          created_by?: string | null
+          discipline_key?: string
+          discipline_label?: string
+          id?: string
+          installment_count?: number | null
+          is_installment?: boolean
+          percentage?: number
+          proposal_id: string
+          stage_key: string
+          stage_label: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          billing_month?: number
+          billing_year?: number
+          created_at?: string
+          created_by?: string | null
+          discipline_key?: string
+          discipline_label?: string
+          id?: string
+          installment_count?: number | null
+          is_installment?: boolean
+          percentage?: number
+          proposal_id?: string
+          stage_key?: string
+          stage_label?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_billing_schedule_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_billing_schedule_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       receivables: {
         Row: {
           amount: number
