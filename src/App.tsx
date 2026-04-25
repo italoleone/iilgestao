@@ -4,7 +4,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import Dashboard from "./pages/Dashboard";
 import Projetos from "./pages/Projetos";
 import ProjetoDetalhe from "./pages/ProjetoDetalhe";
 import Tarefas from "./pages/Tarefas";
@@ -45,12 +44,10 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
   }
   if (pendingApproval) return <Navigate to="/login" replace />;
   if (!user) return <Navigate to="/login" replace />;
-  if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
+    if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
     // Redirect based on role
     if (profile.role === "projetista") return <Navigate to="/tarefas" replace />;
-    if (profile.role === "coordenador") return <Navigate to="/planejamento" replace />;
-    if (profile.role === "planejamento") return <Navigate to="/planejamento" replace />;
-    return <Navigate to="/" replace />;
+    return <Navigate to="/planejamento" replace />;
   }
   return <>{children}</>;
 }
@@ -67,13 +64,13 @@ function AppRoutes() {
   }
 
   // Determine default route based on role
-  const defaultRoute = profile?.role === "projetista" ? "/tarefas" : (profile?.role === "coordenador" || profile?.role === "planejamento") ? "/planejamento" : "/";
+  const defaultRoute = profile?.role === "projetista" ? "/tarefas" : "/planejamento";
 
   return (
     <Routes>
       <Route path="/login" element={user && !pendingApproval ? <Navigate to={defaultRoute} replace /> : <Login />} />
       <Route path="/cadastro" element={user && !pendingApproval ? <Navigate to={defaultRoute} replace /> : <Cadastro />} />
-      <Route path="/" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><Dashboard /></ProtectedRoute>} />
+      <Route path="/" element={<Navigate to="/planejamento" replace />} />
       <Route path="/planejamento" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><DashboardPlanejamento /></ProtectedRoute>} />
       <Route path="/projetos" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><Projetos /></ProtectedRoute>} />
       <Route path="/projetos/:id" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><ProjetoDetalhe /></ProtectedRoute>} />
