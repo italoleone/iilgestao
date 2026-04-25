@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-import { DEFAULT_TASKS_BY_DISCIPLINE } from "@/data/defaultTasks";
+// Tarefas padrão removidas: tarefas devem ser criadas manualmente pelo usuário
 
 interface NewProjectDialogProps {
   open: boolean;
