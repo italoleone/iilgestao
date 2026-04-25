@@ -129,34 +129,9 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
       return;
     }
 
-    // Auto-create default tasks for each project
-    if (insertedProjects && insertedProjects.length > 0) {
-      const taskRows = insertedProjects.flatMap((proj: any) => {
-        const discTasks = DEFAULT_TASKS_BY_DISCIPLINE[proj.discipline] || {};
-        return STAGE_NAMES.flatMap((stageName) =>
-          (discTasks[stageName] || []).map((taskName: string) => ({
-            name: taskName,
-            project_id: proj.id,
-            discipline: proj.discipline,
-            stage_name: stageName,
-            estimated_hours: 0,
-            hours_worked: 0,
-            status: "nao_iniciada",
-          }))
-        );
-      });
-
-      if (taskRows.length > 0) {
-        const { error: taskError } = await supabase
-          .from("tasks")
-          .insert(taskRows as any);
-
-        if (taskError) {
-          console.error("Erro ao criar tarefas padrão:", taskError);
-          toast.warning("Projeto criado, mas as tarefas padrão não foram criadas: " + taskError.message);
-        }
-      }
-    } else {
+    // Tarefas padrão NÃO são mais criadas automaticamente.
+    // O usuário deve criar as tarefas manualmente após a criação do projeto.
+    if (!insertedProjects || insertedProjects.length === 0) {
       console.error("Insert de projeto não retornou dados — verifique o .select()");
       toast.error("Erro ao criar projeto: tente novamente.");
       setSaving(false);
