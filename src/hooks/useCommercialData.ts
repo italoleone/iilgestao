@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-import { DEFAULT_TASKS_BY_DISCIPLINE } from "@/data/defaultTasks";
+// Tarefas padrão removidas: tarefas devem ser criadas manualmente pelo usuário
 
 // ─── Tipos de Clientes ───────────────────────────────────────────────────────
 
