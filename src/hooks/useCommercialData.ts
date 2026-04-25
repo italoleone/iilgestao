@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-import { DEFAULT_TASKS_BY_DISCIPLINE } from "@/data/defaultTasks";
+// Tarefas padrão removidas: tarefas devem ser criadas manualmente pelo usuário
 
 // ─── Tipos de Clientes ───────────────────────────────────────────────────────
 
@@ -347,30 +347,8 @@ export function useApproveProposal() {
 
         if (project) {
           createdProjectIds.push((project as any).id);
-
-          const STAGE_NAMES = [
-            "Estudo Preliminar",
-            "Anteprojeto",
-            "Pré-executivo",
-            "Executivo",
-            "Liberação para Obra",
-            "Revisão",
-          ];
-          const discTasks = DEFAULT_TASKS_BY_DISCIPLINE[disc] || {};
-          const taskRows = STAGE_NAMES.flatMap((stageName) =>
-            (discTasks[stageName] || []).map((taskName: string) => ({
-              name: taskName,
-              project_id: (project as any).id,
-              discipline: disc,
-              stage_name: stageName,
-              estimated_hours: 0,
-              hours_worked: 0,
-              status: "nao_iniciada",
-            }))
-          );
-          if (taskRows.length > 0) {
-            await supabase.from("tasks").insert(taskRows as any);
-          }
+          // Tarefas padrão NÃO são mais criadas automaticamente na aprovação da proposta.
+          // O usuário deve criar as tarefas manualmente no Planejamento.
         }
       }
 
