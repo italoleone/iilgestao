@@ -24,7 +24,6 @@ import { LeoneLogo } from "@/components/LeoneLogo";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import {
-  canAccessDashboard,
   canAccessPlanejamento,
   canAccessFinanceiro,
   canAccessComercial,
@@ -48,12 +47,6 @@ interface NavModule {
 }
 
 const modules: NavModule[] = [
-  {
-    title: "Dashboard",
-    icon: LayoutDashboard,
-    url: "/",
-    visible: canAccessDashboard,
-  },
   {
     title: "Planejamento",
     icon: ClipboardList,
