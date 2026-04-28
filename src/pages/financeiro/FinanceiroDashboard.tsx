@@ -107,19 +107,65 @@ export default function FinanceiroDashboard() {
   }, [allReceivables, selectedMonth, selectedYear]);
 
   // ── Fluxo de Caixa Real — 12 meses do ano selecionado ──────────────────
+  // Projeta parcelas recorrentes (mensais) de cada conta a pagar pendente
+  // até dezembro do ano selecionado, usando recurrent_day como dia de vencimento.
+  const pendingPayablesProjected = useMemo(() => {
+    type Item = { amount: number; due_date: string };
+    const list: Item[] = [];
+    const yearEnd = endOfMonth(new Date(selectedYear, 11));
+    allPayables
+      .filter(p => p.status === "pendente" || p.status === "em_aberto")
+      .forEach(p => {
+        const baseDue = parseISO(p.due_date);
+        list.push({ amount: Number(p.amount), due_date: p.due_date });
+        if (p.recurrent) {
+          const day = p.recurrent_day || baseDue.getDate();
+          // Avança mês a mês a partir do mês seguinte ao baseDue
+          let y = baseDue.getFullYear();
+          let m = baseDue.getMonth() + 1;
+          while (true) {
+            if (m > 11) { m = 0; y += 1; }
+            const lastDay = new Date(y, m + 1, 0).getDate();
+            const safeDay = Math.min(day, lastDay);
+            const next = new Date(y, m, safeDay);
+            if (next > yearEnd) break;
+            list.push({
+              amount: Number(p.amount),
+              due_date: format(next, "yyyy-MM-dd"),
+            });
+            m += 1;
+          }
+        }
+      });
+    return list;
+  }, [allPayables, selectedYear]);
+
   const realCashFlowData = useMemo(() => {
     return MONTH_NAMES.map((label, idx) => {
       const ms = startOfMonth(new Date(selectedYear, idx));
       const me = endOfMonth(new Date(selectedYear, idx));
-      const rec = allReceivables
-        .filter(r => r.received_date && isWithinInterval(parseISO(r.received_date), { start: ms, end: me }))
+      const recebido = allReceivables
+        .filter(r =>
+          (r.status === "pago" || r.status === "recebido") &&
+          r.received_date &&
+          isWithinInterval(parseISO(r.received_date), { start: ms, end: me })
+        )
         .reduce((s, r) => s + Number(r.amount), 0);
-      const desp = allPayables
-        .filter(p => p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: ms, end: me }))
+      const pago = allPayables
+        .filter(p => p.status === "pago" && p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: ms, end: me }))
         .reduce((s, p) => s + Number(p.amount), 0);
-      return { name: label.slice(0, 3), receitas: rec, despesas: desp, resultado: rec - desp };
+      const pendente = pendingPayablesProjected
+        .filter(p => isWithinInterval(parseISO(p.due_date), { start: ms, end: me }))
+        .reduce((s, p) => s + p.amount, 0);
+      return {
+        name: label.slice(0, 3),
+        recebido,
+        pago,
+        pendente,
+        resultado: recebido - pago,
+      };
     });
-  }, [allReceivables, allPayables, selectedYear]);
+  }, [allReceivables, allPayables, pendingPayablesProjected, selectedYear]);
 
   // Expenses by category
   const catData = useMemo(() => {
