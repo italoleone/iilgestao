@@ -468,69 +468,217 @@ export default function FinanceiroDashboard() {
 
         {/* Upcoming */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* ── A RECEBER ───────────────────────────────────────────────── */}
           <Card>
-            <CardHeader><CardTitle className="text-sm">Próximos Vencimentos — A Receber</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {upcoming15Rec.length === 0 && <p className="text-sm text-muted-foreground">Nenhum vencimento próximo</p>}
-              {upcoming15Rec.map(r => (
-                <div key={r.id} className="flex items-center justify-between p-2 rounded-md bg-muted/30">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{r.client_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{r.description}</p>
-                  </div>
-                  <div className="text-right flex items-center gap-2">
-                    <div>
-                      <p className="text-sm font-semibold">{fmt(Number(r.amount))}</p>
-                      <p className="text-xs text-muted-foreground">{format(parseISO(r.due_date), "dd/MM")}</p>
-                    </div>
-                    <Popover open={datePickerFor?.id === r.id && datePickerFor?.type === "rec"} onOpenChange={(o) => !o && setDatePickerFor(null)}>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" title="Marcar como recebido" onClick={() => { setDatePickerFor({ type: "rec", id: r.id }); setSelectedDate(new Date()); }}>
-                          <CheckCircle className="h-4 w-4 text-emerald-400" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="end">
-                        <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className={cn("p-3 pointer-events-auto")} />
-                        <div className="p-2 border-t flex justify-end"><Button size="sm" onClick={handleConfirmDate}>Confirmar</Button></div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+            <CardHeader>
+              <CardTitle className="text-sm">Próximos Vencimentos — A Receber</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Filtros */}
+              <div className="flex flex-wrap gap-2">
+                <Select value={recPeriod} onValueChange={setRecPeriod}>
+                  <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">Próximos 7 dias</SelectItem>
+                    <SelectItem value="15">Próximos 15 dias</SelectItem>
+                    <SelectItem value="30">Próximos 30 dias</SelectItem>
+                    <SelectItem value="60">Próximos 60 dias</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={recStatus} onValueChange={setRecStatus}>
+                  <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos status</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="pago">Recebido</SelectItem>
+                    <SelectItem value="em_aberto">Em aberto</SelectItem>
+                    <SelectItem value="vencido"><span className="text-orange-500 font-medium">Vencido</span></SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={recCategory} onValueChange={setRecCategory}>
+                  <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Categorias</SelectItem>
+                    {recCategories.map(c => (
+                      <SelectItem key={c} value={c}>{CAT_LABELS[c] || c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={recClient} onValueChange={setRecClient}>
+                  <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos clientes</SelectItem>
+                    {recClients.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" className="h-8 px-2 text-xs"
+                  onClick={() => setRecSortDesc(!recSortDesc)}
+                  title="Ordenar por valor"
+                >
+                  Valor {recSortDesc ? <ArrowDown className="h-3 w-3 ml-1" /> : <ArrowUp className="h-3 w-3 ml-1" />}
+                </Button>
+              </div>
+
+              {/* Tabela com altura fixa */}
+              <div className="border rounded-md overflow-hidden">
+                <div className="overflow-y-auto" style={{ maxHeight: "calc(6 * 44px + 36px)" }}>
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-card z-10">
+                      <TableRow>
+                        <TableHead className="text-xs h-9">Cliente</TableHead>
+                        <TableHead className="text-xs h-9">Categoria</TableHead>
+                        <TableHead className="text-xs h-9">Vencimento</TableHead>
+                        <TableHead className="text-xs h-9 text-right">Valor</TableHead>
+                        <TableHead className="text-xs h-9">Status</TableHead>
+                        <TableHead className="text-xs h-9 w-[40px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {upcomingRecRows.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground text-xs py-6">
+                            Nenhum lançamento encontrado
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {upcomingRecRows.map(r => (
+                        <TableRow key={r.id} className="h-11">
+                          <TableCell className="text-xs font-medium truncate max-w-[160px]">{r.name}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{CAT_LABELS[r.category] || r.category}</TableCell>
+                          <TableCell className="text-xs">{format(parseISO(r.due_date), "dd/MM/yy")}</TableCell>
+                          <TableCell className="text-xs text-right font-semibold">{fmt(r.amount)}</TableCell>
+                          <TableCell><StatusBadge status={r.status} /></TableCell>
+                          <TableCell>
+                            {r.status !== "pago" && (
+                              <Popover open={datePickerFor?.id === r.id && datePickerFor?.type === "rec"} onOpenChange={(o) => !o && setDatePickerFor(null)}>
+                                <PopoverTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Marcar como recebido"
+                                    onClick={() => { setDatePickerFor({ type: "rec", id: r.id }); setSelectedDate(new Date()); }}>
+                                    <CheckCircle className="h-4 w-4 text-emerald-400" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                  <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className={cn("p-3 pointer-events-auto")} />
+                                  <div className="p-2 border-t flex justify-end"><Button size="sm" onClick={handleConfirmDate}>Confirmar</Button></div>
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-              ))}
+              </div>
             </CardContent>
           </Card>
 
+          {/* ── A PAGAR ─────────────────────────────────────────────────── */}
           <Card>
-            <CardHeader><CardTitle className="text-sm">Próximos Vencimentos — A Pagar</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {upcoming15Pay.length === 0 && <p className="text-sm text-muted-foreground">Nenhum vencimento próximo</p>}
-              {upcoming15Pay.map(p => (
-                <div key={p.id} className="flex items-center justify-between p-2 rounded-md bg-muted/30">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{p.supplier || p.description}</p>
-                    <div className="flex items-center gap-1">
-                      <Badge variant="outline" className="text-[10px]">{CAT_LABELS[p.category] || p.category}</Badge>
-                    </div>
-                  </div>
-                  <div className="text-right flex items-center gap-2">
-                    <div>
-                      <p className="text-sm font-semibold">{fmt(Number(p.amount))}</p>
-                      <p className="text-xs text-muted-foreground">{format(parseISO(p.due_date), "dd/MM")}</p>
-                    </div>
-                    <Popover open={datePickerFor?.id === p.id && datePickerFor?.type === "pay"} onOpenChange={(o) => !o && setDatePickerFor(null)}>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" title="Marcar como pago" onClick={() => { setDatePickerFor({ type: "pay", id: p.id }); setSelectedDate(new Date()); }}>
-                          <CheckCircle className="h-4 w-4 text-emerald-400" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="end">
-                        <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className={cn("p-3 pointer-events-auto")} />
-                        <div className="p-2 border-t flex justify-end"><Button size="sm" onClick={handleConfirmDate}>Confirmar</Button></div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+            <CardHeader>
+              <CardTitle className="text-sm">Próximos Vencimentos — A Pagar</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Filtros */}
+              <div className="flex flex-wrap gap-2">
+                <Select value={payPeriod} onValueChange={setPayPeriod}>
+                  <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">Próximos 7 dias</SelectItem>
+                    <SelectItem value="15">Próximos 15 dias</SelectItem>
+                    <SelectItem value="30">Próximos 30 dias</SelectItem>
+                    <SelectItem value="60">Próximos 60 dias</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={payStatus} onValueChange={setPayStatus}>
+                  <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos status</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="pago">Pago</SelectItem>
+                    <SelectItem value="em_aberto">Em aberto</SelectItem>
+                    <SelectItem value="vencido">
+                      <span className="text-orange-500 font-semibold">Vencido</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={payCategory} onValueChange={setPayCategory}>
+                  <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Categorias</SelectItem>
+                    {payCategories.map(c => (
+                      <SelectItem key={c} value={c}>{CAT_LABELS[c] || c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" className="h-8 px-2 text-xs"
+                  onClick={() => setPaySortDesc(!paySortDesc)}
+                  title="Ordenar por valor"
+                >
+                  Valor {paySortDesc ? <ArrowDown className="h-3 w-3 ml-1" /> : <ArrowUp className="h-3 w-3 ml-1" />}
+                </Button>
+              </div>
+
+              {/* Tabela */}
+              <div className="border rounded-md overflow-hidden">
+                <div className="overflow-y-auto" style={{ maxHeight: "calc(6 * 44px + 36px)" }}>
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-card z-10">
+                      <TableRow>
+                        <TableHead className="text-xs h-9">Fornecedor</TableHead>
+                        <TableHead className="text-xs h-9">Categoria</TableHead>
+                        <TableHead className="text-xs h-9">Vencimento</TableHead>
+                        <TableHead className="text-xs h-9 text-right">Valor</TableHead>
+                        <TableHead className="text-xs h-9">Status</TableHead>
+                        <TableHead className="text-xs h-9 w-[40px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {upcomingPayRows.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground text-xs py-6">
+                            Nenhum lançamento encontrado
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {upcomingPayRows.map(p => (
+                        <TableRow key={p.id} className="h-11">
+                          <TableCell className="text-xs font-medium truncate max-w-[160px]">
+                            <div className="flex items-center gap-1">
+                              {p.isRecurrent && <Repeat className="h-3 w-3 text-muted-foreground shrink-0" />}
+                              <span className="truncate">{p.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{CAT_LABELS[p.category] || p.category}</TableCell>
+                          <TableCell className="text-xs">{format(parseISO(p.due_date), "dd/MM/yy")}</TableCell>
+                          <TableCell className="text-xs text-right font-semibold">{fmt(p.amount)}</TableCell>
+                          <TableCell><StatusBadge status={p.status} /></TableCell>
+                          <TableCell>
+                            {p.status !== "pago" && !p.id.includes("-20") && (
+                              <Popover open={datePickerFor?.id === p.id && datePickerFor?.type === "pay"} onOpenChange={(o) => !o && setDatePickerFor(null)}>
+                                <PopoverTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Marcar como pago"
+                                    onClick={() => { setDatePickerFor({ type: "pay", id: p.id }); setSelectedDate(new Date()); }}>
+                                    <CheckCircle className="h-4 w-4 text-emerald-400" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                  <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className={cn("p-3 pointer-events-auto")} />
+                                  <div className="p-2 border-t flex justify-end"><Button size="sm" onClick={handleConfirmDate}>Confirmar</Button></div>
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-              ))}
+              </div>
             </CardContent>
           </Card>
         </div>
