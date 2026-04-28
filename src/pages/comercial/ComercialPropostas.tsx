@@ -116,9 +116,9 @@ export default function ComercialPropostas() {
       pm2_fundacoes: p.price_per_m2?.fundacoes ? String(p.price_per_m2.fundacoes) : "",
       proposal_date: p.proposal_date || new Date().toISOString().split("T")[0],
       notes: p.notes || "",
-      scope: p.scope || "residencial",
-      arquivo_ref_1: p.arquivo_ref_1 || "",
-      arquivo_ref_2: p.arquivo_ref_2 || "",
+      scope: (p as any).scope || "residencial",
+      arquivo_ref_1: (p as any).arquivo_ref_1 || "",
+      arquivo_ref_2: (p as any).arquivo_ref_2 || "",
     });
     setDialogOpen(true);
   };
