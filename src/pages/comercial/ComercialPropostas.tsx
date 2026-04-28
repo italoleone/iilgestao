@@ -60,6 +60,7 @@ export default function ComercialPropostas() {
   const [coordinatorSelections, setCoordinatorSelections] = useState<Record<string, string>>({});
   const [activeUsers, setActiveUsers] = useState<{ id: string; name: string }[]>([]);
   const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Estado do modal de cronograma de faturamento
   const [billingProposal, setBillingProposal] = useState<CommercialProposal | null>(null);
