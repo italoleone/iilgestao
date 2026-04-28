@@ -303,10 +303,10 @@ export default function FinanceiroDashboard() {
   };
 
   const kpis = [
-    { title: "Receita do Mês", value: fmt(receitaMes), icon: TrendingUp, color: "text-emerald-400" },
-    { title: "Despesas do Mês", value: fmt(despesaMes), icon: TrendingDown, color: "text-red-400" },
-    { title: "Resultado do Mês", value: fmt(resultado), icon: DollarSign, color: resultado >= 0 ? "text-emerald-400" : "text-red-400" },
-    { title: "A Receber (período)", value: fmt(aReceber30), icon: Clock, color: "text-accent" },
+    { title: accumulated ? "Receita Acumulada" : "Receita do Mês", value: fmt(receitaMes), icon: TrendingUp, color: "text-emerald-400" },
+    { title: accumulated ? "Despesas Acumuladas" : "Despesas do Mês", value: fmt(despesaMes), icon: TrendingDown, color: "text-red-400" },
+    { title: accumulated ? "Resultado Acumulado" : "Resultado do Mês", value: fmt(resultado), icon: DollarSign, color: resultado >= 0 ? "text-emerald-400" : "text-red-400" },
+    { title: accumulated ? "A Receber (acumulado)" : "A Receber (período)", value: fmt(aReceber30), icon: Clock, color: "text-accent" },
   ];
 
   // ── Fluxo de Caixa Previsto (Billing Schedule) ────────────────────────────
