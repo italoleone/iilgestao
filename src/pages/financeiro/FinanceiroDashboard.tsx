@@ -82,6 +82,8 @@ export default function FinanceiroDashboard() {
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
 
+  const [accumulated, setAccumulated] = useState(false);
+
   const { data: allReceivables = [] } = useReceivables();
   const { data: allPayables = [] } = usePayables();
   const { data: allBillingSchedules = [] } = useAllBillingSchedules();
@@ -90,6 +92,8 @@ export default function FinanceiroDashboard() {
 
   const monthStart = startOfMonth(new Date(selectedYear, selectedMonth));
   const monthEnd = endOfMonth(new Date(selectedYear, selectedMonth));
+  const kpiStart = accumulated ? startOfMonth(new Date(selectedYear, 0)) : monthStart;
+  const kpiEnd = monthEnd;
 
   const years = useMemo(() => {
     const y: number[] = [];
