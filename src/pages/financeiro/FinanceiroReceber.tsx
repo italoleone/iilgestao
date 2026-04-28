@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ProjectCombobox } from "@/components/ProjectCombobox";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const STATUS_BADGE: Record<string, string> = {
@@ -260,12 +261,12 @@ export default function FinanceiroReceber() {
               </div>
               <div>
                 <Label>Projeto *</Label>
-                <Select value={form.project_id} onValueChange={handleProjectChange}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o projeto" /></SelectTrigger>
-                  <SelectContent>
-                    {projects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <ProjectCombobox
+                  projects={projects as any}
+                  value={form.project_id}
+                  onValueChange={handleProjectChange}
+                  placeholder="Selecione o projeto"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
