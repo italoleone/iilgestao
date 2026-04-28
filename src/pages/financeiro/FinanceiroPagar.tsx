@@ -54,12 +54,15 @@ export default function FinanceiroPagar() {
   const deletePay = useDeletePayable();
   const markPaid = useMarkPaid();
 
+  const todayStr = format(now, "yyyy-MM-dd");
   const totalAPagar = payables.filter(p => p.status === "pendente").reduce((s, p) => s + Number(p.amount), 0);
   const totalPago = payables.filter(p => p.status === "pago").reduce((s, p) => s + Number(p.amount), 0);
-  const totalAtrasado = payables.filter(p => p.status === "atrasado").reduce((s, p) => s + Number(p.amount), 0);
+  const totalAtrasado = payables
+    .filter(p => p.status === "pendente" && p.due_date < todayStr)
+    .reduce((s, p) => s + Number(p.amount), 0);
   const maiorDespesa = payables.length > 0 ? Math.max(...payables.map(p => Number(p.amount))) : 0;
 
-  const empty = { description: "", supplier: "", amount: 0, due_date: format(now, "yyyy-MM-dd"), category: "outros", recurrent: false, recurrent_day: null as number | null, notes: "" };
+  const empty = { description: "", supplier: "", amount: 0, due_date: format(now, "yyyy-MM-dd"), category: "outros", recurrent: false, recurrent_day: null as number | null, installments: 12, notes: "" };
   const [form, setForm] = useState(empty);
 
   const openNew = () => { setEditing(null); setForm(empty); setDialogOpen(true); };
