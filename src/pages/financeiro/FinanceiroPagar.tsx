@@ -54,25 +54,33 @@ export default function FinanceiroPagar() {
   const deletePay = useDeletePayable();
   const markPaid = useMarkPaid();
 
+  const todayStr = format(now, "yyyy-MM-dd");
   const totalAPagar = payables.filter(p => p.status === "pendente").reduce((s, p) => s + Number(p.amount), 0);
   const totalPago = payables.filter(p => p.status === "pago").reduce((s, p) => s + Number(p.amount), 0);
-  const totalAtrasado = payables.filter(p => p.status === "atrasado").reduce((s, p) => s + Number(p.amount), 0);
+  const totalAtrasado = payables
+    .filter(p => p.status === "pendente" && p.due_date < todayStr)
+    .reduce((s, p) => s + Number(p.amount), 0);
   const maiorDespesa = payables.length > 0 ? Math.max(...payables.map(p => Number(p.amount))) : 0;
 
-  const empty = { description: "", supplier: "", amount: 0, due_date: format(now, "yyyy-MM-dd"), category: "outros", recurrent: false, recurrent_day: null as number | null, notes: "" };
+  const empty = { description: "", supplier: "", amount: 0, due_date: format(now, "yyyy-MM-dd"), category: "outros", recurrent: false, recurrent_day: null as number | null, installments: 12, notes: "" };
   const [form, setForm] = useState(empty);
 
   const openNew = () => { setEditing(null); setForm(empty); setDialogOpen(true); };
   const openEdit = (p: Payable) => {
     setEditing(p);
-    setForm({ description: p.description, supplier: p.supplier || "", amount: Number(p.amount), due_date: p.due_date, category: p.category, recurrent: p.recurrent, recurrent_day: p.recurrent_day, notes: p.notes || "" });
+    setForm({ description: p.description, supplier: p.supplier || "", amount: Number(p.amount), due_date: p.due_date, category: p.category, recurrent: p.recurrent, recurrent_day: p.recurrent_day, installments: 1, notes: p.notes || "" });
     setDialogOpen(true);
   };
 
   const handleSave = () => {
-    const payload: any = { ...form, amount: Number(form.amount), paid_date: null, status: "pendente", recurrent_day: form.recurrent ? form.recurrent_day : null };
-    if (editing) updatePay.mutate({ id: editing.id, ...payload }, { onSuccess: () => setDialogOpen(false) });
-    else createPay.mutate(payload, { onSuccess: () => setDialogOpen(false) });
+    const { installments, ...rest } = form;
+    const payload: any = { ...rest, amount: Number(form.amount), paid_date: null, status: "pendente", recurrent_day: form.recurrent ? form.recurrent_day : null };
+    if (editing) {
+      // Edição sempre individual (uma parcela por vez), nunca propaga.
+      updatePay.mutate({ id: editing.id, ...payload }, { onSuccess: () => setDialogOpen(false) });
+    } else {
+      createPay.mutate({ ...payload, installments: form.recurrent ? installments : 1 }, { onSuccess: () => setDialogOpen(false) });
+    }
   };
 
   const [datePickerFor, setDatePickerFor] = useState<string | null>(null);
@@ -176,10 +184,20 @@ export default function FinanceiroPagar() {
                   <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{CAT_LABELS[c]}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-3">
-                <Switch checked={form.recurrent} onCheckedChange={v => setForm({ ...form, recurrent: v })} />
+              <div className="flex items-center gap-3 flex-wrap">
+                <Switch checked={form.recurrent} onCheckedChange={v => setForm({ ...form, recurrent: v })} disabled={!!editing} />
                 <Label>Recorrente</Label>
-                {form.recurrent && <Input type="number" className="w-24" placeholder="Dia" value={form.recurrent_day || ""} onChange={e => setForm({ ...form, recurrent_day: Number(e.target.value) || null })} />}
+                {form.recurrent && (
+                  <>
+                    <Input type="number" className="w-20" placeholder="Dia" value={form.recurrent_day || ""} onChange={e => setForm({ ...form, recurrent_day: Number(e.target.value) || null })} />
+                    {!editing && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs">Nº parcelas</Label>
+                        <Input type="number" min={1} className="w-20" value={form.installments} onChange={e => setForm({ ...form, installments: Math.max(1, Number(e.target.value) || 1) })} />
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
               <div><Label>Observações</Label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
             </div>

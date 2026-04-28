@@ -120,39 +120,9 @@ export default function FinanceiroDashboard() {
   }, [allReceivables, selectedMonth, selectedYear]);
 
   // ── Fluxo de Caixa Real — 12 meses do ano selecionado ──────────────────
-  // Projeta parcelas recorrentes (mensais) de cada conta a pagar pendente
-  // até dezembro do ano selecionado, usando recurrent_day como dia de vencimento.
-  const pendingPayablesProjected = useMemo(() => {
-    type Item = { amount: number; due_date: string };
-    const list: Item[] = [];
-    const yearEnd = endOfMonth(new Date(selectedYear, 11));
-    allPayables
-      .filter(p => p.status === "pendente" || p.status === "em_aberto")
-      .forEach(p => {
-        const baseDue = parseISO(p.due_date);
-        list.push({ amount: Number(p.amount), due_date: p.due_date });
-        if (p.recurrent) {
-          const day = p.recurrent_day || baseDue.getDate();
-          // Avança mês a mês a partir do mês seguinte ao baseDue
-          let y = baseDue.getFullYear();
-          let m = baseDue.getMonth() + 1;
-          while (true) {
-            if (m > 11) { m = 0; y += 1; }
-            const lastDay = new Date(y, m + 1, 0).getDate();
-            const safeDay = Math.min(day, lastDay);
-            const next = new Date(y, m, safeDay);
-            if (next > yearEnd) break;
-            list.push({
-              amount: Number(p.amount),
-              due_date: format(next, "yyyy-MM-dd"),
-            });
-            m += 1;
-          }
-        }
-      });
-    return list;
-  }, [allPayables, selectedYear]);
-
+  // Usa exatamente os mesmos registros gravados na tabela `payables`/`receivables`.
+  // Parcelas recorrentes já existem como linhas independentes no banco, então
+  // não há mais projeção em runtime — o que aparece aqui é o que está em Contas a Pagar.
   const realCashFlowData = useMemo(() => {
     return MONTH_NAMES.map((label, idx) => {
       const ms = startOfMonth(new Date(selectedYear, idx));
@@ -167,9 +137,12 @@ export default function FinanceiroDashboard() {
       const pago = allPayables
         .filter(p => p.status === "pago" && p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: ms, end: me }))
         .reduce((s, p) => s + Number(p.amount), 0);
-      const pendente = pendingPayablesProjected
-        .filter(p => isWithinInterval(parseISO(p.due_date), { start: ms, end: me }))
-        .reduce((s, p) => s + p.amount, 0);
+      const pendente = allPayables
+        .filter(p =>
+          (p.status === "pendente" || p.status === "em_aberto") &&
+          isWithinInterval(parseISO(p.due_date), { start: ms, end: me })
+        )
+        .reduce((s, p) => s + Number(p.amount), 0);
       return {
         name: label.slice(0, 3),
         recebido,
@@ -178,7 +151,7 @@ export default function FinanceiroDashboard() {
         resultado: recebido - pago,
       };
     });
-  }, [allReceivables, allPayables, pendingPayablesProjected, selectedYear]);
+  }, [allReceivables, allPayables, selectedYear]);
 
   // Expenses by category
   const catData = useMemo(() => {
@@ -271,7 +244,8 @@ export default function FinanceiroDashboard() {
   // Payables expandido com parcelas recorrentes
   const upcomingPayRows = useMemo(() => {
     const limit = periodLimit(payPeriod);
-    const horizon = limit ?? endOfMonth(new Date(today.getFullYear() + 2, 11));
+    // Parcelas recorrentes já estão gravadas como linhas independentes em `payables`,
+    // então não há mais expansão em runtime — apenas listamos o que existe no DB.
     const expanded: Array<{
       id: string;
       name: string;
@@ -286,7 +260,6 @@ export default function FinanceiroDashboard() {
     }> = [];
 
     allPayables.forEach(p => {
-      const baseDue = parseISO(p.due_date);
       expanded.push({
         id: p.id,
         name: p.supplier || p.description,
@@ -299,34 +272,6 @@ export default function FinanceiroDashboard() {
         isRecurrent: !!p.recurrent,
         type: "pay",
       });
-      if (p.recurrent && p.status !== "pago") {
-        const day = p.recurrent_day || baseDue.getDate();
-        let y = baseDue.getFullYear();
-        let m = baseDue.getMonth() + 1;
-        let i = 0;
-        while (i < 60) {
-          if (m > 11) { m = 0; y += 1; }
-          const lastDay = new Date(y, m + 1, 0).getDate();
-          const safeDay = Math.min(day, lastDay);
-          const next = new Date(y, m, safeDay);
-          if (next > horizon) break;
-          const nextStr = format(next, "yyyy-MM-dd");
-          expanded.push({
-            id: `${p.id}-${nextStr}`,
-            name: p.supplier || p.description,
-            description: p.description,
-            category: p.category,
-            due_date: nextStr,
-            amount: Number(p.amount),
-            status: nextStr < todayStr ? "vencido" : "pendente",
-            rawStatus: "pendente",
-            isRecurrent: true,
-            type: "pay",
-          });
-          m += 1;
-          i += 1;
-        }
-      }
     });
 
     let rows = expanded;
