@@ -20,7 +20,7 @@ import {
 } from "@/hooks/useCommercialData";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Search, Eye, CheckCircle, XCircle, FileDown, Trash2, CalendarClock, Info } from "lucide-react";
+import { Plus, Search, Eye, CheckCircle, XCircle, FileDown, Trash2, CalendarClock, Info, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 const STATUS_COLORS: Record<ProposalStatus, string> = {
@@ -60,6 +60,7 @@ export default function ComercialPropostas() {
   const [coordinatorSelections, setCoordinatorSelections] = useState<Record<string, string>>({});
   const [activeUsers, setActiveUsers] = useState<{ id: string; name: string }[]>([]);
   const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Estado do modal de cronograma de faturamento
   const [billingProposal, setBillingProposal] = useState<CommercialProposal | null>(null);
@@ -93,11 +94,31 @@ export default function ComercialPropostas() {
   });
 
   const openCreate = () => {
+    setEditingId(null);
     setForm({
       client_id: "", project_name: "", area_m2: "",
       pm2_estrutural: "", pm2_hidraulica: "", pm2_eletrica: "", pm2_fundacoes: "",
       proposal_date: new Date().toISOString().split("T")[0],
       notes: "", scope: "residencial", arquivo_ref_1: "", arquivo_ref_2: "",
+    });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (p: CommercialProposal) => {
+    setEditingId(p.id);
+    setForm({
+      client_id: p.client_id || "",
+      project_name: p.project_name || "",
+      area_m2: p.area_m2 ? String(p.area_m2) : "",
+      pm2_estrutural: p.price_per_m2?.estrutural ? String(p.price_per_m2.estrutural) : "",
+      pm2_hidraulica: p.price_per_m2?.hidraulica ? String(p.price_per_m2.hidraulica) : "",
+      pm2_eletrica: p.price_per_m2?.eletrica ? String(p.price_per_m2.eletrica) : "",
+      pm2_fundacoes: p.price_per_m2?.fundacoes ? String(p.price_per_m2.fundacoes) : "",
+      proposal_date: p.proposal_date || new Date().toISOString().split("T")[0],
+      notes: p.notes || "",
+      scope: (p as any).scope || "residencial",
+      arquivo_ref_1: (p as any).arquivo_ref_1 || "",
+      arquivo_ref_2: (p as any).arquivo_ref_2 || "",
     });
     setDialogOpen(true);
   };
@@ -122,7 +143,7 @@ export default function ComercialPropostas() {
 
     const total = Object.values(disciplines).reduce((s, v) => s + (v || 0), 0);
 
-    createProposal.mutate({
+    const payload = {
       client_id: form.client_id,
       project_name: form.project_name,
       area_m2: area,
@@ -135,7 +156,15 @@ export default function ComercialPropostas() {
       scope: form.scope,
       arquivo_ref_1: form.arquivo_ref_1 || undefined,
       arquivo_ref_2: form.arquivo_ref_2 || undefined,
-    } as any, { onSuccess: () => setDialogOpen(false) });
+    };
+
+    if (editingId) {
+      updateProposal.mutate({ id: editingId, ...payload } as any, {
+        onSuccess: () => { setDialogOpen(false); setEditingId(null); },
+      });
+    } else {
+      createProposal.mutate(payload as any, { onSuccess: () => setDialogOpen(false) });
+    }
   };
 
   const openApprovalModal = (p: CommercialProposal) => {
@@ -281,6 +310,9 @@ export default function ComercialPropostas() {
                           <Button variant="ghost" size="icon" title="Ver detalhes" onClick={(e) => { e.stopPropagation(); setDetailProposal(p); }}>
                             <Eye className="h-4 w-4" />
                           </Button>
+                          <Button variant="ghost" size="icon" title="Editar proposta" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" title="Gerar Documento" onClick={(e) => { e.stopPropagation(); handleGerarPDF(p); }} disabled={gerandoPDF === p.id}>
                             {gerandoPDF === p.id
                               ? <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -319,9 +351,9 @@ export default function ComercialPropostas() {
         </Card>
 
         {/* Create Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditingId(null); }}>
           <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Nova Proposta</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editingId ? "Editar Proposta" : "Nova Proposta"}</DialogTitle></DialogHeader>
             <CreateProposalForm form={form} setForm={setForm} clients={clients} onSave={handleCreate} selectedClientId={form.client_id} calcDisciplineValue={calcDisciplineValue} />
           </DialogContent>
         </Dialog>
