@@ -103,8 +103,34 @@ export function useCreateReceivable() {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (input: Omit<Receivable, "id" | "created_at" | "created_by">) => {
-      const { error } = await supabase.from("receivables").insert({ ...input, created_by: user!.id } as any);
+    mutationFn: async (
+      input: Omit<Receivable, "id" | "created_at" | "created_by"> & {
+        recurrent?: boolean;
+        installments?: number;
+        frequency_months?: number;
+      }
+    ) => {
+      const { recurrent, installments, frequency_months, ...base } = input as any;
+      const count = recurrent ? Math.max(1, Number(installments) || 1) : 1;
+      const step = Math.max(1, Number(frequency_months) || 1);
+
+      const [yStr, mStr, dStr] = String(base.due_date).split("-");
+      const baseYear = Number(yStr);
+      const baseMonth = Number(mStr) - 1;
+      const baseDay = Number(dStr);
+
+      const rows = Array.from({ length: count }, (_, i) => {
+        const m = baseMonth + i * step;
+        const y = baseYear + Math.floor(m / 12);
+        const mm = ((m % 12) + 12) % 12;
+        const lastDay = new Date(y, mm + 1, 0).getDate();
+        const day = Math.min(baseDay, lastDay);
+        const due = `${y}-${String(mm + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const installment_number = count > 1 ? `${i + 1}/${count}` : base.installment_number;
+        return { ...base, due_date: due, installment_number, created_by: user!.id };
+      });
+
+      const { error } = await supabase.from("receivables").insert(rows as any);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["receivables"] }); toast.success("Conta a receber criada"); },
