@@ -82,6 +82,8 @@ export default function FinanceiroDashboard() {
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
 
+  const [accumulated, setAccumulated] = useState(false);
+
   const { data: allReceivables = [] } = useReceivables();
   const { data: allPayables = [] } = usePayables();
   const { data: allBillingSchedules = [] } = useAllBillingSchedules();
@@ -90,6 +92,8 @@ export default function FinanceiroDashboard() {
 
   const monthStart = startOfMonth(new Date(selectedYear, selectedMonth));
   const monthEnd = endOfMonth(new Date(selectedYear, selectedMonth));
+  const kpiStart = accumulated ? startOfMonth(new Date(selectedYear, 0)) : monthStart;
+  const kpiEnd = monthEnd;
 
   const years = useMemo(() => {
     const y: number[] = [];
@@ -100,24 +104,29 @@ export default function FinanceiroDashboard() {
   // KPIs
   const receitaMes = useMemo(() =>
     allReceivables
-      .filter(r => r.received_date && isWithinInterval(parseISO(r.received_date), { start: monthStart, end: monthEnd }))
+      .filter(r => r.received_date && isWithinInterval(parseISO(r.received_date), { start: kpiStart, end: kpiEnd }))
       .reduce((s, r) => s + Number(r.amount), 0),
-    [allReceivables, selectedMonth, selectedYear]);
+    [allReceivables, selectedMonth, selectedYear, accumulated]);
 
   const despesaMes = useMemo(() =>
     allPayables
-      .filter(p => p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: monthStart, end: monthEnd }))
+      .filter(p => p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: kpiStart, end: kpiEnd }))
       .reduce((s, p) => s + Number(p.amount), 0),
-    [allPayables, selectedMonth, selectedYear]);
+    [allPayables, selectedMonth, selectedYear, accumulated]);
 
   const resultado = receitaMes - despesaMes;
 
   const aReceber30 = useMemo(() => {
+    if (accumulated) {
+      return allReceivables
+        .filter(r => r.status === "pendente" && isWithinInterval(parseISO(r.due_date), { start: kpiStart, end: kpiEnd }))
+        .reduce((s, r) => s + Number(r.amount), 0);
+    }
     const limit = addDays(monthEnd, 30);
     return allReceivables
       .filter(r => r.status === "pendente" && isWithinInterval(parseISO(r.due_date), { start: monthStart, end: limit }))
       .reduce((s, r) => s + Number(r.amount), 0);
-  }, [allReceivables, selectedMonth, selectedYear]);
+  }, [allReceivables, selectedMonth, selectedYear, accumulated]);
 
   // ── Fluxo de Caixa Real — 12 meses do ano selecionado ──────────────────
   // Usa exatamente os mesmos registros gravados na tabela `payables`/`receivables`.
@@ -294,10 +303,10 @@ export default function FinanceiroDashboard() {
   };
 
   const kpis = [
-    { title: "Receita do Mês", value: fmt(receitaMes), icon: TrendingUp, color: "text-emerald-400" },
-    { title: "Despesas do Mês", value: fmt(despesaMes), icon: TrendingDown, color: "text-red-400" },
-    { title: "Resultado do Mês", value: fmt(resultado), icon: DollarSign, color: resultado >= 0 ? "text-emerald-400" : "text-red-400" },
-    { title: "A Receber (período)", value: fmt(aReceber30), icon: Clock, color: "text-accent" },
+    { title: accumulated ? "Receita Acumulada" : "Receita do Mês", value: fmt(receitaMes), icon: TrendingUp, color: "text-emerald-400" },
+    { title: accumulated ? "Despesas Acumuladas" : "Despesas do Mês", value: fmt(despesaMes), icon: TrendingDown, color: "text-red-400" },
+    { title: accumulated ? "Resultado Acumulado" : "Resultado do Mês", value: fmt(resultado), icon: DollarSign, color: resultado >= 0 ? "text-emerald-400" : "text-red-400" },
+    { title: accumulated ? "A Receber (acumulado)" : "A Receber (período)", value: fmt(aReceber30), icon: Clock, color: "text-accent" },
   ];
 
   // ── Fluxo de Caixa Previsto (Billing Schedule) ────────────────────────────
@@ -383,6 +392,13 @@ export default function FinanceiroDashboard() {
                 ))}
               </SelectContent>
             </Select>
+            <Button
+              variant={accumulated ? "default" : "outline"}
+              onClick={() => setAccumulated(v => !v)}
+              className="gap-2"
+            >
+              Acumulado
+            </Button>
           </div>
         </div>
 
