@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   DollarSign, TrendingUp, TrendingDown, Clock, CheckCircle,
   ChevronDown, ChevronUp, ChevronsUpDown, Check, CalendarClock, XCircle,
+  Repeat, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useReceivables, usePayables, useMarkReceived, useMarkPaid, useProjetoCusto } from "@/hooks/useFinanceiroData";
@@ -27,6 +28,18 @@ import { cn } from "@/lib/utils";
 
 const fmt = (v: number | undefined | null) =>
   (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    pago: { label: "Pago", cls: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30" },
+    recebido: { label: "Recebido", cls: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30" },
+    pendente: { label: "Pendente", cls: "bg-yellow-500/15 text-yellow-500 border-yellow-500/30" },
+    vencido: { label: "Vencido", cls: "bg-orange-500/15 text-orange-500 border-orange-500/30" },
+    em_aberto: { label: "Em aberto", cls: "bg-muted text-muted-foreground border-border" },
+  };
+  const s = map[status] || { label: status, cls: "bg-muted text-muted-foreground border-border" };
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-medium ${s.cls}`}>{s.label}</span>;
+}
 
 const PIE_COLORS: Record<string, string> = {
   salario: "hsl(220, 70%, 55%)",
@@ -176,18 +189,153 @@ export default function FinanceiroDashboard() {
     return Object.entries(map).map(([k, v]) => ({ name: CAT_LABELS[k] || k, value: v, color: PIE_COLORS[k] || PIE_COLORS.outros }));
   }, [allPayables, selectedMonth, selectedYear]);
 
-  // Upcoming receivables
-  const upcoming15Rec = useMemo(() => {
-    return allReceivables
-      .filter(r => r.status === "pendente" && isWithinInterval(parseISO(r.due_date), { start: monthStart, end: addDays(monthEnd, 15) }))
-      .slice(0, 8);
-  }, [allReceivables, selectedMonth, selectedYear]);
+  // ── Upcoming: filtros independentes ───────────────────────────────────────
+  const [recPeriod, setRecPeriod] = useState<string>("30");
+  const [recStatus, setRecStatus] = useState<string>("todos");
+  const [recCategory, setRecCategory] = useState<string>("todos");
+  const [recClient, setRecClient] = useState<string>("todos");
+  const [recSortDesc, setRecSortDesc] = useState<boolean>(true);
 
-  const upcoming15Pay = useMemo(() => {
-    return allPayables
-      .filter(p => p.status === "pendente" && isWithinInterval(parseISO(p.due_date), { start: monthStart, end: addDays(monthEnd, 15) }))
-      .slice(0, 8);
-  }, [allPayables, selectedMonth, selectedYear]);
+  const [payPeriod, setPayPeriod] = useState<string>("30");
+  const [payStatus, setPayStatus] = useState<string>("todos");
+  const [payCategory, setPayCategory] = useState<string>("todos");
+  const [paySortDesc, setPaySortDesc] = useState<boolean>(true);
+
+  const today = new Date();
+  const todayStr = format(today, "yyyy-MM-dd");
+
+  // Categorias dinâmicas
+  const recCategories = useMemo(() => {
+    const set = new Set<string>();
+    allReceivables.forEach(r => r.category && set.add(r.category));
+    return Array.from(set).sort();
+  }, [allReceivables]);
+
+  const payCategories = useMemo(() => {
+    const set = new Set<string>();
+    allPayables.forEach(p => p.category && set.add(p.category));
+    return Array.from(set).sort();
+  }, [allPayables]);
+
+  // Lista de clientes únicos do bloco a receber
+  const recClients = useMemo(() => {
+    const set = new Set<string>();
+    allReceivables.forEach(r => r.client_name && set.add(r.client_name));
+    return Array.from(set).sort();
+  }, [allReceivables]);
+
+  // Status efetivo (calcula "vencido" no front)
+  const computeStatus = (status: string, dueDate: string, paidOrReceived: string | null) => {
+    if (status === "pago" || status === "recebido") return "pago";
+    if (status === "em_aberto") {
+      if (dueDate < todayStr) return "vencido";
+      return "em_aberto";
+    }
+    if (status === "pendente") {
+      if (dueDate < todayStr && !paidOrReceived) return "vencido";
+      return "pendente";
+    }
+    return status;
+  };
+
+  const periodLimit = (days: string): Date | null => {
+    if (days === "all") return null;
+    return addDays(today, Number(days));
+  };
+
+  // Receivables expandido (sem expansão recorrente — receivables não são recorrentes no schema)
+  const upcomingRecRows = useMemo(() => {
+    const limit = periodLimit(recPeriod);
+    let rows = allReceivables.map(r => ({
+      id: r.id,
+      name: r.client_name,
+      description: r.description,
+      category: r.category,
+      due_date: r.due_date,
+      amount: Number(r.amount),
+      status: computeStatus(r.status, r.due_date, r.received_date),
+      rawStatus: r.status,
+      isRecurrent: false,
+      type: "rec" as const,
+    }));
+    if (limit) {
+      rows = rows.filter(r => parseISO(r.due_date) <= limit);
+    }
+    if (recStatus !== "todos") rows = rows.filter(r => r.status === recStatus);
+    if (recCategory !== "todos") rows = rows.filter(r => r.category === recCategory);
+    if (recClient !== "todos") rows = rows.filter(r => r.name === recClient);
+    rows.sort((a, b) => recSortDesc ? b.amount - a.amount : a.amount - b.amount);
+    return rows;
+  }, [allReceivables, recPeriod, recStatus, recCategory, recClient, recSortDesc, todayStr]);
+
+  // Payables expandido com parcelas recorrentes
+  const upcomingPayRows = useMemo(() => {
+    const limit = periodLimit(payPeriod);
+    const horizon = limit ?? endOfMonth(new Date(today.getFullYear() + 2, 11));
+    const expanded: Array<{
+      id: string;
+      name: string;
+      description: string;
+      category: string;
+      due_date: string;
+      amount: number;
+      status: string;
+      rawStatus: string;
+      isRecurrent: boolean;
+      type: "pay";
+    }> = [];
+
+    allPayables.forEach(p => {
+      const baseDue = parseISO(p.due_date);
+      expanded.push({
+        id: p.id,
+        name: p.supplier || p.description,
+        description: p.description,
+        category: p.category,
+        due_date: p.due_date,
+        amount: Number(p.amount),
+        status: computeStatus(p.status, p.due_date, p.paid_date),
+        rawStatus: p.status,
+        isRecurrent: !!p.recurrent,
+        type: "pay",
+      });
+      if (p.recurrent && p.status !== "pago") {
+        const day = p.recurrent_day || baseDue.getDate();
+        let y = baseDue.getFullYear();
+        let m = baseDue.getMonth() + 1;
+        let i = 0;
+        while (i < 60) {
+          if (m > 11) { m = 0; y += 1; }
+          const lastDay = new Date(y, m + 1, 0).getDate();
+          const safeDay = Math.min(day, lastDay);
+          const next = new Date(y, m, safeDay);
+          if (next > horizon) break;
+          const nextStr = format(next, "yyyy-MM-dd");
+          expanded.push({
+            id: `${p.id}-${nextStr}`,
+            name: p.supplier || p.description,
+            description: p.description,
+            category: p.category,
+            due_date: nextStr,
+            amount: Number(p.amount),
+            status: nextStr < todayStr ? "vencido" : "pendente",
+            rawStatus: "pendente",
+            isRecurrent: true,
+            type: "pay",
+          });
+          m += 1;
+          i += 1;
+        }
+      }
+    });
+
+    let rows = expanded;
+    if (limit) rows = rows.filter(r => parseISO(r.due_date) <= limit);
+    if (payStatus !== "todos") rows = rows.filter(r => r.status === payStatus);
+    if (payCategory !== "todos") rows = rows.filter(r => r.category === payCategory);
+    rows.sort((a, b) => paySortDesc ? b.amount - a.amount : a.amount - b.amount);
+    return rows;
+  }, [allPayables, payPeriod, payStatus, payCategory, paySortDesc, todayStr]);
 
   const [datePickerFor, setDatePickerFor] = useState<{ type: "rec" | "pay"; id: string } | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -332,69 +480,217 @@ export default function FinanceiroDashboard() {
 
         {/* Upcoming */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* ── A RECEBER ───────────────────────────────────────────────── */}
           <Card>
-            <CardHeader><CardTitle className="text-sm">Próximos Vencimentos — A Receber</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {upcoming15Rec.length === 0 && <p className="text-sm text-muted-foreground">Nenhum vencimento próximo</p>}
-              {upcoming15Rec.map(r => (
-                <div key={r.id} className="flex items-center justify-between p-2 rounded-md bg-muted/30">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{r.client_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{r.description}</p>
-                  </div>
-                  <div className="text-right flex items-center gap-2">
-                    <div>
-                      <p className="text-sm font-semibold">{fmt(Number(r.amount))}</p>
-                      <p className="text-xs text-muted-foreground">{format(parseISO(r.due_date), "dd/MM")}</p>
-                    </div>
-                    <Popover open={datePickerFor?.id === r.id && datePickerFor?.type === "rec"} onOpenChange={(o) => !o && setDatePickerFor(null)}>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" title="Marcar como recebido" onClick={() => { setDatePickerFor({ type: "rec", id: r.id }); setSelectedDate(new Date()); }}>
-                          <CheckCircle className="h-4 w-4 text-emerald-400" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="end">
-                        <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className={cn("p-3 pointer-events-auto")} />
-                        <div className="p-2 border-t flex justify-end"><Button size="sm" onClick={handleConfirmDate}>Confirmar</Button></div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+            <CardHeader>
+              <CardTitle className="text-sm">Próximos Vencimentos — A Receber</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Filtros */}
+              <div className="flex flex-wrap gap-2">
+                <Select value={recPeriod} onValueChange={setRecPeriod}>
+                  <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">Próximos 7 dias</SelectItem>
+                    <SelectItem value="15">Próximos 15 dias</SelectItem>
+                    <SelectItem value="30">Próximos 30 dias</SelectItem>
+                    <SelectItem value="60">Próximos 60 dias</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={recStatus} onValueChange={setRecStatus}>
+                  <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos status</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="pago">Recebido</SelectItem>
+                    <SelectItem value="em_aberto">Em aberto</SelectItem>
+                    <SelectItem value="vencido"><span className="text-orange-500 font-medium">Vencido</span></SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={recCategory} onValueChange={setRecCategory}>
+                  <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Categorias</SelectItem>
+                    {recCategories.map(c => (
+                      <SelectItem key={c} value={c}>{CAT_LABELS[c] || c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={recClient} onValueChange={setRecClient}>
+                  <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos clientes</SelectItem>
+                    {recClients.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" className="h-8 px-2 text-xs"
+                  onClick={() => setRecSortDesc(!recSortDesc)}
+                  title="Ordenar por valor"
+                >
+                  Valor {recSortDesc ? <ArrowDown className="h-3 w-3 ml-1" /> : <ArrowUp className="h-3 w-3 ml-1" />}
+                </Button>
+              </div>
+
+              {/* Tabela com altura fixa */}
+              <div className="border rounded-md overflow-hidden">
+                <div className="overflow-y-auto" style={{ maxHeight: "calc(6 * 44px + 36px)" }}>
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-card z-10">
+                      <TableRow>
+                        <TableHead className="text-xs h-9">Cliente</TableHead>
+                        <TableHead className="text-xs h-9">Categoria</TableHead>
+                        <TableHead className="text-xs h-9">Vencimento</TableHead>
+                        <TableHead className="text-xs h-9 text-right">Valor</TableHead>
+                        <TableHead className="text-xs h-9">Status</TableHead>
+                        <TableHead className="text-xs h-9 w-[40px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {upcomingRecRows.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground text-xs py-6">
+                            Nenhum lançamento encontrado
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {upcomingRecRows.map(r => (
+                        <TableRow key={r.id} className="h-11">
+                          <TableCell className="text-xs font-medium truncate max-w-[160px]">{r.name}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{CAT_LABELS[r.category] || r.category}</TableCell>
+                          <TableCell className="text-xs">{format(parseISO(r.due_date), "dd/MM/yy")}</TableCell>
+                          <TableCell className="text-xs text-right font-semibold">{fmt(r.amount)}</TableCell>
+                          <TableCell><StatusBadge status={r.status} /></TableCell>
+                          <TableCell>
+                            {r.status !== "pago" && (
+                              <Popover open={datePickerFor?.id === r.id && datePickerFor?.type === "rec"} onOpenChange={(o) => !o && setDatePickerFor(null)}>
+                                <PopoverTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Marcar como recebido"
+                                    onClick={() => { setDatePickerFor({ type: "rec", id: r.id }); setSelectedDate(new Date()); }}>
+                                    <CheckCircle className="h-4 w-4 text-emerald-400" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                  <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className={cn("p-3 pointer-events-auto")} />
+                                  <div className="p-2 border-t flex justify-end"><Button size="sm" onClick={handleConfirmDate}>Confirmar</Button></div>
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-              ))}
+              </div>
             </CardContent>
           </Card>
 
+          {/* ── A PAGAR ─────────────────────────────────────────────────── */}
           <Card>
-            <CardHeader><CardTitle className="text-sm">Próximos Vencimentos — A Pagar</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {upcoming15Pay.length === 0 && <p className="text-sm text-muted-foreground">Nenhum vencimento próximo</p>}
-              {upcoming15Pay.map(p => (
-                <div key={p.id} className="flex items-center justify-between p-2 rounded-md bg-muted/30">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{p.supplier || p.description}</p>
-                    <div className="flex items-center gap-1">
-                      <Badge variant="outline" className="text-[10px]">{CAT_LABELS[p.category] || p.category}</Badge>
-                    </div>
-                  </div>
-                  <div className="text-right flex items-center gap-2">
-                    <div>
-                      <p className="text-sm font-semibold">{fmt(Number(p.amount))}</p>
-                      <p className="text-xs text-muted-foreground">{format(parseISO(p.due_date), "dd/MM")}</p>
-                    </div>
-                    <Popover open={datePickerFor?.id === p.id && datePickerFor?.type === "pay"} onOpenChange={(o) => !o && setDatePickerFor(null)}>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" title="Marcar como pago" onClick={() => { setDatePickerFor({ type: "pay", id: p.id }); setSelectedDate(new Date()); }}>
-                          <CheckCircle className="h-4 w-4 text-emerald-400" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="end">
-                        <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className={cn("p-3 pointer-events-auto")} />
-                        <div className="p-2 border-t flex justify-end"><Button size="sm" onClick={handleConfirmDate}>Confirmar</Button></div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
+            <CardHeader>
+              <CardTitle className="text-sm">Próximos Vencimentos — A Pagar</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Filtros */}
+              <div className="flex flex-wrap gap-2">
+                <Select value={payPeriod} onValueChange={setPayPeriod}>
+                  <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">Próximos 7 dias</SelectItem>
+                    <SelectItem value="15">Próximos 15 dias</SelectItem>
+                    <SelectItem value="30">Próximos 30 dias</SelectItem>
+                    <SelectItem value="60">Próximos 60 dias</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={payStatus} onValueChange={setPayStatus}>
+                  <SelectTrigger className="h-8 w-[120px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos status</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="pago">Pago</SelectItem>
+                    <SelectItem value="em_aberto">Em aberto</SelectItem>
+                    <SelectItem value="vencido">
+                      <span className="text-orange-500 font-semibold">Vencido</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={payCategory} onValueChange={setPayCategory}>
+                  <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Categorias</SelectItem>
+                    {payCategories.map(c => (
+                      <SelectItem key={c} value={c}>{CAT_LABELS[c] || c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" className="h-8 px-2 text-xs"
+                  onClick={() => setPaySortDesc(!paySortDesc)}
+                  title="Ordenar por valor"
+                >
+                  Valor {paySortDesc ? <ArrowDown className="h-3 w-3 ml-1" /> : <ArrowUp className="h-3 w-3 ml-1" />}
+                </Button>
+              </div>
+
+              {/* Tabela */}
+              <div className="border rounded-md overflow-hidden">
+                <div className="overflow-y-auto" style={{ maxHeight: "calc(6 * 44px + 36px)" }}>
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-card z-10">
+                      <TableRow>
+                        <TableHead className="text-xs h-9">Fornecedor</TableHead>
+                        <TableHead className="text-xs h-9">Categoria</TableHead>
+                        <TableHead className="text-xs h-9">Vencimento</TableHead>
+                        <TableHead className="text-xs h-9 text-right">Valor</TableHead>
+                        <TableHead className="text-xs h-9">Status</TableHead>
+                        <TableHead className="text-xs h-9 w-[40px]"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {upcomingPayRows.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground text-xs py-6">
+                            Nenhum lançamento encontrado
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {upcomingPayRows.map(p => (
+                        <TableRow key={p.id} className="h-11">
+                          <TableCell className="text-xs font-medium truncate max-w-[160px]">
+                            <div className="flex items-center gap-1">
+                              {p.isRecurrent && <Repeat className="h-3 w-3 text-muted-foreground shrink-0" />}
+                              <span className="truncate">{p.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{CAT_LABELS[p.category] || p.category}</TableCell>
+                          <TableCell className="text-xs">{format(parseISO(p.due_date), "dd/MM/yy")}</TableCell>
+                          <TableCell className="text-xs text-right font-semibold">{fmt(p.amount)}</TableCell>
+                          <TableCell><StatusBadge status={p.status} /></TableCell>
+                          <TableCell>
+                            {p.status !== "pago" && !p.id.includes("-20") && (
+                              <Popover open={datePickerFor?.id === p.id && datePickerFor?.type === "pay"} onOpenChange={(o) => !o && setDatePickerFor(null)}>
+                                <PopoverTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Marcar como pago"
+                                    onClick={() => { setDatePickerFor({ type: "pay", id: p.id }); setSelectedDate(new Date()); }}>
+                                    <CheckCircle className="h-4 w-4 text-emerald-400" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                  <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className={cn("p-3 pointer-events-auto")} />
+                                  <div className="p-2 border-t flex justify-end"><Button size="sm" onClick={handleConfirmDate}>Confirmar</Button></div>
+                                </PopoverContent>
+                              </Popover>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-              ))}
+              </div>
             </CardContent>
           </Card>
         </div>
