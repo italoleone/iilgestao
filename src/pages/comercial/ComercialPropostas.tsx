@@ -351,9 +351,9 @@ export default function ComercialPropostas() {
         </Card>
 
         {/* Create Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setEditingId(null); }}>
           <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Nova Proposta</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editingId ? "Editar Proposta" : "Nova Proposta"}</DialogTitle></DialogHeader>
             <CreateProposalForm form={form} setForm={setForm} clients={clients} onSave={handleCreate} selectedClientId={form.client_id} calcDisciplineValue={calcDisciplineValue} />
           </DialogContent>
         </Dialog>
