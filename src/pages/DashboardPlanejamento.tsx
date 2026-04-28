@@ -95,11 +95,14 @@ export default function DashboardPlanejamento() {
   const now = new Date();
   const weekStart = startOfWeek();
 
+  // Status que NÃO contam como atrasado/pendente, independentemente da data
+  const CLOSED_STATUSES = ["concluida", "enviado_cliente", "aprovada", "cancelada"];
+
   // 1. Overdue tasks
   const overdueTasks = useMemo(() =>
     filteredTasks.filter(t => {
       const d = daysFromNow(t.endDate);
-      return d !== null && d < 0 && !["aprovada", "concluida"].includes(t.status);
+      return d !== null && d < 0 && !CLOSED_STATUSES.includes(t.status);
     }).sort((a, b) => (daysFromNow(a.endDate) ?? 0) - (daysFromNow(b.endDate) ?? 0)),
     [filteredTasks]
   );
@@ -108,7 +111,7 @@ export default function DashboardPlanejamento() {
   const dueTodayTasks = useMemo(() =>
     filteredTasks.filter(t => {
       const d = daysFromNow(t.endDate);
-      return d !== null && d === 0 && !["aprovada", "concluida"].includes(t.status);
+      return d !== null && d === 0 && !CLOSED_STATUSES.includes(t.status);
     }),
     [filteredTasks]
   );
