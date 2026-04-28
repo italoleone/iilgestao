@@ -74,6 +74,9 @@ export default function FinanceiroReceber() {
     tax_percentage: 0,
     due_date: format(now, "yyyy-MM-dd"),
     installment_number: "",
+    recurrent: false,
+    installments: 12,
+    frequency_months: 1,
   };
   const [form, setForm] = useState(emptyForm);
 
@@ -90,6 +93,9 @@ export default function FinanceiroReceber() {
       tax_percentage: Number((r as any).tax_percentage) || 0,
       due_date: r.due_date,
       installment_number: (r as any).installment_number || "",
+      recurrent: false,
+      installments: 12,
+      frequency_months: 1,
     });
     setDialogOpen(true);
   };
