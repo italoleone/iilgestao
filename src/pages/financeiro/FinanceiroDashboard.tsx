@@ -104,24 +104,29 @@ export default function FinanceiroDashboard() {
   // KPIs
   const receitaMes = useMemo(() =>
     allReceivables
-      .filter(r => r.received_date && isWithinInterval(parseISO(r.received_date), { start: monthStart, end: monthEnd }))
+      .filter(r => r.received_date && isWithinInterval(parseISO(r.received_date), { start: kpiStart, end: kpiEnd }))
       .reduce((s, r) => s + Number(r.amount), 0),
-    [allReceivables, selectedMonth, selectedYear]);
+    [allReceivables, selectedMonth, selectedYear, accumulated]);
 
   const despesaMes = useMemo(() =>
     allPayables
-      .filter(p => p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: monthStart, end: monthEnd }))
+      .filter(p => p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: kpiStart, end: kpiEnd }))
       .reduce((s, p) => s + Number(p.amount), 0),
-    [allPayables, selectedMonth, selectedYear]);
+    [allPayables, selectedMonth, selectedYear, accumulated]);
 
   const resultado = receitaMes - despesaMes;
 
   const aReceber30 = useMemo(() => {
+    if (accumulated) {
+      return allReceivables
+        .filter(r => r.status === "pendente" && isWithinInterval(parseISO(r.due_date), { start: kpiStart, end: kpiEnd }))
+        .reduce((s, r) => s + Number(r.amount), 0);
+    }
     const limit = addDays(monthEnd, 30);
     return allReceivables
       .filter(r => r.status === "pendente" && isWithinInterval(parseISO(r.due_date), { start: monthStart, end: limit }))
       .reduce((s, r) => s + Number(r.amount), 0);
-  }, [allReceivables, selectedMonth, selectedYear]);
+  }, [allReceivables, selectedMonth, selectedYear, accumulated]);
 
   // ── Fluxo de Caixa Real — 12 meses do ano selecionado ──────────────────
   // Usa exatamente os mesmos registros gravados na tabela `payables`/`receivables`.
