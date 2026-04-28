@@ -175,8 +175,31 @@ export function useCreatePayable() {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: async (input: Omit<Payable, "id" | "created_at" | "created_by">) => {
-      const { error } = await supabase.from("payables").insert({ ...input, created_by: user!.id } as any);
+    mutationFn: async (
+      input: Omit<Payable, "id" | "created_at" | "created_by"> & { installments?: number }
+    ) => {
+      const { installments, ...base } = input as any;
+      const count = base.recurrent ? Math.max(1, Number(installments) || 1) : 1;
+
+      // Calcula data de cada parcela a partir de due_date, mês a mês.
+      // Mantém o dia (ou recurrent_day se informado) e ajusta para o último
+      // dia do mês quando o dia não existir (ex.: 31/02 → 28 ou 29).
+      const [yStr, mStr, dStr] = String(base.due_date).split("-");
+      const baseYear = Number(yStr);
+      const baseMonth = Number(mStr) - 1; // 0-based
+      const targetDay = base.recurrent && base.recurrent_day ? Number(base.recurrent_day) : Number(dStr);
+
+      const rows = Array.from({ length: count }, (_, i) => {
+        const m = baseMonth + i;
+        const y = baseYear + Math.floor(m / 12);
+        const mm = ((m % 12) + 12) % 12;
+        const lastDay = new Date(y, mm + 1, 0).getDate();
+        const day = Math.min(targetDay, lastDay);
+        const due = `${y}-${String(mm + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        return { ...base, due_date: due, created_by: user!.id };
+      });
+
+      const { error } = await supabase.from("payables").insert(rows as any);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["payables"] }); toast.success("Conta a pagar criada"); },
