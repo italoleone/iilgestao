@@ -20,7 +20,7 @@ import {
 } from "@/hooks/useCommercialData";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Search, Eye, CheckCircle, XCircle, FileDown, Trash2, CalendarClock, Info } from "lucide-react";
+import { Plus, Search, Eye, CheckCircle, XCircle, FileDown, Trash2, CalendarClock, Info, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 const STATUS_COLORS: Record<ProposalStatus, string> = {
