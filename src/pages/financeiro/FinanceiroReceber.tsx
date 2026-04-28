@@ -135,7 +135,10 @@ export default function FinanceiroReceber() {
       const { status: _s, received_date: _rd, ...updatePayload } = payload;
       updateRec.mutate({ id: editing.id, ...updatePayload }, { onSuccess: () => setDialogOpen(false) });
     } else {
-      createRec.mutate(payload, { onSuccess: () => setDialogOpen(false) });
+      createRec.mutate(
+        { ...payload, recurrent: form.recurrent, installments: form.installments, frequency_months: form.frequency_months },
+        { onSuccess: () => setDialogOpen(false) }
+      );
     }
   };
 
