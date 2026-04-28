@@ -310,6 +310,9 @@ export default function ComercialPropostas() {
                           <Button variant="ghost" size="icon" title="Ver detalhes" onClick={(e) => { e.stopPropagation(); setDetailProposal(p); }}>
                             <Eye className="h-4 w-4" />
                           </Button>
+                          <Button variant="ghost" size="icon" title="Editar proposta" onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" title="Gerar Documento" onClick={(e) => { e.stopPropagation(); handleGerarPDF(p); }} disabled={gerandoPDF === p.id}>
                             {gerandoPDF === p.id
                               ? <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
