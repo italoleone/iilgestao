@@ -235,23 +235,30 @@ export default function Tarefas() {
       ? tasks
       : tasks.filter(t => t.start_date && t.end_date);
 
+    // IDs de projetos onde o usuário é o coordenador (responsible do projeto)
+    const myCoordinatedProjectIds = new Set(
+      projects.filter(p => p.responsible === profile.id).map(p => p.id)
+    );
+
+    // Tarefas aguardando validação SEMPRE aparecem para o coordenador do projeto vinculado
+    const pendingValidationForMe = (t: typeof tasks[number]) =>
+      t.status === "aguardando_validacao" && myCoordinatedProjectIds.has(t.project_id);
+
     // 2. Filtro por papel
     if (role === "projetista") {
       // Projetista só vê as próprias tarefas, exceto as já finalizadas
       filtered = filtered.filter(t =>
-        t.responsible === profile.id &&
-        !["concluida", "enviado_cliente"].includes(t.status)
+        (t.responsible === profile.id &&
+          !["concluida", "enviado_cliente"].includes(t.status))
+        || pendingValidationForMe(t)
       );
     } else if (role === "coordenador") {
       // Coordenador vê tarefas dos projetos onde ele é o responsible
-      const myProjectIds = new Set(
-        projects.filter(p => p.responsible === profile.id).map(p => p.id)
-      );
       if (filterProject !== "all") {
         filtered = filtered.filter(t => t.project_id === filterProject);
       } else {
         filtered = filtered.filter(t =>
-          myProjectIds.has(t.project_id) &&
+          myCoordinatedProjectIds.has(t.project_id) &&
           !["concluida", "enviado_cliente"].includes(t.status)
         );
       }
@@ -261,7 +268,8 @@ export default function Tarefas() {
         filtered = filtered.filter(t => t.project_id === filterProject);
       } else {
         filtered = filtered.filter(t =>
-          !["concluida", "enviado_cliente"].includes(t.status)
+          (!["concluida", "enviado_cliente"].includes(t.status))
+          || pendingValidationForMe(t)
         );
       }
     }
