@@ -299,6 +299,52 @@ export default function FinanceiroReceber() {
                   <Input value={form.installment_number} onChange={e => setForm({ ...form, installment_number: e.target.value })} placeholder='Ex: 1/3 ou "Parcela única"' />
                 </div>
               </div>
+
+              {!editing && (
+                <div className="space-y-3 rounded-md border border-border p-3">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="recurrent-receivable" className="cursor-pointer">Recebimento Recorrente</Label>
+                    <Switch
+                      id="recurrent-receivable"
+                      checked={form.recurrent}
+                      onCheckedChange={(checked) => setForm({ ...form, recurrent: checked })}
+                    />
+                  </div>
+                  {form.recurrent && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Nº de parcelas</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          step="1"
+                          value={form.installments || ""}
+                          onChange={e => setForm({ ...form, installments: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Frequência</Label>
+                        <Select
+                          value={String(form.frequency_months)}
+                          onValueChange={v => setForm({ ...form, frequency_months: Number(v) })}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">Mensal</SelectItem>
+                            <SelectItem value="2">Bimestral</SelectItem>
+                            <SelectItem value="3">Trimestral</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+                  {form.recurrent && (
+                    <p className="text-xs text-muted-foreground">
+                      Serão criadas {form.installments || 0} parcelas, numeradas automaticamente (1/{form.installments}, 2/{form.installments}…), com vencimento avançando a cada {form.frequency_months} mês(es).
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button onClick={handleSave} disabled={!form.project_id || !form.amount || !form.due_date}>
