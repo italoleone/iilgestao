@@ -184,10 +184,20 @@ export default function FinanceiroPagar() {
                   <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{CAT_LABELS[c]}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="flex items-center gap-3">
-                <Switch checked={form.recurrent} onCheckedChange={v => setForm({ ...form, recurrent: v })} />
+              <div className="flex items-center gap-3 flex-wrap">
+                <Switch checked={form.recurrent} onCheckedChange={v => setForm({ ...form, recurrent: v })} disabled={!!editing} />
                 <Label>Recorrente</Label>
-                {form.recurrent && <Input type="number" className="w-24" placeholder="Dia" value={form.recurrent_day || ""} onChange={e => setForm({ ...form, recurrent_day: Number(e.target.value) || null })} />}
+                {form.recurrent && (
+                  <>
+                    <Input type="number" className="w-20" placeholder="Dia" value={form.recurrent_day || ""} onChange={e => setForm({ ...form, recurrent_day: Number(e.target.value) || null })} />
+                    {!editing && (
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs">Nº parcelas</Label>
+                        <Input type="number" min={1} className="w-20" value={form.installments} onChange={e => setForm({ ...form, installments: Math.max(1, Number(e.target.value) || 1) })} />
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
               <div><Label>Observações</Label><Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
             </div>
