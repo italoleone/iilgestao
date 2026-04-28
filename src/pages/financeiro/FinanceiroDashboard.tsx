@@ -29,6 +29,18 @@ import { cn } from "@/lib/utils";
 const fmt = (v: number | undefined | null) =>
   (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    pago: { label: "Pago", cls: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30" },
+    recebido: { label: "Recebido", cls: "bg-emerald-500/15 text-emerald-500 border-emerald-500/30" },
+    pendente: { label: "Pendente", cls: "bg-yellow-500/15 text-yellow-500 border-yellow-500/30" },
+    vencido: { label: "Vencido", cls: "bg-orange-500/15 text-orange-500 border-orange-500/30" },
+    em_aberto: { label: "Em aberto", cls: "bg-muted text-muted-foreground border-border" },
+  };
+  const s = map[status] || { label: status, cls: "bg-muted text-muted-foreground border-border" };
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-medium ${s.cls}`}>{s.label}</span>;
+}
+
 const PIE_COLORS: Record<string, string> = {
   salario: "hsl(220, 70%, 55%)",
   prolabore: "hsl(270, 60%, 55%)",
