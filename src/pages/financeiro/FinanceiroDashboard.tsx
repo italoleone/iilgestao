@@ -392,6 +392,13 @@ export default function FinanceiroDashboard() {
                 ))}
               </SelectContent>
             </Select>
+            <Button
+              variant={accumulated ? "default" : "outline"}
+              onClick={() => setAccumulated(v => !v)}
+              className="gap-2"
+            >
+              Acumulado
+            </Button>
           </div>
         </div>
 
