@@ -107,19 +107,65 @@ export default function FinanceiroDashboard() {
   }, [allReceivables, selectedMonth, selectedYear]);
 
   // ── Fluxo de Caixa Real — 12 meses do ano selecionado ──────────────────
+  // Projeta parcelas recorrentes (mensais) de cada conta a pagar pendente
+  // até dezembro do ano selecionado, usando recurrent_day como dia de vencimento.
+  const pendingPayablesProjected = useMemo(() => {
+    type Item = { amount: number; due_date: string };
+    const list: Item[] = [];
+    const yearEnd = endOfMonth(new Date(selectedYear, 11));
+    allPayables
+      .filter(p => p.status === "pendente" || p.status === "em_aberto")
+      .forEach(p => {
+        const baseDue = parseISO(p.due_date);
+        list.push({ amount: Number(p.amount), due_date: p.due_date });
+        if (p.recurrent) {
+          const day = p.recurrent_day || baseDue.getDate();
+          // Avança mês a mês a partir do mês seguinte ao baseDue
+          let y = baseDue.getFullYear();
+          let m = baseDue.getMonth() + 1;
+          while (true) {
+            if (m > 11) { m = 0; y += 1; }
+            const lastDay = new Date(y, m + 1, 0).getDate();
+            const safeDay = Math.min(day, lastDay);
+            const next = new Date(y, m, safeDay);
+            if (next > yearEnd) break;
+            list.push({
+              amount: Number(p.amount),
+              due_date: format(next, "yyyy-MM-dd"),
+            });
+            m += 1;
+          }
+        }
+      });
+    return list;
+  }, [allPayables, selectedYear]);
+
   const realCashFlowData = useMemo(() => {
     return MONTH_NAMES.map((label, idx) => {
       const ms = startOfMonth(new Date(selectedYear, idx));
       const me = endOfMonth(new Date(selectedYear, idx));
-      const rec = allReceivables
-        .filter(r => r.received_date && isWithinInterval(parseISO(r.received_date), { start: ms, end: me }))
+      const recebido = allReceivables
+        .filter(r =>
+          (r.status === "pago" || r.status === "recebido") &&
+          r.received_date &&
+          isWithinInterval(parseISO(r.received_date), { start: ms, end: me })
+        )
         .reduce((s, r) => s + Number(r.amount), 0);
-      const desp = allPayables
-        .filter(p => p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: ms, end: me }))
+      const pago = allPayables
+        .filter(p => p.status === "pago" && p.paid_date && isWithinInterval(parseISO(p.paid_date), { start: ms, end: me }))
         .reduce((s, p) => s + Number(p.amount), 0);
-      return { name: label.slice(0, 3), receitas: rec, despesas: desp, resultado: rec - desp };
+      const pendente = pendingPayablesProjected
+        .filter(p => isWithinInterval(parseISO(p.due_date), { start: ms, end: me }))
+        .reduce((s, p) => s + p.amount, 0);
+      return {
+        name: label.slice(0, 3),
+        recebido,
+        pago,
+        pendente,
+        resultado: recebido - pago,
+      };
     });
-  }, [allReceivables, allPayables, selectedYear]);
+  }, [allReceivables, allPayables, pendingPayablesProjected, selectedYear]);
 
   // Expenses by category
   const catData = useMemo(() => {
@@ -514,13 +560,19 @@ export default function FinanceiroDashboard() {
               <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-4 py-3">
                 <p className="text-xs text-muted-foreground">Total Recebido {selectedYear}</p>
                 <p className="text-xl font-bold text-emerald-400">
-                  {fmt(realCashFlowData.reduce((s, d) => s + d.receitas, 0))}
+                  {fmt(realCashFlowData.reduce((s, d) => s + d.recebido, 0))}
                 </p>
               </div>
               <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
                 <p className="text-xs text-muted-foreground">Total Pago {selectedYear}</p>
                 <p className="text-xl font-bold text-red-400">
-                  {fmt(realCashFlowData.reduce((s, d) => s + d.despesas, 0))}
+                  {fmt(realCashFlowData.reduce((s, d) => s + d.pago, 0))}
+                </p>
+              </div>
+              <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg px-4 py-3">
+                <p className="text-xs text-muted-foreground">Total Pendente {selectedYear}</p>
+                <p className="text-xl font-bold text-orange-400">
+                  {fmt(realCashFlowData.reduce((s, d) => s + d.pendente, 0))}
                 </p>
               </div>
               <div className={cn(
@@ -549,13 +601,14 @@ export default function FinanceiroDashboard() {
                   contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}
                 />
                 <Legend />
-                <Bar dataKey="receitas" name="Recebido" fill="hsl(150, 60%, 45%)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="despesas" name="Pago" fill="hsl(0, 60%, 50%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="recebido" name="Recebido" fill="hsl(150, 60%, 45%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="pago" name="Pago" fill="hsl(0, 60%, 50%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="pendente" name="Pendente de Pagamento" fill="hsl(30, 90%, 55%)" radius={[4, 4, 0, 0]} />
                 <Line
                   type="monotone"
                   dataKey="resultado"
                   name="Resultado"
-                  stroke="hsl(65, 80%, 45%)"
+                  stroke="hsl(50, 95%, 55%)"
                   strokeWidth={2}
                   dot={{ r: 4 }}
                 />
