@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Switch } from "@/components/ui/switch";
 import { Plus, CheckCircle, Pencil, Trash2, Search } from "lucide-react";
 import { useReceivables, useCreateReceivable, useUpdateReceivable, useDeleteReceivable, useMarkReceived, Receivable } from "@/hooks/useFinanceiroData";
 import { supabase } from "@/integrations/supabase/client";
