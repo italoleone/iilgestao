@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   DollarSign, TrendingUp, TrendingDown, Clock, CheckCircle,
   ChevronDown, ChevronUp, ChevronsUpDown, Check, CalendarClock, XCircle,
+  Repeat, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useReceivables, usePayables, useMarkReceived, useMarkPaid, useProjetoCusto } from "@/hooks/useFinanceiroData";
