@@ -560,13 +560,19 @@ export default function FinanceiroDashboard() {
               <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-4 py-3">
                 <p className="text-xs text-muted-foreground">Total Recebido {selectedYear}</p>
                 <p className="text-xl font-bold text-emerald-400">
-                  {fmt(realCashFlowData.reduce((s, d) => s + d.receitas, 0))}
+                  {fmt(realCashFlowData.reduce((s, d) => s + d.recebido, 0))}
                 </p>
               </div>
               <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
                 <p className="text-xs text-muted-foreground">Total Pago {selectedYear}</p>
                 <p className="text-xl font-bold text-red-400">
-                  {fmt(realCashFlowData.reduce((s, d) => s + d.despesas, 0))}
+                  {fmt(realCashFlowData.reduce((s, d) => s + d.pago, 0))}
+                </p>
+              </div>
+              <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg px-4 py-3">
+                <p className="text-xs text-muted-foreground">Total Pendente {selectedYear}</p>
+                <p className="text-xl font-bold text-orange-400">
+                  {fmt(realCashFlowData.reduce((s, d) => s + d.pendente, 0))}
                 </p>
               </div>
               <div className={cn(
@@ -595,13 +601,14 @@ export default function FinanceiroDashboard() {
                   contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }}
                 />
                 <Legend />
-                <Bar dataKey="receitas" name="Recebido" fill="hsl(150, 60%, 45%)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="despesas" name="Pago" fill="hsl(0, 60%, 50%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="recebido" name="Recebido" fill="hsl(150, 60%, 45%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="pago" name="Pago" fill="hsl(0, 60%, 50%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="pendente" name="Pendente de Pagamento" fill="hsl(30, 90%, 55%)" radius={[4, 4, 0, 0]} />
                 <Line
                   type="monotone"
                   dataKey="resultado"
                   name="Resultado"
-                  stroke="hsl(65, 80%, 45%)"
+                  stroke="hsl(50, 95%, 55%)"
                   strokeWidth={2}
                   dot={{ r: 4 }}
                 />
