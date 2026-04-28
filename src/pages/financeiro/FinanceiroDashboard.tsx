@@ -177,18 +177,153 @@ export default function FinanceiroDashboard() {
     return Object.entries(map).map(([k, v]) => ({ name: CAT_LABELS[k] || k, value: v, color: PIE_COLORS[k] || PIE_COLORS.outros }));
   }, [allPayables, selectedMonth, selectedYear]);
 
-  // Upcoming receivables
-  const upcoming15Rec = useMemo(() => {
-    return allReceivables
-      .filter(r => r.status === "pendente" && isWithinInterval(parseISO(r.due_date), { start: monthStart, end: addDays(monthEnd, 15) }))
-      .slice(0, 8);
-  }, [allReceivables, selectedMonth, selectedYear]);
+  // ── Upcoming: filtros independentes ───────────────────────────────────────
+  const [recPeriod, setRecPeriod] = useState<string>("30");
+  const [recStatus, setRecStatus] = useState<string>("todos");
+  const [recCategory, setRecCategory] = useState<string>("todos");
+  const [recClient, setRecClient] = useState<string>("todos");
+  const [recSortDesc, setRecSortDesc] = useState<boolean>(true);
 
-  const upcoming15Pay = useMemo(() => {
-    return allPayables
-      .filter(p => p.status === "pendente" && isWithinInterval(parseISO(p.due_date), { start: monthStart, end: addDays(monthEnd, 15) }))
-      .slice(0, 8);
-  }, [allPayables, selectedMonth, selectedYear]);
+  const [payPeriod, setPayPeriod] = useState<string>("30");
+  const [payStatus, setPayStatus] = useState<string>("todos");
+  const [payCategory, setPayCategory] = useState<string>("todos");
+  const [paySortDesc, setPaySortDesc] = useState<boolean>(true);
+
+  const today = new Date();
+  const todayStr = format(today, "yyyy-MM-dd");
+
+  // Categorias dinâmicas
+  const recCategories = useMemo(() => {
+    const set = new Set<string>();
+    allReceivables.forEach(r => r.category && set.add(r.category));
+    return Array.from(set).sort();
+  }, [allReceivables]);
+
+  const payCategories = useMemo(() => {
+    const set = new Set<string>();
+    allPayables.forEach(p => p.category && set.add(p.category));
+    return Array.from(set).sort();
+  }, [allPayables]);
+
+  // Lista de clientes únicos do bloco a receber
+  const recClients = useMemo(() => {
+    const set = new Set<string>();
+    allReceivables.forEach(r => r.client_name && set.add(r.client_name));
+    return Array.from(set).sort();
+  }, [allReceivables]);
+
+  // Status efetivo (calcula "vencido" no front)
+  const computeStatus = (status: string, dueDate: string, paidOrReceived: string | null) => {
+    if (status === "pago" || status === "recebido") return "pago";
+    if (status === "em_aberto") {
+      if (dueDate < todayStr) return "vencido";
+      return "em_aberto";
+    }
+    if (status === "pendente") {
+      if (dueDate < todayStr && !paidOrReceived) return "vencido";
+      return "pendente";
+    }
+    return status;
+  };
+
+  const periodLimit = (days: string): Date | null => {
+    if (days === "all") return null;
+    return addDays(today, Number(days));
+  };
+
+  // Receivables expandido (sem expansão recorrente — receivables não são recorrentes no schema)
+  const upcomingRecRows = useMemo(() => {
+    const limit = periodLimit(recPeriod);
+    let rows = allReceivables.map(r => ({
+      id: r.id,
+      name: r.client_name,
+      description: r.description,
+      category: r.category,
+      due_date: r.due_date,
+      amount: Number(r.amount),
+      status: computeStatus(r.status, r.due_date, r.received_date),
+      rawStatus: r.status,
+      isRecurrent: false,
+      type: "rec" as const,
+    }));
+    if (limit) {
+      rows = rows.filter(r => parseISO(r.due_date) <= limit);
+    }
+    if (recStatus !== "todos") rows = rows.filter(r => r.status === recStatus);
+    if (recCategory !== "todos") rows = rows.filter(r => r.category === recCategory);
+    if (recClient !== "todos") rows = rows.filter(r => r.name === recClient);
+    rows.sort((a, b) => recSortDesc ? b.amount - a.amount : a.amount - b.amount);
+    return rows;
+  }, [allReceivables, recPeriod, recStatus, recCategory, recClient, recSortDesc, todayStr]);
+
+  // Payables expandido com parcelas recorrentes
+  const upcomingPayRows = useMemo(() => {
+    const limit = periodLimit(payPeriod);
+    const horizon = limit ?? endOfMonth(new Date(today.getFullYear() + 2, 11));
+    const expanded: Array<{
+      id: string;
+      name: string;
+      description: string;
+      category: string;
+      due_date: string;
+      amount: number;
+      status: string;
+      rawStatus: string;
+      isRecurrent: boolean;
+      type: "pay";
+    }> = [];
+
+    allPayables.forEach(p => {
+      const baseDue = parseISO(p.due_date);
+      expanded.push({
+        id: p.id,
+        name: p.supplier || p.description,
+        description: p.description,
+        category: p.category,
+        due_date: p.due_date,
+        amount: Number(p.amount),
+        status: computeStatus(p.status, p.due_date, p.paid_date),
+        rawStatus: p.status,
+        isRecurrent: !!p.recurrent,
+        type: "pay",
+      });
+      if (p.recurrent && p.status !== "pago") {
+        const day = p.recurrent_day || baseDue.getDate();
+        let y = baseDue.getFullYear();
+        let m = baseDue.getMonth() + 1;
+        let i = 0;
+        while (i < 60) {
+          if (m > 11) { m = 0; y += 1; }
+          const lastDay = new Date(y, m + 1, 0).getDate();
+          const safeDay = Math.min(day, lastDay);
+          const next = new Date(y, m, safeDay);
+          if (next > horizon) break;
+          const nextStr = format(next, "yyyy-MM-dd");
+          expanded.push({
+            id: `${p.id}-${nextStr}`,
+            name: p.supplier || p.description,
+            description: p.description,
+            category: p.category,
+            due_date: nextStr,
+            amount: Number(p.amount),
+            status: nextStr < todayStr ? "vencido" : "pendente",
+            rawStatus: "pendente",
+            isRecurrent: true,
+            type: "pay",
+          });
+          m += 1;
+          i += 1;
+        }
+      }
+    });
+
+    let rows = expanded;
+    if (limit) rows = rows.filter(r => parseISO(r.due_date) <= limit);
+    if (payStatus !== "todos") rows = rows.filter(r => r.status === payStatus);
+    if (payCategory !== "todos") rows = rows.filter(r => r.category === payCategory);
+    rows.sort((a, b) => paySortDesc ? b.amount - a.amount : a.amount - b.amount);
+    return rows;
+  }, [allPayables, payPeriod, payStatus, payCategory, paySortDesc, todayStr]);
 
   const [datePickerFor, setDatePickerFor] = useState<{ type: "rec" | "pay"; id: string } | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
