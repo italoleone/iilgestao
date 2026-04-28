@@ -244,7 +244,8 @@ export default function FinanceiroDashboard() {
   // Payables expandido com parcelas recorrentes
   const upcomingPayRows = useMemo(() => {
     const limit = periodLimit(payPeriod);
-    const horizon = limit ?? endOfMonth(new Date(today.getFullYear() + 2, 11));
+    // Parcelas recorrentes já estão gravadas como linhas independentes em `payables`,
+    // então não há mais expansão em runtime — apenas listamos o que existe no DB.
     const expanded: Array<{
       id: string;
       name: string;
