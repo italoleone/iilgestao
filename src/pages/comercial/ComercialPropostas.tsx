@@ -143,7 +143,7 @@ export default function ComercialPropostas() {
 
     const total = Object.values(disciplines).reduce((s, v) => s + (v || 0), 0);
 
-    createProposal.mutate({
+    const payload = {
       client_id: form.client_id,
       project_name: form.project_name,
       area_m2: area,
@@ -156,7 +156,15 @@ export default function ComercialPropostas() {
       scope: form.scope,
       arquivo_ref_1: form.arquivo_ref_1 || undefined,
       arquivo_ref_2: form.arquivo_ref_2 || undefined,
-    } as any, { onSuccess: () => setDialogOpen(false) });
+    };
+
+    if (editingId) {
+      updateProposal.mutate({ id: editingId, ...payload } as any, {
+        onSuccess: () => { setDialogOpen(false); setEditingId(null); },
+      });
+    } else {
+      createProposal.mutate(payload as any, { onSuccess: () => setDialogOpen(false) });
+    }
   };
 
   const openApprovalModal = (p: CommercialProposal) => {
