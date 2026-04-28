@@ -94,11 +94,31 @@ export default function ComercialPropostas() {
   });
 
   const openCreate = () => {
+    setEditingId(null);
     setForm({
       client_id: "", project_name: "", area_m2: "",
       pm2_estrutural: "", pm2_hidraulica: "", pm2_eletrica: "", pm2_fundacoes: "",
       proposal_date: new Date().toISOString().split("T")[0],
       notes: "", scope: "residencial", arquivo_ref_1: "", arquivo_ref_2: "",
+    });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (p: CommercialProposal) => {
+    setEditingId(p.id);
+    setForm({
+      client_id: p.client_id || "",
+      project_name: p.project_name || "",
+      area_m2: p.area_m2 ? String(p.area_m2) : "",
+      pm2_estrutural: p.price_per_m2?.estrutural ? String(p.price_per_m2.estrutural) : "",
+      pm2_hidraulica: p.price_per_m2?.hidraulica ? String(p.price_per_m2.hidraulica) : "",
+      pm2_eletrica: p.price_per_m2?.eletrica ? String(p.price_per_m2.eletrica) : "",
+      pm2_fundacoes: p.price_per_m2?.fundacoes ? String(p.price_per_m2.fundacoes) : "",
+      proposal_date: p.proposal_date || new Date().toISOString().split("T")[0],
+      notes: p.notes || "",
+      scope: p.scope || "residencial",
+      arquivo_ref_1: p.arquivo_ref_1 || "",
+      arquivo_ref_2: p.arquivo_ref_2 || "",
     });
     setDialogOpen(true);
   };
