@@ -110,7 +110,7 @@ function isOverdue(task: Task): boolean {
   if (!end) return false;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  return end < today && !["concluida", "aprovada", "enviado_cliente"].includes(task.status);
+  return end < today && !["concluida", "enviado_cliente", "aprovada", "cancelada"].includes(task.status);
 }
 
 function formatDuration(minutes: number): string {
