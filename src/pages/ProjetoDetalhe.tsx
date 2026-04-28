@@ -379,7 +379,7 @@ export default function ProjetoDetalhe() {
                           {stageTasks.map(task => {
                             const taskResp = getProfileById(profiles, task.responsible);
                             const hp = task.estimatedHours > 0 ? Math.round((task.hoursWorked / task.estimatedHours) * 100) : 0;
-                            const isOverdue = parseLocalDate(task.endDate) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "aprovada"].includes(task.status);
+                            const isOverdue = parseLocalDate(task.endDate) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) && !["concluida", "enviado_cliente", "aprovada", "cancelada"].includes(task.status);
                             return (
                               <div key={task.id} className={`flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/30 transition-colors cursor-pointer ${isOverdue ? "border-destructive/40" : ""}`} onClick={() => navigate(`/tarefas/${task.id}`)}>
                                 <div className="flex-1 min-w-0">

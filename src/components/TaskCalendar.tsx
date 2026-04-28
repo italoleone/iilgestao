@@ -54,7 +54,7 @@ export function TaskCalendar({ tasks, projects = [], month, year, onMonthChange 
       });
 
       map[d] = Object.entries(projectGroups).map(([pid, ptasks]) => {
-        const hasOverdue = ptasks.some((t) => new Date(t.endDate) < new Date() && t.status !== "concluida");
+        const hasOverdue = ptasks.some((t) => new Date(t.endDate) < new Date() && !["concluida", "enviado_cliente", "aprovada", "cancelada"].includes(t.status));
         const hasInProgress = ptasks.some((t) => t.status === "em_andamento");
         const allCompleted = ptasks.every((t) => t.status === "concluida");
         return {
