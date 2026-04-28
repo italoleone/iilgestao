@@ -219,10 +219,11 @@ export default function TarefaDetalhe() {
   const canManage = CAN_MANAGE.includes(role);
   const isProjetista = role === "projetista";
   const isTaskResponsible = task?.responsible === profile?.id;
-  // Coordenador do projeto
-  const isProjectCoordinator = project?.responsible === profile?.id;
-  const canValidate = (role === "coordenador" && isProjectCoordinator) ||
-    role === "admin_geral" || role === "admin";
+  // Coordenador do projeto = quem está em projects.responsible (independente do role).
+  // Planejamento NÃO valida tarefas — apenas acompanha.
+  // Admin e Diretor (admin_geral) podem validar qualquer tarefa como exceção.
+  const isProjectCoordinator = !!project?.responsible && project?.responsible === profile?.id;
+  const canValidate = isProjectCoordinator || role === "admin_geral" || role === "admin";
 
   // O que cada status permite
   const canPlay = isTaskResponsible &&
