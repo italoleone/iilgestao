@@ -68,14 +68,19 @@ export default function FinanceiroPagar() {
   const openNew = () => { setEditing(null); setForm(empty); setDialogOpen(true); };
   const openEdit = (p: Payable) => {
     setEditing(p);
-    setForm({ description: p.description, supplier: p.supplier || "", amount: Number(p.amount), due_date: p.due_date, category: p.category, recurrent: p.recurrent, recurrent_day: p.recurrent_day, notes: p.notes || "" });
+    setForm({ description: p.description, supplier: p.supplier || "", amount: Number(p.amount), due_date: p.due_date, category: p.category, recurrent: p.recurrent, recurrent_day: p.recurrent_day, installments: 1, notes: p.notes || "" });
     setDialogOpen(true);
   };
 
   const handleSave = () => {
-    const payload: any = { ...form, amount: Number(form.amount), paid_date: null, status: "pendente", recurrent_day: form.recurrent ? form.recurrent_day : null };
-    if (editing) updatePay.mutate({ id: editing.id, ...payload }, { onSuccess: () => setDialogOpen(false) });
-    else createPay.mutate(payload, { onSuccess: () => setDialogOpen(false) });
+    const { installments, ...rest } = form;
+    const payload: any = { ...rest, amount: Number(form.amount), paid_date: null, status: "pendente", recurrent_day: form.recurrent ? form.recurrent_day : null };
+    if (editing) {
+      // Edição sempre individual (uma parcela por vez), nunca propaga.
+      updatePay.mutate({ id: editing.id, ...payload }, { onSuccess: () => setDialogOpen(false) });
+    } else {
+      createPay.mutate({ ...payload, installments: form.recurrent ? installments : 1 }, { onSuccess: () => setDialogOpen(false) });
+    }
   };
 
   const [datePickerFor, setDatePickerFor] = useState<string | null>(null);
