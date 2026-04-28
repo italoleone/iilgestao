@@ -12,12 +12,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Plus, CheckCircle, Pencil, Trash2, Search, RefreshCw } from "lucide-react";
+import { Plus, CheckCircle, Pencil, Trash2, Search, RefreshCw, ChevronLeft, ChevronRight, Trash, ChevronDown } from "lucide-react";
 import { usePayables, useCreatePayable, useUpdatePayable, useDeletePayable, useMarkPaid, Payable } from "@/hooks/useFinanceiroData";
 import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtNum = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const CAT_COLORS: Record<string, string> = {
   salario: "bg-blue-500/20 text-blue-400", prolabore: "bg-purple-500/20 text-purple-400",
@@ -30,37 +32,82 @@ const CAT_LABELS: Record<string, string> = {
   software: "Software", impostos: "Impostos", marketing: "Marketing",
   equipamento: "Equipamento", outros: "Outros",
 };
-const STATUS_BADGE: Record<string, string> = {
-  pendente: "bg-yellow-500/20 text-yellow-400", pago: "bg-emerald-500/20 text-emerald-400",
-  atrasado: "bg-red-500/20 text-red-400", cancelado: "bg-muted text-muted-foreground",
-};
 const CATEGORIES = ["salario", "prolabore", "aluguel", "software", "impostos", "marketing", "equipamento", "outros"];
 
 const now = new Date();
 
+type TabKey = "todos" | "vencidos" | "vencem_hoje" | "a_vencer" | "pagos";
+
 export default function FinanceiroPagar() {
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
-  const [statusFilter, setStatusFilter] = useState("todos");
+  const [activeTab, setActiveTab] = useState<TabKey>("todos");
   const [catFilter, setCatFilter] = useState("todos");
+  const [supplierFilter, setSupplierFilter] = useState("todos");
+  const [statusFilter, setStatusFilter] = useState("todos");
   const [search, setSearch] = useState("");
+  const [showMore, setShowMore] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Payable | null>(null);
 
-  const filters = useMemo(() => ({ month, year, status: statusFilter, category: catFilter, search }), [month, year, statusFilter, catFilter, search]);
-  const { data: payables = [] } = usePayables(filters);
+  // Buscamos só pelo mês/ano + busca textual; o resto filtramos no client p/ as abas funcionarem.
+  const queryFilters = useMemo(() => ({ month, year, search }), [month, year, search]);
+  const { data: payablesAll = [] } = usePayables(queryFilters);
   const createPay = useCreatePayable();
   const updatePay = useUpdatePayable();
   const deletePay = useDeletePayable();
   const markPaid = useMarkPaid();
 
   const todayStr = format(now, "yyyy-MM-dd");
-  const totalAPagar = payables.filter(p => p.status === "pendente").reduce((s, p) => s + Number(p.amount), 0);
-  const totalPago = payables.filter(p => p.status === "pago").reduce((s, p) => s + Number(p.amount), 0);
-  const totalAtrasado = payables
-    .filter(p => p.status === "pendente" && p.due_date < todayStr)
-    .reduce((s, p) => s + Number(p.amount), 0);
-  const maiorDespesa = payables.length > 0 ? Math.max(...payables.map(p => Number(p.amount))) : 0;
+
+  // Lista de fornecedores únicos do período (para o dropdown "Conta")
+  const suppliers = useMemo(() => {
+    const set = new Set<string>();
+    payablesAll.forEach(p => { if (p.supplier) set.add(p.supplier); });
+    return Array.from(set).sort();
+  }, [payablesAll]);
+
+  // Filtros adicionais (categoria/status/fornecedor) aplicados no client
+  const baseFiltered = useMemo(() => {
+    return payablesAll.filter(p => {
+      if (catFilter !== "todos" && p.category !== catFilter) return false;
+      if (supplierFilter !== "todos" && (p.supplier || "") !== supplierFilter) return false;
+      if (statusFilter !== "todos") {
+        // status efetivo (com "atrasado" computado dinamicamente)
+        const eff = p.status === "pago" ? "pago"
+          : p.due_date < todayStr ? "atrasado" : "pendente";
+        if (eff !== statusFilter) return false;
+      }
+      return true;
+    });
+  }, [payablesAll, catFilter, supplierFilter, statusFilter, todayStr]);
+
+  // Totais por aba (calculados sobre baseFiltered, antes da aba)
+  const totals = useMemo(() => {
+    let vencidos = 0, vencemHoje = 0, aVencer = 0, pagos = 0, total = 0;
+    baseFiltered.forEach(p => {
+      const v = Number(p.amount);
+      total += v;
+      if (p.status === "pago") { pagos += v; return; }
+      if (p.due_date < todayStr) vencidos += v;
+      else if (p.due_date === todayStr) vencemHoje += v;
+      else aVencer += v;
+    });
+    return { vencidos, vencemHoje, aVencer, pagos, total };
+  }, [baseFiltered, todayStr]);
+
+  // Lista exibida segundo a aba
+  const payables = useMemo(() => {
+    return baseFiltered.filter(p => {
+      switch (activeTab) {
+        case "vencidos": return p.status !== "pago" && p.due_date < todayStr;
+        case "vencem_hoje": return p.status !== "pago" && p.due_date === todayStr;
+        case "a_vencer": return p.status !== "pago" && p.due_date > todayStr;
+        case "pagos": return p.status === "pago";
+        default: return true;
+      }
+    });
+  }, [baseFiltered, activeTab, todayStr]);
 
   const empty = { description: "", supplier: "", amount: 0, due_date: format(now, "yyyy-MM-dd"), category: "outros", recurrent: false, recurrent_day: null as number | null, installments: 12, notes: "" };
   const [form, setForm] = useState(empty);
@@ -76,7 +123,6 @@ export default function FinanceiroPagar() {
     const { installments, ...rest } = form;
     const payload: any = { ...rest, amount: Number(form.amount), paid_date: null, status: "pendente", recurrent_day: form.recurrent ? form.recurrent_day : null };
     if (editing) {
-      // Edição sempre individual (uma parcela por vez), nunca propaga.
       updatePay.mutate({ id: editing.id, ...payload }, { onSuccess: () => setDialogOpen(false) });
     } else {
       createPay.mutate({ ...payload, installments: form.recurrent ? installments : 1 }, { onSuccess: () => setDialogOpen(false) });
@@ -86,6 +132,36 @@ export default function FinanceiroPagar() {
   const [datePickerFor, setDatePickerFor] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
+  const monthLabel = format(new Date(year, month, 1), "MMMM 'de' yyyy", { locale: ptBR });
+  const monthLabelCap = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
+  const navMonth = (delta: number) => {
+    const d = new Date(year, month + delta, 1);
+    setMonth(d.getMonth());
+    setYear(d.getFullYear());
+  };
+
+  const clearFilters = () => {
+    setActiveTab("todos");
+    setCatFilter("todos");
+    setSupplierFilter("todos");
+    setStatusFilter("todos");
+    setSearch("");
+    setMonth(now.getMonth());
+    setYear(now.getFullYear());
+  };
+
+  const filtersActive = activeTab !== "todos" || catFilter !== "todos" || supplierFilter !== "todos" || statusFilter !== "todos" || search !== "";
+
+  // Tabs config
+  const tabs: { key: TabKey; label: string; value: number; color: string }[] = [
+    { key: "vencidos", label: "Vencidos (R$)", value: totals.vencidos, color: "text-red-500" },
+    { key: "vencem_hoje", label: "Vencem hoje (R$)", value: totals.vencemHoje, color: "text-orange-500" },
+    { key: "a_vencer", label: "A vencer (R$)", value: totals.aVencer, color: "text-blue-500" },
+    { key: "pagos", label: "Pagos (R$)", value: totals.pagos, color: "text-emerald-500" },
+    { key: "todos", label: "Total do período (R$)", value: totals.total, color: "text-blue-500" },
+  ];
+
   return (
     <AppLayout>
       <div className="space-y-6 p-6">
@@ -94,25 +170,127 @@ export default function FinanceiroPagar() {
           <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" />Nova Conta</Button>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { t: "Total a Pagar", v: fmt(totalAPagar), c: "text-accent" },
-            { t: "Total Pago", v: fmt(totalPago), c: "text-emerald-400" },
-            { t: "Total Atrasado", v: fmt(totalAtrasado), c: "text-red-400" },
-            { t: "Maior Despesa", v: fmt(maiorDespesa), c: "text-muted-foreground" },
-          ].map(k => (
-            <Card key={k.t}><CardContent className="pt-6"><p className="text-xs text-muted-foreground">{k.t}</p><p className={cn("text-xl font-bold mt-1", k.c)}>{k.v}</p></CardContent></Card>
-          ))}
+        {/* Filtros — novo layout */}
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+            {/* Vencimento (mês/ano com setas) */}
+            <div className="md:col-span-3">
+              <Label className="text-xs text-muted-foreground">Vencimento</Label>
+              <div className="flex items-center border rounded-md h-10 overflow-hidden">
+                <button type="button" onClick={() => navMonth(-1)} className="px-2 h-full hover:bg-muted transition-colors" aria-label="Mês anterior">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div className="flex-1 text-center text-sm font-medium flex items-center justify-center gap-1">
+                  {monthLabelCap}
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </div>
+                <button type="button" onClick={() => navMonth(1)} className="px-2 h-full hover:bg-muted transition-colors" aria-label="Próximo mês">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Buscar */}
+            <div className="md:col-span-4">
+              <Label className="text-xs text-muted-foreground">Pesquisar no período selecionado</Label>
+              <div className="relative">
+                <Input placeholder="Pesquisar" value={search} onChange={e => setSearch(e.target.value)} className="pr-9" />
+                <Search className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+
+            {/* Conta (fornecedor) */}
+            <div className="md:col-span-3">
+              <Label className="text-xs text-muted-foreground">Conta</Label>
+              <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                <SelectTrigger><SelectValue placeholder="Selecionar todas" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Selecionar todas</SelectItem>
+                  {suppliers.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Mais filtros */}
+            <div className="md:col-span-2">
+              <Button variant="outline" className="w-full justify-between" onClick={() => setShowMore(v => !v)}>
+                Mais filtros <ChevronDown className={cn("h-4 w-4 transition-transform", showMore && "rotate-180")} />
+              </Button>
+            </div>
+          </div>
+
+          {showMore && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border rounded-md bg-muted/30">
+              <div>
+                <Label className="text-xs text-muted-foreground">Categoria</Label>
+                <Select value={catFilter} onValueChange={setCatFilter}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas</SelectItem>
+                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{CAT_LABELS[c]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Status</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="atrasado">Atrasado</SelectItem>
+                    <SelectItem value="pago">Pago</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Ano</Label>
+                <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-400 transition-colors"
+            >
+              <Trash className="h-3.5 w-3.5" /> Limpar filtros
+            </button>
+          )}
         </div>
 
-        <div className="flex flex-wrap gap-3 items-end">
-          <div><Label className="text-xs">Mês</Label><Select value={String(month)} onValueChange={v => setMonth(Number(v))}><SelectTrigger className="w-28"><SelectValue /></SelectTrigger><SelectContent>{Array.from({ length: 12 }, (_, i) => <SelectItem key={i} value={String(i)}>{format(new Date(2024, i), "MMMM")}</SelectItem>)}</SelectContent></Select></div>
-          <div><Label className="text-xs">Ano</Label><Select value={String(year)} onValueChange={v => setYear(Number(v))}><SelectTrigger className="w-24"><SelectValue /></SelectTrigger><SelectContent>{[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select></div>
-          <div><Label className="text-xs">Status</Label><Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todos</SelectItem><SelectItem value="pendente">Pendente</SelectItem><SelectItem value="pago">Pago</SelectItem><SelectItem value="atrasado">Atrasado</SelectItem></SelectContent></Select></div>
-          <div><Label className="text-xs">Categoria</Label><Select value={catFilter} onValueChange={setCatFilter}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todas</SelectItem>{CATEGORIES.map(c => <SelectItem key={c} value={c}>{CAT_LABELS[c]}</SelectItem>)}</SelectContent></Select></div>
-          <div className="flex-1 min-w-[180px]"><Label className="text-xs">Buscar</Label><div className="relative"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-8" placeholder="Descrição / Fornecedor..." value={search} onChange={e => setSearch(e.target.value)} /></div></div>
-        </div>
+        {/* Abas de totais */}
+        <Card>
+          <CardContent className="p-0">
+            <div className="grid grid-cols-2 md:grid-cols-5 divide-x divide-border">
+              {tabs.map(t => {
+                const active = activeTab === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setActiveTab(t.key)}
+                    className={cn(
+                      "px-4 py-4 text-center transition-colors relative",
+                      active ? "bg-muted/40" : "hover:bg-muted/20"
+                    )}
+                  >
+                    {active && <div className="absolute top-0 left-0 right-0 h-0.5 bg-red-500" />}
+                    <p className="text-xs text-muted-foreground mb-1">{t.label}</p>
+                    <p className={cn("text-xl font-semibold tabular-nums", t.color)}>{fmtNum(t.value)}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
+        {/* Tabela */}
         <Card>
           <CardContent className="p-0">
             <Table>
@@ -131,37 +309,48 @@ export default function FinanceiroPagar() {
               </TableHeader>
               <TableBody>
                 {payables.length === 0 && <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">Nenhum registro</TableCell></TableRow>}
-                {payables.map(p => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.description}</TableCell>
-                    <TableCell>{p.supplier || "—"}</TableCell>
-                    <TableCell><Badge className={CAT_COLORS[p.category]}>{CAT_LABELS[p.category] || p.category}</Badge></TableCell>
-                    <TableCell className="text-right font-semibold">{fmt(Number(p.amount))}</TableCell>
-                    <TableCell>{format(parseISO(p.due_date), "dd/MM/yyyy")}</TableCell>
-                    <TableCell>{p.paid_date ? format(parseISO(p.paid_date), "dd/MM/yyyy") : "—"}</TableCell>
-                    <TableCell>{p.recurrent ? <RefreshCw className="h-4 w-4 text-accent" /> : "—"}</TableCell>
-                    <TableCell><Badge className={STATUS_BADGE[p.status]}>{p.status}</Badge></TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        {p.status === "pendente" && (
-                          <Popover open={datePickerFor === p.id} onOpenChange={o => !o && setDatePickerFor(null)}>
-                            <PopoverTrigger asChild>
-                              <Button variant="ghost" size="icon" title="Marcar pago" onClick={() => { setDatePickerFor(p.id); setSelectedDate(new Date()); }}>
-                                <CheckCircle className="h-4 w-4 text-emerald-400" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="end">
-                              <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className={cn("p-3 pointer-events-auto")} />
-                              <div className="p-2 border-t flex justify-end"><Button size="sm" onClick={() => { if (selectedDate) { markPaid.mutate({ id: p.id, date: format(selectedDate, "yyyy-MM-dd") }); setDatePickerFor(null); } }}>Confirmar</Button></div>
-                            </PopoverContent>
-                          </Popover>
-                        )}
-                        <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => { if (confirm("Excluir?")) deletePay.mutate(p.id); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {payables.map(p => {
+                  // Status visual: "Atrasada" se pendente e vencimento já passou; "Pendente" se hoje ou futuro.
+                  const isPaid = p.status === "pago";
+                  const isOverdue = !isPaid && p.due_date < todayStr;
+                  const visualStatus = isPaid ? "Pago" : isOverdue ? "Atrasada" : "Pendente";
+                  const badgeClass = isPaid
+                    ? "bg-emerald-500/20 text-emerald-400"
+                    : isOverdue
+                      ? "bg-red-500/20 text-red-400"
+                      : "bg-yellow-500/20 text-yellow-400";
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">{p.description}</TableCell>
+                      <TableCell>{p.supplier || "—"}</TableCell>
+                      <TableCell><Badge className={CAT_COLORS[p.category]}>{CAT_LABELS[p.category] || p.category}</Badge></TableCell>
+                      <TableCell className="text-right font-semibold">{fmt(Number(p.amount))}</TableCell>
+                      <TableCell>{format(parseISO(p.due_date), "dd/MM/yyyy")}</TableCell>
+                      <TableCell>{p.paid_date ? format(parseISO(p.paid_date), "dd/MM/yyyy") : "—"}</TableCell>
+                      <TableCell>{p.recurrent ? <RefreshCw className="h-4 w-4 text-accent" /> : "—"}</TableCell>
+                      <TableCell><Badge className={badgeClass}>{visualStatus}</Badge></TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          {!isPaid && (
+                            <Popover open={datePickerFor === p.id} onOpenChange={o => !o && setDatePickerFor(null)}>
+                              <PopoverTrigger asChild>
+                                <Button variant="ghost" size="icon" title="Marcar pago" onClick={() => { setDatePickerFor(p.id); setSelectedDate(new Date()); }}>
+                                  <CheckCircle className="h-4 w-4 text-emerald-400" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="end">
+                                <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} className={cn("p-3 pointer-events-auto")} />
+                                <div className="p-2 border-t flex justify-end"><Button size="sm" onClick={() => { if (selectedDate) { markPaid.mutate({ id: p.id, date: format(selectedDate, "yyyy-MM-dd") }); setDatePickerFor(null); } }}>Confirmar</Button></div>
+                              </PopoverContent>
+                            </Popover>
+                          )}
+                          <Button variant="ghost" size="icon" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => { if (confirm("Excluir?")) deletePay.mutate(p.id); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
