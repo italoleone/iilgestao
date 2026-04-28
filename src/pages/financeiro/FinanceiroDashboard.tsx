@@ -259,7 +259,6 @@ export default function FinanceiroDashboard() {
     }> = [];
 
     allPayables.forEach(p => {
-      const baseDue = parseISO(p.due_date);
       expanded.push({
         id: p.id,
         name: p.supplier || p.description,
@@ -272,34 +271,6 @@ export default function FinanceiroDashboard() {
         isRecurrent: !!p.recurrent,
         type: "pay",
       });
-      if (p.recurrent && p.status !== "pago") {
-        const day = p.recurrent_day || baseDue.getDate();
-        let y = baseDue.getFullYear();
-        let m = baseDue.getMonth() + 1;
-        let i = 0;
-        while (i < 60) {
-          if (m > 11) { m = 0; y += 1; }
-          const lastDay = new Date(y, m + 1, 0).getDate();
-          const safeDay = Math.min(day, lastDay);
-          const next = new Date(y, m, safeDay);
-          if (next > horizon) break;
-          const nextStr = format(next, "yyyy-MM-dd");
-          expanded.push({
-            id: `${p.id}-${nextStr}`,
-            name: p.supplier || p.description,
-            description: p.description,
-            category: p.category,
-            due_date: nextStr,
-            amount: Number(p.amount),
-            status: nextStr < todayStr ? "vencido" : "pendente",
-            rawStatus: "pendente",
-            isRecurrent: true,
-            type: "pay",
-          });
-          m += 1;
-          i += 1;
-        }
-      }
     });
 
     let rows = expanded;
