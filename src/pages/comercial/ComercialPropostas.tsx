@@ -736,6 +736,9 @@ interface CellState {
   percentage: string;        // % do valor da disciplina (0-100)
   billing_month: string;
   billing_year: string;
+  execution_month: string;
+  execution_year: string;
+  execution_touched: boolean; // true se usuário alterou manualmente
   is_installment: boolean;
   installment_count: string;
 }
