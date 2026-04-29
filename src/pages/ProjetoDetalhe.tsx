@@ -358,6 +358,15 @@ export default function ProjetoDetalhe() {
           )}
         </div>
 
+        {canSeeFinancial && authProfile && (
+          <ProjectBillingScheduleCard
+            projectId={project.id}
+            projectSaleValue={project.saleValue}
+            userId={authProfile.id}
+            canEdit={canEdit}
+          />
+        )}
+
         <Card className="shadow-sm animate-reveal-up delay-4" style={{ animationFillMode: "backwards" }}>
           <CardHeader><CardTitle className="text-base flex items-center gap-2"><ListChecks className="h-4 w-4" /> Tarefas do Projeto ({projectTasks.length})</CardTitle></CardHeader>
           <CardContent>
