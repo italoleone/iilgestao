@@ -13,7 +13,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { CalendarClock, CheckCircle2, Pencil } from "lucide-react";
+import { CalendarClock, CheckCircle2, Pencil, LinkIcon } from "lucide-react";
 import { formatBRL, parseBRL, cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -31,9 +31,8 @@ const MONTHS = [
   "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
 ];
 
-interface ScheduleRow {
-  id: string;
-  project_id: string;
+// Aggregated row used for display (per stage_key)
+interface StageRow {
   stage_key: string;
   stage_label: string;
   execution_month: number | null;
@@ -41,7 +40,8 @@ interface ScheduleRow {
   billing_month: number | null;
   billing_year: number | null;
   amount: number;
-  status: string;
+  status: string; // "executado" if all source rows are executed
+  ids: string[];  // underlying row ids in the source table
 }
 
 const fmtMonthYear = (m: number | null, y: number | null) =>
@@ -49,6 +49,9 @@ const fmtMonthYear = (m: number | null, y: number | null) =>
 
 const addMonth = (m: number, y: number): { m: number; y: number } =>
   m === 12 ? { m: 1, y: y + 1 } : { m: m + 1, y };
+
+const monthRank = (m: number | null, y: number | null) =>
+  m && y ? y * 12 + m : Number.POSITIVE_INFINITY;
 
 interface CellState {
   enabled: boolean;
@@ -67,44 +70,110 @@ interface Props {
   canEdit: boolean;
 }
 
+type Source = "proposal" | "project";
+
 export function ProjectBillingScheduleCard({
   projectId, projectSaleValue, userId, canEdit,
 }: Props) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
 
-  const { data: rows = [] } = useQuery({
-    queryKey: ["project-billing-schedule", projectId],
+  // 1) Find linked proposal (if any)
+  const { data: linkedProposalId, isLoading: loadingLink } = useQuery({
+    queryKey: ["project-linked-proposal", projectId],
     queryFn: async () => {
+      const { data, error } = await supabase
+        .from("commercial_proposals")
+        .select("id")
+        .eq("linked_project_id", projectId)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.id ?? null;
+    },
+  });
+
+  const source: Source = linkedProposalId ? "proposal" : "project";
+
+  // 2) Read schedule from the appropriate table
+  const { data: rawRows = [] } = useQuery({
+    queryKey: ["project-billing-schedule-data", projectId, source, linkedProposalId],
+    enabled: !loadingLink,
+    queryFn: async () => {
+      if (source === "proposal" && linkedProposalId) {
+        const { data, error } = await supabase
+          .from("proposal_billing_schedule")
+          .select("*")
+          .eq("proposal_id", linkedProposalId);
+        if (error) throw error;
+        return data ?? [];
+      }
       const { data, error } = await supabase
         .from("project_billing_schedule")
         .select("*")
         .eq("project_id", projectId);
       if (error) throw error;
-      return (data ?? []) as ScheduleRow[];
+      return data ?? [];
     },
   });
 
-  // Ordena pela ordem fixa de etapas
-  const ordered = useMemo(
-    () => STAGES
-      .map((s) => rows.find((r) => r.stage_key === s.key))
-      .filter(Boolean) as ScheduleRow[],
-    [rows],
-  );
+  // 3) Aggregate by stage_key
+  const ordered: StageRow[] = useMemo(() => {
+    const byStage = new Map<string, any[]>();
+    for (const r of rawRows as any[]) {
+      const arr = byStage.get(r.stage_key) ?? [];
+      arr.push(r);
+      byStage.set(r.stage_key, arr);
+    }
+    const out: StageRow[] = [];
+    for (const stage of STAGES) {
+      const list = byStage.get(stage.key);
+      if (!list || list.length === 0) continue;
+      // Earliest execution / billing dates across rows
+      const exec = list.reduce((acc, r) => {
+        if (monthRank(r.execution_month, r.execution_year) < monthRank(acc.execution_month, acc.execution_year)) {
+          return r;
+        }
+        return acc;
+      }, list[0]);
+      const bill = list.reduce((acc, r) => {
+        if (monthRank(r.billing_month, r.billing_year) < monthRank(acc.billing_month, acc.billing_year)) {
+          return r;
+        }
+        return acc;
+      }, list[0]);
+      const amount = list.reduce((s, r) => s + Number(r.amount || 0), 0);
+      const allExec = list.every((r) => r.status === "executado");
+      out.push({
+        stage_key: stage.key,
+        stage_label: stage.label,
+        execution_month: exec.execution_month ?? null,
+        execution_year: exec.execution_year ?? null,
+        billing_month: bill.billing_month ?? null,
+        billing_year: bill.billing_year ?? null,
+        amount,
+        status: allExec ? "executado" : "pendente",
+        ids: list.map((r) => r.id),
+      });
+    }
+    return out;
+  }, [rawRows]);
 
-  const totalAmount = ordered.reduce((s, r) => s + Number(r.amount || 0), 0);
+  const totalAmount = ordered.reduce((s, r) => s + r.amount, 0);
+
+  const invalidate = () =>
+    qc.invalidateQueries({ queryKey: ["project-billing-schedule-data", projectId] });
 
   const toggleStatus = useMutation({
-    mutationFn: async (row: ScheduleRow) => {
+    mutationFn: async (row: StageRow) => {
       const next = row.status === "executado" ? "pendente" : "executado";
+      const table = source === "proposal" ? "proposal_billing_schedule" : "project_billing_schedule";
       const { error } = await supabase
-        .from("project_billing_schedule")
+        .from(table)
         .update({ status: next })
-        .eq("id", row.id);
+        .in("id", row.ids);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["project-billing-schedule", projectId] }),
+    onSuccess: invalidate,
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -114,6 +183,11 @@ export function ProjectBillingScheduleCard({
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base flex items-center gap-2">
             <CalendarClock className="h-4 w-4" /> Cronograma de Faturamento
+            {source === "proposal" && (
+              <Badge variant="outline" className="ml-1 text-[10px] font-normal gap-1">
+                <LinkIcon className="h-3 w-3" /> vinculado à proposta
+              </Badge>
+            )}
           </CardTitle>
           {canEdit && (
             <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
@@ -140,7 +214,7 @@ export function ProjectBillingScheduleCard({
                   {ordered.map((r) => {
                     const isDone = r.status === "executado";
                     return (
-                      <tr key={r.id} className={cn("border-b last:border-0", isDone && "bg-success/5")}>
+                      <tr key={r.stage_key} className={cn("border-b last:border-0", isDone && "bg-success/5")}>
                         <td className="py-2 px-3 font-medium">
                           <div className="flex items-center gap-2">
                             {r.stage_label}
@@ -153,7 +227,7 @@ export function ProjectBillingScheduleCard({
                         </td>
                         <td className="py-2 px-3">{fmtMonthYear(r.execution_month, r.execution_year)}</td>
                         <td className="py-2 px-3">{fmtMonthYear(r.billing_month, r.billing_year)}</td>
-                        <td className="py-2 px-3 text-right tabular-nums">R$ {formatBRL(Number(r.amount || 0))}</td>
+                        <td className="py-2 px-3 text-right tabular-nums">R$ {formatBRL(r.amount)}</td>
                         <td className="py-2 px-3 text-center">
                           <button
                             type="button"
@@ -195,10 +269,13 @@ export function ProjectBillingScheduleCard({
           projectId={projectId}
           projectSaleValue={projectSaleValue}
           userId={userId}
-          existing={rows}
+          source={source}
+          proposalId={linkedProposalId ?? null}
+          existingStages={ordered}
+          rawRows={rawRows as any[]}
           onClose={() => {
             setEditing(false);
-            qc.invalidateQueries({ queryKey: ["project-billing-schedule", projectId] });
+            invalidate();
           }}
         />
       )}
@@ -209,12 +286,15 @@ export function ProjectBillingScheduleCard({
 // ─── Edit modal ──────────────────────────────────────────────────────────────
 
 function EditScheduleModal({
-  projectId, projectSaleValue, userId, existing, onClose,
+  projectId, projectSaleValue, userId, source, proposalId, existingStages, rawRows, onClose,
 }: {
   projectId: string;
   projectSaleValue: number;
   userId: string;
-  existing: ScheduleRow[];
+  source: Source;
+  proposalId: string | null;
+  existingStages: StageRow[];
+  rawRows: any[];
   onClose: () => void;
 }) {
   const now = new Date();
@@ -223,7 +303,7 @@ function EditScheduleModal({
   const buildInitial = (): Record<string, CellState> => {
     const out: Record<string, CellState> = {};
     for (const stage of STAGES) {
-      const e = existing.find((r) => r.stage_key === stage.key);
+      const e = existingStages.find((r) => r.stage_key === stage.key);
       out[stage.key] = {
         enabled: !!e,
         execution_month: e?.execution_month ? String(e.execution_month) : String(now.getMonth() + 1),
@@ -231,9 +311,8 @@ function EditScheduleModal({
         billing_month: e?.billing_month ? String(e.billing_month) : "",
         billing_year: e?.billing_year ? String(e.billing_year) : "",
         billing_touched: !!(e?.billing_month && e?.billing_year),
-        amount: e ? formatBRL(Number(e.amount || 0)) : "",
+        amount: e ? formatBRL(e.amount) : "",
       };
-      // Sugerir billing = execution + 1 mês se ainda não definido
       const c = out[stage.key];
       if (!c.billing_touched) {
         const em = parseInt(c.execution_month);
@@ -277,37 +356,81 @@ function EditScheduleModal({
 
   const saveMut = useMutation({
     mutationFn: async () => {
-      // Apaga e re-insere
-      const { error: delErr } = await supabase
-        .from("project_billing_schedule")
-        .delete()
-        .eq("project_id", projectId);
-      if (delErr) throw delErr;
+      if (source === "proposal" && proposalId) {
+        // Update dates / amounts on existing proposal_billing_schedule rows.
+        // Disabling a stage deletes its rows. Enabling a stage that doesn't
+        // currently exist in the proposal is not supported (no discipline info).
+        for (const stage of STAGES) {
+          const c = cells[stage.key];
+          const stageRows = rawRows.filter((r) => r.stage_key === stage.key);
+          if (!c?.enabled) {
+            if (stageRows.length > 0) {
+              const { error } = await supabase
+                .from("proposal_billing_schedule")
+                .delete()
+                .in("id", stageRows.map((r) => r.id));
+              if (error) throw error;
+            }
+            continue;
+          }
+          if (stageRows.length === 0) continue; // can't create new stage rows here
 
-      const toInsert = STAGES
-        .filter((st) => cells[st.key]?.enabled)
-        .map((st) => {
-          const c = cells[st.key];
-          const existingRow = existing.find((r) => r.stage_key === st.key);
-          return {
-            project_id: projectId,
-            stage_key: st.key,
-            stage_label: st.label,
-            execution_month: c.execution_month ? parseInt(c.execution_month) : null,
-            execution_year: c.execution_year ? parseInt(c.execution_year) : null,
-            billing_month: c.billing_month ? parseInt(c.billing_month) : null,
-            billing_year: c.billing_year ? parseInt(c.billing_year) : null,
-            amount: parseBRL(c.amount) || 0,
-            status: existingRow?.status ?? "pendente",
-            created_by: userId,
-          };
-        });
+          const newAmount = parseBRL(c.amount) || 0;
+          const oldTotal = stageRows.reduce((s, r) => s + Number(r.amount || 0), 0);
+          const exec_m = c.execution_month ? parseInt(c.execution_month) : null;
+          const exec_y = c.execution_year ? parseInt(c.execution_year) : null;
+          const bill_m = c.billing_month ? parseInt(c.billing_month) : null;
+          const bill_y = c.billing_year ? parseInt(c.billing_year) : null;
 
-      if (toInsert.length > 0) {
-        const { error: insErr } = await supabase
+          for (const r of stageRows) {
+            const ratio = oldTotal > 0 ? Number(r.amount || 0) / oldTotal : 1 / stageRows.length;
+            const scaledAmount = Math.round(newAmount * ratio * 100) / 100;
+            const { error } = await supabase
+              .from("proposal_billing_schedule")
+              .update({
+                execution_month: exec_m,
+                execution_year: exec_y,
+                billing_month: bill_m,
+                billing_year: bill_y,
+                amount: scaledAmount,
+              })
+              .eq("id", r.id);
+            if (error) throw error;
+          }
+        }
+      } else {
+        // Project-direct: delete and re-insert
+        const { error: delErr } = await supabase
           .from("project_billing_schedule")
-          .insert(toInsert);
-        if (insErr) throw insErr;
+          .delete()
+          .eq("project_id", projectId);
+        if (delErr) throw delErr;
+
+        const toInsert = STAGES
+          .filter((st) => cells[st.key]?.enabled)
+          .map((st) => {
+            const c = cells[st.key];
+            const existing = existingStages.find((r) => r.stage_key === st.key);
+            return {
+              project_id: projectId,
+              stage_key: st.key,
+              stage_label: st.label,
+              execution_month: c.execution_month ? parseInt(c.execution_month) : null,
+              execution_year: c.execution_year ? parseInt(c.execution_year) : null,
+              billing_month: c.billing_month ? parseInt(c.billing_month) : null,
+              billing_year: c.billing_year ? parseInt(c.billing_year) : null,
+              amount: parseBRL(c.amount) || 0,
+              status: existing?.status ?? "pendente",
+              created_by: userId,
+            };
+          });
+
+        if (toInsert.length > 0) {
+          const { error: insErr } = await supabase
+            .from("project_billing_schedule")
+            .insert(toInsert);
+          if (insErr) throw insErr;
+        }
       }
     },
     onSuccess: () => {
@@ -325,6 +448,13 @@ function EditScheduleModal({
             <CalendarClock className="h-5 w-5" /> Editar Cronograma de Faturamento
           </DialogTitle>
         </DialogHeader>
+
+        {source === "proposal" && (
+          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground flex items-center gap-2">
+            <LinkIcon className="h-3.5 w-3.5" />
+            Este cronograma está vinculado à proposta de origem.
+          </div>
+        )}
 
         <div className="space-y-3">
           {STAGES.map((stage) => {
