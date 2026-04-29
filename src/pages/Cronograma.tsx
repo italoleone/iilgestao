@@ -249,40 +249,46 @@ export default function Cronograma() {
                           <div
                             key={`${e.source}-${e.id}`}
                             className={cn(
-                              "rounded-lg border-2 bg-card p-3 space-y-2 shadow-sm transition-all hover:shadow-md",
+                              "rounded-md border border-l-4 bg-card px-2 py-1.5 shadow-sm transition-all hover:shadow-md",
                               cardBorder(e),
                             )}
                           >
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/projetos/${e.project_id}`)}
-                              className="text-sm font-semibold hover:underline text-left w-full truncate"
-                              title={e.project_name}
-                            >
-                              {e.project_name}
-                            </button>
-                            {e.discipline && (
-                              <Badge variant="outline" className={cn("text-[10px]", disciplineColor(e.discipline))}>
-                                {e.discipline}
-                              </Badge>
-                            )}
-                            <div className="text-xs text-muted-foreground">{e.stage_label}</div>
-                            <button
-                              type="button"
-                              onClick={() => toggleStatus.mutate(e)}
-                              className="w-full"
-                            >
-                              <Badge
-                                className={cn(
-                                  "w-full justify-center cursor-pointer transition-colors",
-                                  isDone
-                                    ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                                    : "bg-muted text-muted-foreground hover:bg-muted/80",
-                                )}
+                            <div className="flex items-center gap-2 min-w-0">
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/projetos/${e.project_id}`)}
+                                className="text-xs font-bold hover:underline text-left truncate"
+                                title={e.project_name}
                               >
-                                {isDone ? "Executado" : "Pendente"}
-                              </Badge>
-                            </button>
+                                {e.project_name}
+                              </button>
+                              {e.discipline && (
+                                <Badge variant="outline" className={cn("text-[9px] px-1 py-0 shrink-0", disciplineColor(e.discipline))}>
+                                  {e.discipline}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 min-w-0">
+                              <div className="text-[11px] text-muted-foreground truncate flex-1" title={e.stage_label}>
+                                {e.stage_label}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => toggleStatus.mutate(e)}
+                                className="shrink-0"
+                              >
+                                <Badge
+                                  className={cn(
+                                    "text-[9px] px-1.5 py-0 cursor-pointer transition-colors",
+                                    isDone
+                                      ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                                      : "bg-muted text-muted-foreground hover:bg-muted/80",
+                                  )}
+                                >
+                                  {isDone ? "Executado" : "Pendente"}
+                                </Badge>
+                              </button>
+                            </div>
                           </div>
                         );
                       })
