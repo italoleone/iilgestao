@@ -778,6 +778,15 @@ function BillingScheduleModal({
 
   const totalValue = activeDisciplines.reduce((s, d) => s + d.value, 0);
 
+  // Calcula mês/ano 1 mês anterior ao faturamento
+  const calcExecution = (bMonth: string, bYear: string): { m: string; y: string } => {
+    const m = parseInt(bMonth);
+    const y = parseInt(bYear);
+    if (!m || !y) return { m: bMonth, y: bYear };
+    if (m === 1) return { m: "12", y: String(y - 1) };
+    return { m: String(m - 1), y: String(y) };
+  };
+
   // Inicializar células
   const buildInitialCells = (): Record<CellKey, CellState> => {
     const cells: Record<CellKey, CellState> = {};
@@ -787,11 +796,18 @@ function BillingScheduleModal({
         const existing = existingSchedule.find(
           (e) => e.discipline_key === disc.key && e.stage_key === stage.key
         );
+        const bMonth = existing ? String(existing.billing_month) : String(now.getMonth() + 1);
+        const bYear = existing ? String(existing.billing_year) : String(now.getFullYear());
+        const auto = calcExecution(bMonth, bYear);
+        const hasExistingExec = existing?.execution_month != null && existing?.execution_year != null;
         cells[key] = {
           enabled: !!existing,
           percentage: existing ? String(existing.percentage) : "",
-          billing_month: existing ? String(existing.billing_month) : String(now.getMonth() + 1),
-          billing_year: existing ? String(existing.billing_year) : String(now.getFullYear()),
+          billing_month: bMonth,
+          billing_year: bYear,
+          execution_month: hasExistingExec ? String(existing!.execution_month) : auto.m,
+          execution_year: hasExistingExec ? String(existing!.execution_year) : auto.y,
+          execution_touched: hasExistingExec,
           is_installment: existing?.is_installment ?? false,
           installment_count: existing?.installment_count ? String(existing.installment_count) : "2",
         };
@@ -808,7 +824,18 @@ function BillingScheduleModal({
   }
 
   const updateCell = (key: CellKey, partial: Partial<CellState>) => {
-    setCells((prev) => ({ ...prev, [key]: { ...prev[key], ...partial } }));
+    setCells((prev) => {
+      const current = prev[key];
+      const next = { ...current, ...partial };
+      // Se mudou faturamento e usuário ainda não tocou execução, recalcula
+      const billingChanged = partial.billing_month !== undefined || partial.billing_year !== undefined;
+      if (billingChanged && !next.execution_touched) {
+        const auto = calcExecution(next.billing_month, next.billing_year);
+        next.execution_month = auto.m;
+        next.execution_year = auto.y;
+      }
+      return { ...prev, [key]: next };
+    });
   };
 
   // Totais
