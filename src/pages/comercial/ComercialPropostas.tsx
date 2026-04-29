@@ -1083,6 +1083,78 @@ function BillingScheduleModal({
           })}
         </div>
 
+        {/* ─── Cronograma de Execução ─────────────────────────────────────── */}
+        <div className="space-y-3 mt-2">
+          <div className="flex items-center gap-2 pt-2 border-t border-border">
+            <CalendarClock className="h-5 w-5 text-emerald-500" />
+            <h3 className="text-base font-semibold">Cronograma de Execução</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Defina o mês previsto de execução de cada etapa. Por padrão é sugerido 1 mês antes do faturamento, mas pode ser alterado.
+          </p>
+
+          {activeDisciplines.map((disc) => {
+            const enabledStages = BILLING_STAGES.filter(
+              (s) => cells[`${disc.key}__${s.key}`]?.enabled,
+            );
+            if (enabledStages.length === 0) return null;
+            return (
+              <div key={`exec-${disc.key}`} className="border border-border rounded-xl overflow-hidden">
+                <div className="px-4 py-2 bg-muted/50 border-b border-border">
+                  <span className="font-semibold text-sm">{disc.label}</span>
+                </div>
+                <div className="divide-y divide-border/50">
+                  {enabledStages.map((stage) => {
+                    const cellKey: CellKey = `${disc.key}__${stage.key}`;
+                    const cell = cells[cellKey];
+                    return (
+                      <div key={stage.key} className="px-4 py-2 flex items-center justify-between gap-3">
+                        <span className="text-sm">{stage.label}</span>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={cell.execution_month}
+                            onValueChange={(v) =>
+                              updateCell(cellKey, { execution_month: v, execution_touched: true })
+                            }
+                          >
+                            <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {MONTH_LABELS.map((m, i) => (
+                                <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select
+                            value={cell.execution_year}
+                            onValueChange={(v) =>
+                              updateCell(cellKey, { execution_year: v, execution_touched: true })
+                            }
+                          >
+                            <SelectTrigger className="w-20 h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {availableYears.map((y) => (
+                                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {activeDisciplines.every((d) =>
+            BILLING_STAGES.every((s) => !cells[`${d.key}__${s.key}`]?.enabled),
+          ) && (
+            <p className="text-xs text-muted-foreground italic px-1">
+              Ative etapas no cronograma de faturamento acima para definir suas datas de execução.
+            </p>
+          )}
+        </div>
+
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button
