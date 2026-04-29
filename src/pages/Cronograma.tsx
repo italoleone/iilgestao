@@ -176,12 +176,12 @@ export default function Cronograma() {
   const curY = today.getFullYear();
   const cardBorder = (e: Entry) => {
     const isDone = e.status === "executado";
-    if (isDone) return "border-emerald-500/60";
+    if (isDone) return "border-l-emerald-500";
     const rank = e.execution_year * 12 + e.execution_month;
     const cur = curY * 12 + curM;
-    if (rank < cur) return "border-red-500/60";
-    if (rank === cur) return "border-amber-500/60";
-    return "border-border";
+    if (rank < cur) return "border-l-red-500";
+    if (rank === cur) return "border-l-amber-500";
+    return "border-l-muted-foreground/30";
   };
 
   return (
