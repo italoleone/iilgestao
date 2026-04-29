@@ -443,6 +443,8 @@ export type Database = {
           created_by: string | null
           discipline_key: string
           discipline_label: string
+          execution_month: number | null
+          execution_year: number | null
           id: string
           installment_count: number | null
           is_installment: boolean
@@ -461,6 +463,8 @@ export type Database = {
           created_by?: string | null
           discipline_key?: string
           discipline_label?: string
+          execution_month?: number | null
+          execution_year?: number | null
           id?: string
           installment_count?: number | null
           is_installment?: boolean
@@ -479,6 +483,8 @@ export type Database = {
           created_by?: string | null
           discipline_key?: string
           discipline_label?: string
+          execution_month?: number | null
+          execution_year?: number | null
           id?: string
           installment_count?: number | null
           is_installment?: boolean

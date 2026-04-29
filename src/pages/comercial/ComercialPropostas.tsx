@@ -736,6 +736,9 @@ interface CellState {
   percentage: string;        // % do valor da disciplina (0-100)
   billing_month: string;
   billing_year: string;
+  execution_month: string;
+  execution_year: string;
+  execution_touched: boolean; // true se usuário alterou manualmente
   is_installment: boolean;
   installment_count: string;
 }
@@ -775,6 +778,15 @@ function BillingScheduleModal({
 
   const totalValue = activeDisciplines.reduce((s, d) => s + d.value, 0);
 
+  // Calcula mês/ano 1 mês anterior ao faturamento
+  const calcExecution = (bMonth: string, bYear: string): { m: string; y: string } => {
+    const m = parseInt(bMonth);
+    const y = parseInt(bYear);
+    if (!m || !y) return { m: bMonth, y: bYear };
+    if (m === 1) return { m: "12", y: String(y - 1) };
+    return { m: String(m - 1), y: String(y) };
+  };
+
   // Inicializar células
   const buildInitialCells = (): Record<CellKey, CellState> => {
     const cells: Record<CellKey, CellState> = {};
@@ -784,11 +796,18 @@ function BillingScheduleModal({
         const existing = existingSchedule.find(
           (e) => e.discipline_key === disc.key && e.stage_key === stage.key
         );
+        const bMonth = existing ? String(existing.billing_month) : String(now.getMonth() + 1);
+        const bYear = existing ? String(existing.billing_year) : String(now.getFullYear());
+        const auto = calcExecution(bMonth, bYear);
+        const hasExistingExec = existing?.execution_month != null && existing?.execution_year != null;
         cells[key] = {
           enabled: !!existing,
           percentage: existing ? String(existing.percentage) : "",
-          billing_month: existing ? String(existing.billing_month) : String(now.getMonth() + 1),
-          billing_year: existing ? String(existing.billing_year) : String(now.getFullYear()),
+          billing_month: bMonth,
+          billing_year: bYear,
+          execution_month: hasExistingExec ? String(existing!.execution_month) : auto.m,
+          execution_year: hasExistingExec ? String(existing!.execution_year) : auto.y,
+          execution_touched: hasExistingExec,
           is_installment: existing?.is_installment ?? false,
           installment_count: existing?.installment_count ? String(existing.installment_count) : "2",
         };
@@ -805,7 +824,18 @@ function BillingScheduleModal({
   }
 
   const updateCell = (key: CellKey, partial: Partial<CellState>) => {
-    setCells((prev) => ({ ...prev, [key]: { ...prev[key], ...partial } }));
+    setCells((prev) => {
+      const current = prev[key];
+      const next = { ...current, ...partial };
+      // Se mudou faturamento e usuário ainda não tocou execução, recalcula
+      const billingChanged = partial.billing_month !== undefined || partial.billing_year !== undefined;
+      if (billingChanged && !next.execution_touched) {
+        const auto = calcExecution(next.billing_month, next.billing_year);
+        next.execution_month = auto.m;
+        next.execution_year = auto.y;
+      }
+      return { ...prev, [key]: next };
+    });
   };
 
   // Totais
@@ -850,6 +880,8 @@ function BillingScheduleModal({
           percentage: pct,
           billing_year: parseInt(cell.billing_year),
           billing_month: parseInt(cell.billing_month),
+          execution_year: cell.execution_year ? parseInt(cell.execution_year) : null,
+          execution_month: cell.execution_month ? parseInt(cell.execution_month) : null,
           is_installment: cell.is_installment,
           installment_count: cell.is_installment ? parseInt(cell.installment_count) || 2 : null,
           created_by: userId,
@@ -1049,6 +1081,78 @@ function BillingScheduleModal({
               </div>
             );
           })}
+        </div>
+
+        {/* ─── Cronograma de Execução ─────────────────────────────────────── */}
+        <div className="space-y-3 mt-2">
+          <div className="flex items-center gap-2 pt-2 border-t border-border">
+            <CalendarClock className="h-5 w-5 text-emerald-500" />
+            <h3 className="text-base font-semibold">Cronograma de Execução</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Defina o mês previsto de execução de cada etapa. Por padrão é sugerido 1 mês antes do faturamento, mas pode ser alterado.
+          </p>
+
+          {activeDisciplines.map((disc) => {
+            const enabledStages = BILLING_STAGES.filter(
+              (s) => cells[`${disc.key}__${s.key}`]?.enabled,
+            );
+            if (enabledStages.length === 0) return null;
+            return (
+              <div key={`exec-${disc.key}`} className="border border-border rounded-xl overflow-hidden">
+                <div className="px-4 py-2 bg-muted/50 border-b border-border">
+                  <span className="font-semibold text-sm">{disc.label}</span>
+                </div>
+                <div className="divide-y divide-border/50">
+                  {enabledStages.map((stage) => {
+                    const cellKey: CellKey = `${disc.key}__${stage.key}`;
+                    const cell = cells[cellKey];
+                    return (
+                      <div key={stage.key} className="px-4 py-2 flex items-center justify-between gap-3">
+                        <span className="text-sm">{stage.label}</span>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={cell.execution_month}
+                            onValueChange={(v) =>
+                              updateCell(cellKey, { execution_month: v, execution_touched: true })
+                            }
+                          >
+                            <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {MONTH_LABELS.map((m, i) => (
+                                <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select
+                            value={cell.execution_year}
+                            onValueChange={(v) =>
+                              updateCell(cellKey, { execution_year: v, execution_touched: true })
+                            }
+                          >
+                            <SelectTrigger className="w-20 h-8 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {availableYears.map((y) => (
+                                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {activeDisciplines.every((d) =>
+            BILLING_STAGES.every((s) => !cells[`${d.key}__${s.key}`]?.enabled),
+          ) && (
+            <p className="text-xs text-muted-foreground italic px-1">
+              Ative etapas no cronograma de faturamento acima para definir suas datas de execução.
+            </p>
+          )}
         </div>
 
         <DialogFooter className="gap-2">

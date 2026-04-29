@@ -116,6 +116,8 @@ export interface BillingScheduleEntry {
   percentage: number;              // % do valor da disciplina
   billing_year: number;
   billing_month: number;
+  execution_year: number | null;
+  execution_month: number | null;
   is_installment: boolean;
   installment_count: number | null;
   status: BillingStatus;
@@ -450,6 +452,8 @@ export interface UpsertBillingScheduleInput {
   percentage: number;
   billing_year: number;
   billing_month: number;
+  execution_year?: number | null;
+  execution_month?: number | null;
   is_installment: boolean;
   installment_count?: number | null;
   created_by: string;
