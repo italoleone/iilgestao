@@ -168,7 +168,6 @@ export default function TarefaDetalhe() {
       .eq("id", t.project_id)
       .maybeSingle();
     if (proj) setProject(proj as Project);
-    console.log("project.responsible:", proj?.responsible, "profile.id:", profile?.id);
     setLoading(false);
   };
 
