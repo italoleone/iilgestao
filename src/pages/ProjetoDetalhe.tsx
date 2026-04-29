@@ -21,6 +21,7 @@ import { MeetingsSection } from "@/components/meetings/MeetingsSection";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useTimeEntries } from "@/hooks/useSupabaseData";
+import { ProjectBillingScheduleCard } from "@/components/ProjectBillingScheduleCard";
 
 interface EditableEntry {
   id: string;
@@ -356,6 +357,15 @@ export default function ProjetoDetalhe() {
             </Card>
           )}
         </div>
+
+        {canSeeFinancial && authProfile && (
+          <ProjectBillingScheduleCard
+            projectId={project.id}
+            projectSaleValue={project.saleValue}
+            userId={authProfile.id}
+            canEdit={canEdit}
+          />
+        )}
 
         <Card className="shadow-sm animate-reveal-up delay-4" style={{ animationFillMode: "backwards" }}>
           <CardHeader><CardTitle className="text-base flex items-center gap-2"><ListChecks className="h-4 w-4" /> Tarefas do Projeto ({projectTasks.length})</CardTitle></CardHeader>

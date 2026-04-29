@@ -380,6 +380,62 @@ export type Database = {
         }
         Relationships: []
       }
+      project_billing_schedule: {
+        Row: {
+          amount: number
+          billing_month: number | null
+          billing_year: number | null
+          created_at: string
+          created_by: string | null
+          execution_month: number | null
+          execution_year: number | null
+          id: string
+          project_id: string
+          stage_key: string
+          stage_label: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          billing_month?: number | null
+          billing_year?: number | null
+          created_at?: string
+          created_by?: string | null
+          execution_month?: number | null
+          execution_year?: number | null
+          id?: string
+          project_id: string
+          stage_key: string
+          stage_label: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          billing_month?: number | null
+          billing_year?: number | null
+          created_at?: string
+          created_by?: string | null
+          execution_month?: number | null
+          execution_year?: number | null
+          id?: string
+          project_id?: string
+          stage_key?: string
+          stage_label?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_billing_schedule_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           client: string
