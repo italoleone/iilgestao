@@ -8,7 +8,6 @@ import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useProjects, useTasks, useActiveProfiles, useTimeEntries, getProfileById } from "@/hooks/useSupabaseData";
 import { useActiveTimers, getTimerForTask } from "@/hooks/useActiveTimers";
 import { useAuth } from "@/contexts/AuthContext";
-import { getTaskFilter } from "@/utils/permissions";
 import {
   AlertTriangle, Clock, CheckCircle2, Play, Radio, TrendingUp, Users, BarChart3, Timer, CalendarClock, Zap, CalendarCheck, Filter,
 } from "lucide-react";
@@ -65,18 +64,22 @@ export default function DashboardPlanejamento() {
     return Array.from(set).sort();
   }, [tasks]);
 
-  // Base filter: role-based
-  // Coordenador sees only tasks from projects where they are the responsible
-  // Planejamento sees everything (no filter)
+  // Base filter: role-based. Validação usa vínculo direto task → project → responsible.
   const roleFilteredTasks = useMemo(() => {
     if (!profile) return tasks;
-    const filter = getTaskFilter(profile.role, profile.id);
-    if (filter.byProjectResponsible) {
-      const myProjectIds = new Set(
-        projects.filter(p => p.responsible === filter.byProjectResponsible).map(p => p.id)
-      );
+
+    const myProjectIds = new Set(
+      projects.filter(p => p.responsible === profile.id).map(p => p.id)
+    );
+
+    if (profile.role === "coordenador") {
       return tasks.filter(t => myProjectIds.has(t.projectId));
     }
+
+    if (profile.role === "planejamento") {
+      return tasks.filter(t => t.status !== "aguardando_validacao" || myProjectIds.has(t.projectId));
+    }
+
     return tasks;
   }, [tasks, profile, projects]);
 
