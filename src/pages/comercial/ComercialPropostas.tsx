@@ -880,6 +880,8 @@ function BillingScheduleModal({
           percentage: pct,
           billing_year: parseInt(cell.billing_year),
           billing_month: parseInt(cell.billing_month),
+          execution_year: cell.execution_year ? parseInt(cell.execution_year) : null,
+          execution_month: cell.execution_month ? parseInt(cell.execution_month) : null,
           is_installment: cell.is_installment,
           installment_count: cell.is_installment ? parseInt(cell.installment_count) || 2 : null,
           created_by: userId,
