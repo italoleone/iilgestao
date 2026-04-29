@@ -21,6 +21,7 @@ import Cadastro from "./pages/Cadastro";
 import Perfil from "./pages/Perfil";
 import Usuarios from "./pages/Usuarios";
 import DashboardPlanejamento from "./pages/DashboardPlanejamento";
+import Cronograma from "./pages/Cronograma";
 import ComercialDashboard from "./pages/comercial/ComercialDashboard";
 import ComercialClientes from "./pages/comercial/ComercialClientes";
 import ComercialPropostas from "./pages/comercial/ComercialPropostas";
