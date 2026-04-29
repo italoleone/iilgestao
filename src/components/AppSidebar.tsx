@@ -59,6 +59,12 @@ const modules: NavModule[] = [
     ],
   },
   {
+    title: "Cronograma",
+    icon: CalendarRange,
+    url: "/cronograma",
+    visible: (role) => role === "admin_geral" || role === "admin" || role === "planejamento",
+  },
+  {
     title: "Financeiro",
     icon: BarChart3,
     visible: canAccessFinanceiro,
