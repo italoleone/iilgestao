@@ -78,43 +78,50 @@ export function ProjectBillingScheduleCard({
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
 
-  // 1) Find linked proposal (if any)
-  const { data: linkedProposalId, isLoading: loadingLink } = useQuery({
-    queryKey: ["project-linked-proposal", projectId],
+  // Combined query: find linked proposal -> read its schedule;
+  // fall back to project_billing_schedule when no proposal is linked.
+  const { data: scheduleData = { source: "project" as Source, proposalId: null as string | null, rows: [] as any[] } } = useQuery({
+    queryKey: ["project-billing-schedule-data", projectId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Step 1: find ANY proposal linked to this project (use array, not maybeSingle,
+      // so multiple matches don't throw and RLS-empty results don't break the flow).
+      const { data: props, error: pErr } = await supabase
         .from("commercial_proposals")
         .select("id")
         .eq("linked_project_id", projectId)
-        .maybeSingle();
-      if (error) throw error;
-      return data?.id ?? null;
-    },
-  });
+        .limit(1);
+      if (pErr) {
+        console.warn("[BillingSchedule] commercial_proposals lookup failed:", pErr.message);
+      }
+      const proposalId = props?.[0]?.id ?? null;
 
-  const source: Source = linkedProposalId ? "proposal" : "project";
-
-  // 2) Read schedule from the appropriate table
-  const { data: rawRows = [] } = useQuery({
-    queryKey: ["project-billing-schedule-data", projectId, source, linkedProposalId],
-    enabled: !loadingLink,
-    queryFn: async () => {
-      if (source === "proposal" && linkedProposalId) {
+      // Step 2: prefer proposal_billing_schedule when a proposal is linked.
+      if (proposalId) {
         const { data, error } = await supabase
           .from("proposal_billing_schedule")
           .select("*")
-          .eq("proposal_id", linkedProposalId);
+          .eq("proposal_id", proposalId);
         if (error) throw error;
-        return data ?? [];
+        if ((data ?? []).length > 0) {
+          return { source: "proposal" as Source, proposalId, rows: data ?? [] };
+        }
+        // Linked but empty -> still treat as proposal source so edits target it.
+        return { source: "proposal" as Source, proposalId, rows: [] };
       }
+
+      // Fallback: project-direct schedule.
       const { data, error } = await supabase
         .from("project_billing_schedule")
         .select("*")
         .eq("project_id", projectId);
       if (error) throw error;
-      return data ?? [];
+      return { source: "project" as Source, proposalId: null, rows: data ?? [] };
     },
   });
+
+  const source: Source = scheduleData.source;
+  const linkedProposalId = scheduleData.proposalId;
+  const rawRows = scheduleData.rows;
 
   // 3) Aggregate by stage_key
   const ordered: StageRow[] = useMemo(() => {
