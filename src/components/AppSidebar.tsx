@@ -16,6 +16,7 @@ import {
   TrendingUp,
   TrendingDown,
   Wallet,
+  CalendarRange,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -56,6 +57,12 @@ const modules: NavModule[] = [
       { title: "Projetos", url: "/projetos", icon: FolderKanban },
       { title: "Tarefas", url: "/tarefas", icon: ListChecks },
     ],
+  },
+  {
+    title: "Cronograma",
+    icon: CalendarRange,
+    url: "/cronograma",
+    visible: (role) => role === "admin_geral" || role === "admin" || role === "planejamento",
   },
   {
     title: "Financeiro",
