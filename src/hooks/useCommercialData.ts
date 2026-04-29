@@ -452,6 +452,8 @@ export interface UpsertBillingScheduleInput {
   percentage: number;
   billing_year: number;
   billing_month: number;
+  execution_year?: number | null;
+  execution_month?: number | null;
   is_installment: boolean;
   installment_count?: number | null;
   created_by: string;
