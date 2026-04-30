@@ -432,7 +432,7 @@ export default function ComercialPropostas() {
                 <Button variant="outline" onClick={() => setCoordinatorTarget(null)}>Cancelar</Button>
                 <Button
                   onClick={handleConfirmCoordinators}
-                  disabled={approveProposal.isPending || !Object.values(coordinatorSelections).every(Boolean)}
+                  disabled={approveProposal.isPending || !projectNumber.trim() || !Object.values(coordinatorSelections).every(Boolean)}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   <CheckCircle className="h-4 w-4 mr-1" />Confirmar e Criar Projetos
