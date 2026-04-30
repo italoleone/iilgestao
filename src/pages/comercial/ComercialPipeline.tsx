@@ -132,8 +132,10 @@ export default function ComercialPipeline() {
             proposal={approvalTarget}
             discounts={discountForm}
             setDiscounts={setDiscountForm}
+            projectNumber={projectNumber}
+            setProjectNumber={setProjectNumber}
             onConfirm={handleApproveWithDiscount}
-            onCancel={() => setApprovalTarget(null)}
+            onCancel={() => { setApprovalTarget(null); setProjectNumber(""); }}
             isLoading={approveProposal.isPending}
           />
         )}
