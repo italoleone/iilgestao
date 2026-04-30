@@ -144,10 +144,12 @@ export default function ComercialPipeline() {
   );
 }
 
-function ApprovalModal({ proposal, discounts, setDiscounts, onConfirm, onCancel, isLoading }: {
+function ApprovalModal({ proposal, discounts, setDiscounts, projectNumber, setProjectNumber, onConfirm, onCancel, isLoading }: {
   proposal: CommercialProposal;
   discounts: ProposalDiscounts;
   setDiscounts: (d: ProposalDiscounts) => void;
+  projectNumber: string;
+  setProjectNumber: (v: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
   isLoading: boolean;
