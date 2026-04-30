@@ -9,8 +9,10 @@ import { useProjects, useTasks, useActiveProfiles, useTimeEntries, getProfileByI
 import { useActiveTimers, getTimerForTask } from "@/hooks/useActiveTimers";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  AlertTriangle, Clock, CheckCircle2, Play, Radio, TrendingUp, Users, BarChart3, Timer, CalendarClock, Zap, CalendarCheck, Filter,
+  AlertTriangle, Clock, CheckCircle2, Play, Radio, TrendingUp, Users, BarChart3, Timer, CalendarClock, Zap, CalendarCheck, Filter, History, ChevronDown, ChevronRight,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell,
