@@ -114,6 +114,7 @@ export type Database = {
           area_m2: number
           arquivo_ref_1: string | null
           arquivo_ref_2: string | null
+          billing_mode: string
           client_id: string
           created_at: string
           disciplines: Json
@@ -121,6 +122,9 @@ export type Database = {
           final_disciplines: Json
           final_total_value: number
           id: string
+          installment_count: number | null
+          installment_start_month: number | null
+          installment_start_year: number | null
           linked_project_id: string | null
           notes: string | null
           price_per_m2: Json
@@ -138,6 +142,7 @@ export type Database = {
           area_m2: number
           arquivo_ref_1?: string | null
           arquivo_ref_2?: string | null
+          billing_mode?: string
           client_id: string
           created_at?: string
           disciplines?: Json
@@ -145,6 +150,9 @@ export type Database = {
           final_disciplines?: Json
           final_total_value?: number
           id?: string
+          installment_count?: number | null
+          installment_start_month?: number | null
+          installment_start_year?: number | null
           linked_project_id?: string | null
           notes?: string | null
           price_per_m2?: Json
@@ -162,6 +170,7 @@ export type Database = {
           area_m2?: number
           arquivo_ref_1?: string | null
           arquivo_ref_2?: string | null
+          billing_mode?: string
           client_id?: string
           created_at?: string
           disciplines?: Json
@@ -169,6 +178,9 @@ export type Database = {
           final_disciplines?: Json
           final_total_value?: number
           id?: string
+          installment_count?: number | null
+          installment_start_month?: number | null
+          installment_start_year?: number | null
           linked_project_id?: string | null
           notes?: string | null
           price_per_m2?: Json
