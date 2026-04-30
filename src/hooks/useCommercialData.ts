@@ -90,6 +90,10 @@ export interface CommercialProposal {
   approved_at: string | null;
   created_at: string;
   updated_at: string;
+  billing_mode?: "medicao" | "parcelado";
+  installment_count?: number | null;
+  installment_start_month?: number | null;
+  installment_start_year?: number | null;
   client?: CommercialClient;
 }
 
