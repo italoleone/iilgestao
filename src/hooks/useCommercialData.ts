@@ -505,6 +505,8 @@ export function useUpdateProposalBillingMode() {
     },
   });
 }
+
+export interface UpsertBillingScheduleInput {
   proposal_id: string;
   discipline_key: string;
   discipline_label: string;
