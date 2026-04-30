@@ -90,6 +90,10 @@ export interface CommercialProposal {
   approved_at: string | null;
   created_at: string;
   updated_at: string;
+  billing_mode?: "medicao" | "parcelado";
+  installment_count?: number | null;
+  installment_start_month?: number | null;
+  installment_start_year?: number | null;
   client?: CommercialClient;
 }
 
@@ -427,7 +431,7 @@ export function useAllBillingSchedules() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("proposal_billing_schedule")
-        .select("*, commercial_proposals(project_name, client_id, commercial_clients(name))")
+        .select("*, commercial_proposals(project_name, client_id, billing_mode, installment_count, installment_start_month, installment_start_year, commercial_clients(name))")
         .order("billing_year")
         .order("billing_month");
       if (error) throw error;
@@ -435,9 +439,69 @@ export function useAllBillingSchedules() {
         commercial_proposals: {
           project_name: string;
           client_id: string;
+          billing_mode?: string | null;
+          installment_count?: number | null;
+          installment_start_month?: number | null;
+          installment_start_year?: number | null;
           commercial_clients: { name: string } | null;
         } | null;
       })[];
+    },
+  });
+}
+
+/** Busca TODAS as propostas em modo parcelado (para o Dashboard Financeiro) */
+export function useAllInstallmentProposals() {
+  return useQuery({
+    queryKey: ["installment-proposals-all"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("commercial_proposals")
+        .select("id, project_name, client_id, final_total_value, total_value, billing_mode, installment_count, installment_start_month, installment_start_year, commercial_clients(name)")
+        .eq("billing_mode", "parcelado" as any);
+      if (error) throw error;
+      return (data || []) as Array<{
+        id: string;
+        project_name: string;
+        client_id: string;
+        final_total_value: number;
+        total_value: number;
+        billing_mode: string;
+        installment_count: number | null;
+        installment_start_month: number | null;
+        installment_start_year: number | null;
+        commercial_clients: { name: string } | null;
+      }>;
+    },
+  });
+}
+
+/** Atualiza o modo de faturamento e dados de parcelamento da proposta */
+export function useUpdateProposalBillingMode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      proposalId: string;
+      billing_mode: "medicao" | "parcelado";
+      installment_count?: number | null;
+      installment_start_month?: number | null;
+      installment_start_year?: number | null;
+    }) => {
+      const { error } = await supabase
+        .from("commercial_proposals")
+        .update({
+          billing_mode: input.billing_mode,
+          installment_count: input.installment_count ?? null,
+          installment_start_month: input.installment_start_month ?? null,
+          installment_start_year: input.installment_start_year ?? null,
+        } as any)
+        .eq("id", input.proposalId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["commercial-proposals"] });
+      qc.invalidateQueries({ queryKey: ["installment-proposals-all"] });
+      qc.invalidateQueries({ queryKey: ["billing-schedule-all"] });
     },
   });
 }
