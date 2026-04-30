@@ -58,6 +58,7 @@ export default function ComercialPropostas() {
   const [approvalTarget, setApprovalTarget] = useState<CommercialProposal | null>(null);
   const [coordinatorTarget, setCoordinatorTarget] = useState<CommercialProposal | null>(null);
   const [coordinatorSelections, setCoordinatorSelections] = useState<Record<string, string>>({});
+  const [projectNumber, setProjectNumber] = useState<string>("");
   const [activeUsers, setActiveUsers] = useState<{ id: string; name: string }[]>([]);
   const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
