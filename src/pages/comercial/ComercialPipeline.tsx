@@ -171,6 +171,10 @@ function ApprovalModal({ proposal, discounts, setDiscounts, projectNumber, setPr
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Aprovar Proposta — Descontos</DialogTitle></DialogHeader>
         <div className="space-y-4">
+          <div className="space-y-1">
+            <Label className="text-sm font-medium">Número do Projeto <span className="text-destructive">*</span></Label>
+            <Input value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} placeholder="Ex: 0480 - 21" />
+          </div>
           <p className="text-sm text-muted-foreground">Defina o desconto (%) para cada disciplina.</p>
           {discs.map((d) => {
             const original = proposal.disciplines[d] || 0;
