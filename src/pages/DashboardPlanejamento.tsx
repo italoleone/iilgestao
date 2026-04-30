@@ -720,7 +720,11 @@ function ProjectWorkHistoryBlock({
   const [day, setDay] = useState<string>(todayStr);
   const [month, setMonth] = useState<number>(today.getMonth() + 1);
   const [year, setYear] = useState<number>(today.getFullYear());
+  const [discipline, setDiscipline] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState<string>("all");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  const DISCIPLINES = ["Estrutural", "Hidráulica", "Elétrica", "Fundações"];
 
   const taskMap = useMemo(() => {
     const m: Record<string, { name: string; projectId: string }> = {};
@@ -734,7 +738,15 @@ function ProjectWorkHistoryBlock({
     return m;
   }, [projects]);
 
-  const filtered = useMemo(() => {
+  const detectDiscipline = (projectName: string): string | null => {
+    const lower = projectName.toLowerCase();
+    for (const d of DISCIPLINES) {
+      if (lower.includes(d.toLowerCase())) return d;
+    }
+    return null;
+  };
+
+  const periodFiltered = useMemo(() => {
     return allTimeEntries.filter((e) => {
       if (!e.date) return false;
       if (mode === "day") return e.date === day;
@@ -742,6 +754,24 @@ function ProjectWorkHistoryBlock({
       return y === year && mo === month;
     });
   }, [allTimeEntries, mode, day, month, year]);
+
+  const usersInPeriod = useMemo(() => {
+    const set = new Set<string>();
+    periodFiltered.forEach((e) => { if (e.user_name) set.add(e.user_name); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [periodFiltered]);
+
+  const filtered = useMemo(() => {
+    return periodFiltered.filter((e) => {
+      if (userFilter !== "all" && e.user_name !== userFilter) return false;
+      if (discipline !== "all") {
+        const t = taskMap[e.task_id];
+        const pname = t ? projectMap[t.projectId] || "" : "";
+        if (detectDiscipline(pname) !== discipline) return false;
+      }
+      return true;
+    });
+  }, [periodFiltered, userFilter, discipline, taskMap, projectMap]);
 
   const grouped = useMemo(() => {
     const byProject: Record<string, { totalMin: number; taskIds: Set<string>; entries: HistEntry[] }> = {};
@@ -763,6 +793,35 @@ function ProjectWorkHistoryBlock({
       }))
       .sort((a, b) => b.totalMin - a.totalMin);
   }, [filtered, taskMap, projectMap]);
+
+  const periodLabel = mode === "day"
+    ? day
+    : `${String(month).padStart(2, "0")}-${year}`;
+
+  const handleExport = () => {
+    const rows: Record<string, string | number>[] = [];
+    grouped.forEach((g) => {
+      const disc = detectDiscipline(g.projectName) || "";
+      g.entries
+        .slice()
+        .sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time))
+        .forEach((e) => {
+          const tn = taskMap[e.task_id]?.name || "Tarefa removida";
+          rows.push({
+            Projeto: g.projectName,
+            Disciplina: disc,
+            Tarefa: tn,
+            "Usuário": e.user_name || "",
+            Horas: Number(((e.duration_minutes || 0) / 60).toFixed(2)),
+            "Data/Período": mode === "day" ? `${e.date}${e.start_time ? " " + e.start_time : ""}` : e.date,
+          });
+        });
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Histórico");
+    XLSX.writeFile(wb, `historico-projetos-${periodLabel}.xlsx`);
+  };
 
   const fmtH = (min: number) => `${(min / 60).toFixed(1)}h`;
 
