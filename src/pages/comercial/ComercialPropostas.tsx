@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   useCommercialProposals, useCommercialClients, useCreateProposal, useUpdateProposal,
   useApproveProposal, useDeleteProposal, useClientHistory, useBillingSchedule,
-  useSaveBillingSchedule,
+  useSaveBillingSchedule, useUpdateProposalBillingMode,
   PROPOSAL_STATUS_LABELS, BILLING_STAGES, MONTH_LABELS,
   type ProposalStatus, type CommercialProposal, type ProposalDisciplines,
   type ProposalDiscounts, type BillingStageKey, type UpsertBillingScheduleInput,
