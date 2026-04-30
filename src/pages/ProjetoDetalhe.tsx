@@ -69,7 +69,7 @@ export default function ProjetoDetalhe() {
   const { profiles } = useActiveProfiles();
   const { tasks: allTasks } = useTasks();
   const { canAccessFinanceiro: canSeeFinancial, canAccessAllProjects, profile: authProfile } = useAuth();
-  const { entries: projectTimeEntries } = useTimeEntries(undefined, id);
+  const { entries: projectTimeEntries, refetch: refetchProjectEntries } = useTimeEntries(undefined, id);
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
@@ -274,6 +274,7 @@ export default function ProjetoDetalhe() {
     const totalMinutes = (allEntries || []).reduce((sum: number, e: { duration_minutes: number }) => sum + e.duration_minutes, 0);
     const newHoursWorked = Math.round((totalMinutes / 60) * 100) / 100;
     await supabase.from("tasks").update({ hours_worked: newHoursWorked }).eq("id", editingEntry.task_id);
+    await refetchProjectEntries();
     setSavingEntry(false);
     setEditingEntry(null);
     toast.success("Registro de horas atualizado!");

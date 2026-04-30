@@ -249,9 +249,10 @@ export function useTasks() {
 export function useTimeEntries(taskId?: string, projectId?: string) {
   const [entries, setEntries] = useState<DbTimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  const fetchEntries = useCallback(async () => {
-    setLoading(true);
+  const fetchEntries = useCallback(async (isInitial = false) => {
+    if (isInitial) setLoading(true);
     let query = supabase.from("time_entries").select("*").order("created_at", { ascending: false });
     if (taskId) query = query.eq("task_id", taskId);
     if (projectId) query = query.eq("project_id", projectId);
@@ -259,10 +260,54 @@ export function useTimeEntries(taskId?: string, projectId?: string) {
     if (!error && data) {
       setEntries(data as unknown as DbTimeEntry[]);
     }
-    setLoading(false);
+    if (isInitial) setLoading(false);
   }, [taskId, projectId]);
 
-  useEffect(() => { fetchEntries(); }, [fetchEntries]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchEntries(true);
+
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const setupChannel = () => {
+      const name = `time-entries-changes-${Math.random().toString(36).slice(2)}`;
+      const channel = supabase
+        .channel(name)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "time_entries" },
+          () => { fetchEntries(false); }
+        )
+        .subscribe((status) => {
+          if (cancelled) return;
+          if (status === "CLOSED" || status === "CHANNEL_ERROR") {
+            try { supabase.removeChannel(channel); } catch (_) {}
+            reconnectTimeout = setTimeout(() => {
+              if (!cancelled) channelRef.current = setupChannel();
+            }, 3000);
+          }
+        });
+      channelRef.current = channel;
+      return channel;
+    };
+
+    setupChannel();
+
+    const interval = setInterval(() => fetchEntries(false), 60000);
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") fetchEntries(false);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      cancelled = true;
+      try { if (channelRef.current) supabase.removeChannel(channelRef.current); } catch (_) {}
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [fetchEntries]);
 
   return { entries, loading, refetch: fetchEntries };
 }
