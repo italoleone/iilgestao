@@ -314,17 +314,61 @@ export default function FinanceiroDashboard() {
   const [billingViewYear, setBillingViewYear] = useState(now.getFullYear());
 
   // Meses com itens agendados para o ano selecionado
+  // Inclui: (a) entradas por etapa do modo "medicao"; (b) parcelas geradas das propostas em modo "parcelado"
+  type BillingItem = (typeof allBillingSchedules)[number] & { __synthetic?: boolean };
+
   const billingByMonth = useMemo(() => {
-    const map: Record<number, typeof allBillingSchedules> = {};
+    const map: Record<number, BillingItem[]> = {};
     for (let m = 1; m <= 12; m++) map[m] = [];
+
+    // (a) Entradas reais por etapa — apenas para propostas que NÃO estão em modo parcelado
     allBillingSchedules
-      .filter(e => e.billing_year === billingViewYear)
+      .filter(e => {
+        if (e.billing_year !== billingViewYear) return false;
+        const mode = (e as any).commercial_proposals?.billing_mode;
+        return mode !== "parcelado";
+      })
       .forEach(e => {
         if (!map[e.billing_month]) map[e.billing_month] = [];
-        map[e.billing_month].push(e);
+        map[e.billing_month].push(e as BillingItem);
       });
+
+    // (b) Parcelas sintéticas — uma entrada por mês para cada parcela
+    for (const p of installmentProposals) {
+      const count = p.installment_count || 0;
+      const startM = p.installment_start_month || 0;
+      const startY = p.installment_start_year || 0;
+      const total = Number(p.final_total_value || p.total_value || 0);
+      if (count <= 0 || startM <= 0 || startY <= 0 || total <= 0) continue;
+      const valor = total / count;
+      for (let i = 0; i < count; i++) {
+        const m = ((startM - 1 + i) % 12) + 1;
+        const y = startY + Math.floor((startM - 1 + i) / 12);
+        if (y !== billingViewYear) continue;
+        const synthetic: any = {
+          id: `installment-${p.id}-${i}`,
+          proposal_id: p.id,
+          stage_label: `Parcela ${i + 1}/${count}`,
+          amount: valor,
+          status: "previsto",
+          billing_month: m,
+          billing_year: y,
+          is_installment: true,
+          installment_count: count,
+          commercial_proposals: {
+            project_name: p.project_name,
+            client_id: p.client_id,
+            billing_mode: "parcelado",
+            commercial_clients: p.commercial_clients,
+          },
+          __synthetic: true,
+        };
+        if (!map[m]) map[m] = [];
+        map[m].push(synthetic);
+      }
+    }
     return map;
-  }, [allBillingSchedules, billingViewYear]);
+  }, [allBillingSchedules, installmentProposals, billingViewYear]);
 
   const billingChartData = useMemo(() => {
     return MONTH_LABELS.map((label, idx) => {
