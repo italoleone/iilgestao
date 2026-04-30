@@ -696,3 +696,202 @@ export default function DashboardPlanejamento() {
     </AppLayout>
   );
 }
+
+// ============================================================
+// Histórico de Projetos Trabalhados
+// ============================================================
+type HistEntry = { id: string; task_id: string; project_id: string; user_name: string; date: string; start_time: string; duration_minutes: number };
+
+function ProjectWorkHistoryBlock({
+  allTimeEntries,
+  tasks,
+  projects,
+}: {
+  allTimeEntries: HistEntry[];
+  tasks: { id: string; name: string; projectId: string }[];
+  projects: { id: string; name: string }[];
+}) {
+  const today = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+
+  const [mode, setMode] = useState<"day" | "month">("day");
+  const [day, setDay] = useState<string>(todayStr);
+  const [month, setMonth] = useState<number>(today.getMonth() + 1);
+  const [year, setYear] = useState<number>(today.getFullYear());
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  const taskMap = useMemo(() => {
+    const m: Record<string, { name: string; projectId: string }> = {};
+    tasks.forEach((t) => { m[t.id] = { name: t.name, projectId: t.projectId }; });
+    return m;
+  }, [tasks]);
+
+  const projectMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    projects.forEach((p) => { m[p.id] = p.name; });
+    return m;
+  }, [projects]);
+
+  const filtered = useMemo(() => {
+    return allTimeEntries.filter((e) => {
+      if (!e.date) return false;
+      if (mode === "day") return e.date === day;
+      const [y, mo] = e.date.split("-").map(Number);
+      return y === year && mo === month;
+    });
+  }, [allTimeEntries, mode, day, month, year]);
+
+  const grouped = useMemo(() => {
+    const byProject: Record<string, { totalMin: number; taskIds: Set<string>; entries: HistEntry[] }> = {};
+    filtered.forEach((e) => {
+      const t = taskMap[e.task_id];
+      const pid = t?.projectId || "unknown";
+      if (!byProject[pid]) byProject[pid] = { totalMin: 0, taskIds: new Set(), entries: [] };
+      byProject[pid].totalMin += e.duration_minutes || 0;
+      byProject[pid].taskIds.add(e.task_id);
+      byProject[pid].entries.push(e);
+    });
+    return Object.entries(byProject)
+      .map(([pid, v]) => ({
+        projectId: pid,
+        projectName: projectMap[pid] || "Projeto desconhecido",
+        totalMin: v.totalMin,
+        taskCount: v.taskIds.size,
+        entries: v.entries,
+      }))
+      .sort((a, b) => b.totalMin - a.totalMin);
+  }, [filtered, taskMap, projectMap]);
+
+  const fmtH = (min: number) => `${(min / 60).toFixed(1)}h`;
+
+  const years = useMemo(() => {
+    const cy = new Date().getFullYear();
+    return [cy - 2, cy - 1, cy, cy + 1];
+  }, []);
+  const months = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  ];
+
+  return (
+    <Card className="mt-6">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <History className="h-4 w-4 text-primary" />
+          Histórico de Projetos Trabalhados
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="inline-flex rounded-md border bg-muted p-0.5">
+            <button
+              onClick={() => setMode("day")}
+              className={`px-3 py-1 text-xs rounded ${mode === "day" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}
+            >
+              Dia específico
+            </button>
+            <button
+              onClick={() => setMode("month")}
+              className={`px-3 py-1 text-xs rounded ${mode === "month" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}
+            >
+              Mês
+            </button>
+          </div>
+
+          {mode === "day" ? (
+            <Input
+              type="date"
+              value={day}
+              onChange={(e) => setDay(e.target.value)}
+              className="w-auto h-8 text-xs"
+            />
+          ) : (
+            <div className="flex gap-2">
+              <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {months.map((m, i) => (
+                    <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                <SelectTrigger className="h-8 w-[100px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {years.map((y) => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
+        {grouped.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">
+            Nenhum lançamento de horas no período selecionado.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {grouped.map((g) => {
+              const isOpen = !!expanded[g.projectId];
+              // group entries by task
+              const byTask: Record<string, { taskName: string; entries: HistEntry[]; totalMin: number }> = {};
+              g.entries.forEach((e) => {
+                const tn = taskMap[e.task_id]?.name || "Tarefa removida";
+                if (!byTask[e.task_id]) byTask[e.task_id] = { taskName: tn, entries: [], totalMin: 0 };
+                byTask[e.task_id].entries.push(e);
+                byTask[e.task_id].totalMin += e.duration_minutes || 0;
+              });
+              const taskRows = Object.entries(byTask).sort((a, b) => b[1].totalMin - a[1].totalMin);
+
+              return (
+                <div key={g.projectId} className="border rounded-md">
+                  <button
+                    onClick={() => setExpanded((p) => ({ ...p, [g.projectId]: !p[g.projectId] }))}
+                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {isOpen ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                      <span className="font-medium text-sm truncate">{g.projectName}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
+                      <span>{g.taskCount} {g.taskCount === 1 ? "tarefa" : "tarefas"}</span>
+                      <Badge variant="secondary" className="font-mono">{fmtH(g.totalMin)}</Badge>
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="border-t bg-muted/30 px-3 py-2 space-y-2">
+                      {taskRows.map(([tid, tv]) => (
+                        <div key={tid} className="text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium truncate">{tv.taskName}</span>
+                            <Badge variant="outline" className="font-mono shrink-0">{fmtH(tv.totalMin)}</Badge>
+                          </div>
+                          <div className="mt-1 ml-2 space-y-0.5 text-muted-foreground">
+                            {tv.entries
+                              .sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time))
+                              .map((e) => (
+                                <div key={e.id} className="flex items-center justify-between gap-2">
+                                  <span className="truncate">
+                                    {e.user_name || "—"}
+                                    {mode === "day" && e.start_time ? ` · ${e.start_time}` : ` · ${e.date}`}
+                                  </span>
+                                  <span className="font-mono">{fmtH(e.duration_minutes || 0)}</span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
