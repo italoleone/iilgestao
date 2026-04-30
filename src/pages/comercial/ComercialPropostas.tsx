@@ -58,6 +58,7 @@ export default function ComercialPropostas() {
   const [approvalTarget, setApprovalTarget] = useState<CommercialProposal | null>(null);
   const [coordinatorTarget, setCoordinatorTarget] = useState<CommercialProposal | null>(null);
   const [coordinatorSelections, setCoordinatorSelections] = useState<Record<string, string>>({});
+  const [projectNumber, setProjectNumber] = useState<string>("");
   const [activeUsers, setActiveUsers] = useState<{ id: string; name: string }[]>([]);
   const [gerandoPDF, setGerandoPDF] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -180,6 +181,7 @@ export default function ComercialPropostas() {
     const initial: Record<string, string> = {};
     discs.forEach((d) => { initial[d] = ""; });
     setCoordinatorSelections(initial);
+    setProjectNumber("");
     setCoordinatorTarget(approvalTarget);
     supabase.from("profiles").select("id, name").eq("status", "active").order("name").then(({ data }) => {
       if (data) setActiveUsers(data.map((u) => ({ id: u.id, name: u.name })));
@@ -191,16 +193,20 @@ export default function ComercialPropostas() {
     const discs = Object.keys(coordinatorSelections);
     const allFilled = discs.every((d) => coordinatorSelections[d]);
     if (!allFilled) { toast.error("Selecione o coordenador para todas as disciplinas."); return; }
+    const trimmedNumber = projectNumber.trim();
+    if (!trimmedNumber) { toast.error("Informe o Número do Projeto."); return; }
     approveProposal.mutate({
       proposal: approvalTarget,
       discounts: discountForm,
       userId: user.id,
       coordinators: coordinatorSelections,
+      projectNumber: trimmedNumber,
     }, {
       onSuccess: () => {
         setApprovalTarget(null);
         setCoordinatorTarget(null);
         setDetailProposal(null);
+        setProjectNumber("");
       },
     });
   };
@@ -397,7 +403,15 @@ export default function ComercialPropostas() {
             <DialogContent className="max-w-md">
               <DialogHeader><DialogTitle>Selecionar Coordenadores</DialogTitle></DialogHeader>
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Defina o coordenador técnico para cada disciplina do projeto.</p>
+                <p className="text-sm text-muted-foreground">Defina o número do projeto e o coordenador técnico para cada disciplina.</p>
+                <div className="space-y-1">
+                  <Label className="text-sm font-medium">Número do Projeto <span className="text-destructive">*</span></Label>
+                  <Input
+                    value={projectNumber}
+                    onChange={(e) => setProjectNumber(e.target.value)}
+                    placeholder="Ex: 0480 - 21"
+                  />
+                </div>
                 {Object.keys(coordinatorSelections).map((disc) => (
                   <div key={disc} className="space-y-1">
                     <Label className="text-sm font-medium">{DISC_LABELS[disc] || disc}</Label>
@@ -418,7 +432,7 @@ export default function ComercialPropostas() {
                 <Button variant="outline" onClick={() => setCoordinatorTarget(null)}>Cancelar</Button>
                 <Button
                   onClick={handleConfirmCoordinators}
-                  disabled={approveProposal.isPending || !Object.values(coordinatorSelections).every(Boolean)}
+                  disabled={approveProposal.isPending || !projectNumber.trim() || !Object.values(coordinatorSelections).every(Boolean)}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   <CheckCircle className="h-4 w-4 mr-1" />Confirmar e Criar Projetos

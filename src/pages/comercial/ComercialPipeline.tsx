@@ -13,6 +13,7 @@ import {
 } from "@/hooks/useCommercialData";
 import { useAuth } from "@/contexts/AuthContext";
 import { GripVertical, CheckCircle } from "lucide-react";
+import { toast } from "sonner";
 
 const COLUMN_COLORS: Record<ProposalStatus, string> = {
   lead: "border-t-slate-400",
@@ -34,6 +35,7 @@ export default function ComercialPipeline() {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [approvalTarget, setApprovalTarget] = useState<CommercialProposal | null>(null);
   const [discountForm, setDiscountForm] = useState<ProposalDiscounts>({ estrutural: 0, hidraulica: 0, eletrica: 0 });
+  const [projectNumber, setProjectNumber] = useState<string>("");
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedId(id);
@@ -52,6 +54,7 @@ export default function ComercialPipeline() {
     if (targetStatus === "aprovada") {
       setApprovalTarget(proposal);
       setDiscountForm({ estrutural: 0, hidraulica: 0, eletrica: 0 });
+      setProjectNumber("");
     } else {
       updateProposal.mutate({ id: draggedId, status: targetStatus as any });
     }
@@ -65,11 +68,14 @@ export default function ComercialPipeline() {
 
   const handleApproveWithDiscount = () => {
     if (!approvalTarget || !user) return;
+    const trimmed = projectNumber.trim();
+    if (!trimmed) { toast.error("Informe o Número do Projeto."); return; }
     approveProposal.mutate({
       proposal: approvalTarget,
       discounts: discountForm,
       userId: user.id,
-    }, { onSuccess: () => setApprovalTarget(null) });
+      projectNumber: trimmed,
+    }, { onSuccess: () => { setApprovalTarget(null); setProjectNumber(""); } });
   };
 
   const fmt = (v: number) =>
@@ -126,8 +132,10 @@ export default function ComercialPipeline() {
             proposal={approvalTarget}
             discounts={discountForm}
             setDiscounts={setDiscountForm}
+            projectNumber={projectNumber}
+            setProjectNumber={setProjectNumber}
             onConfirm={handleApproveWithDiscount}
-            onCancel={() => setApprovalTarget(null)}
+            onCancel={() => { setApprovalTarget(null); setProjectNumber(""); }}
             isLoading={approveProposal.isPending}
           />
         )}
@@ -136,10 +144,12 @@ export default function ComercialPipeline() {
   );
 }
 
-function ApprovalModal({ proposal, discounts, setDiscounts, onConfirm, onCancel, isLoading }: {
+function ApprovalModal({ proposal, discounts, setDiscounts, projectNumber, setProjectNumber, onConfirm, onCancel, isLoading }: {
   proposal: CommercialProposal;
   discounts: ProposalDiscounts;
   setDiscounts: (d: ProposalDiscounts) => void;
+  projectNumber: string;
+  setProjectNumber: (v: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
   isLoading: boolean;
@@ -161,6 +171,10 @@ function ApprovalModal({ proposal, discounts, setDiscounts, onConfirm, onCancel,
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>Aprovar Proposta — Descontos</DialogTitle></DialogHeader>
         <div className="space-y-4">
+          <div className="space-y-1">
+            <Label className="text-sm font-medium">Número do Projeto <span className="text-destructive">*</span></Label>
+            <Input value={projectNumber} onChange={(e) => setProjectNumber(e.target.value)} placeholder="Ex: 0480 - 21" />
+          </div>
           <p className="text-sm text-muted-foreground">Defina o desconto (%) para cada disciplina.</p>
           {discs.map((d) => {
             const original = proposal.disciplines[d] || 0;
@@ -187,7 +201,7 @@ function ApprovalModal({ proposal, discounts, setDiscounts, onConfirm, onCancel,
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-          <Button onClick={onConfirm} disabled={isLoading} className="bg-green-600 hover:bg-green-700">
+          <Button onClick={onConfirm} disabled={isLoading || !projectNumber.trim()} className="bg-green-600 hover:bg-green-700">
             <CheckCircle className="h-4 w-4 mr-1" />Confirmar Aprovação
           </Button>
         </DialogFooter>

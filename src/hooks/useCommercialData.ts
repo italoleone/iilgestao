@@ -303,11 +303,13 @@ export function useApproveProposal() {
       discounts,
       userId,
       coordinators,
+      projectNumber,
     }: {
       proposal: CommercialProposal;
       discounts: ProposalDiscounts;
       userId: string;
       coordinators?: Record<string, string>;
+      projectNumber: string;
     }) => {
       if (proposal.linked_project_id) {
         throw new Error("Proposta já possui projeto vinculado");
@@ -328,16 +330,27 @@ export function useApproveProposal() {
 
       const finalTotal = Object.values(finalDisciplines).reduce((s, v) => s + (v || 0), 0);
 
+      // Mapa de rótulos das disciplinas (para concatenar no nome do projeto)
+      const DISC_NAME_LABELS: Record<string, string> = {
+        estrutural: "Estrutural",
+        hidraulica: "Hidráulica",
+        eletrica: "Elétrica",
+        fundacoes: "Fundações",
+      };
+
       // Criar projetos no planejamento para cada disciplina
       const createdProjectIds: string[] = [];
+      const numberPrefix = projectNumber.trim();
 
       for (const disc of disciplineKeys) {
         const discValue = finalDisciplines[disc] || 0;
         const coordId = coordinators?.[disc] || proposal.responsible_id;
+        const discLabel = DISC_NAME_LABELS[disc] || disc;
+        const composedName = `${numberPrefix} - ${proposal.project_name} - ${discLabel}`;
         const { data: project, error: projError } = await supabase
           .from("projects")
           .insert({
-            name: proposal.project_name,
+            name: composedName,
             client: proposal.client?.name || "",
             discipline: disc,
             start_date: new Date().toISOString().split("T")[0],
