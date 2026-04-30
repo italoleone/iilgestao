@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useReceivables, usePayables, useMarkReceived, useMarkPaid, useProjetoCusto } from "@/hooks/useFinanceiroData";
-import { useAllBillingSchedules, MONTH_LABELS } from "@/hooks/useCommercialData";
+import { useAllBillingSchedules, useAllInstallmentProposals, MONTH_LABELS } from "@/hooks/useCommercialData";
 import { supabase } from "@/integrations/supabase/client";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
