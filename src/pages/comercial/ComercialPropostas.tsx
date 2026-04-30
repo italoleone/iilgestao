@@ -403,7 +403,15 @@ export default function ComercialPropostas() {
             <DialogContent className="max-w-md">
               <DialogHeader><DialogTitle>Selecionar Coordenadores</DialogTitle></DialogHeader>
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Defina o coordenador técnico para cada disciplina do projeto.</p>
+                <p className="text-sm text-muted-foreground">Defina o número do projeto e o coordenador técnico para cada disciplina.</p>
+                <div className="space-y-1">
+                  <Label className="text-sm font-medium">Número do Projeto <span className="text-destructive">*</span></Label>
+                  <Input
+                    value={projectNumber}
+                    onChange={(e) => setProjectNumber(e.target.value)}
+                    placeholder="Ex: 0480 - 21"
+                  />
+                </div>
                 {Object.keys(coordinatorSelections).map((disc) => (
                   <div key={disc} className="space-y-1">
                     <Label className="text-sm font-medium">{DISC_LABELS[disc] || disc}</Label>
