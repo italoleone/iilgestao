@@ -9,10 +9,11 @@ import { useProjects, useTasks, useActiveProfiles, useTimeEntries, getProfileByI
 import { useActiveTimers, getTimerForTask } from "@/hooks/useActiveTimers";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  AlertTriangle, Clock, CheckCircle2, Play, Radio, TrendingUp, Users, BarChart3, Timer, CalendarClock, Zap, CalendarCheck, Filter, History, ChevronDown, ChevronRight,
+  AlertTriangle, Clock, CheckCircle2, Play, Radio, TrendingUp, Users, BarChart3, Timer, CalendarClock, Zap, CalendarCheck, Filter, History, ChevronDown, ChevronRight, FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import * as XLSX from "xlsx";
 import { useNavigate } from "react-router-dom";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell,
@@ -719,7 +720,11 @@ function ProjectWorkHistoryBlock({
   const [day, setDay] = useState<string>(todayStr);
   const [month, setMonth] = useState<number>(today.getMonth() + 1);
   const [year, setYear] = useState<number>(today.getFullYear());
+  const [discipline, setDiscipline] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState<string>("all");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  const DISCIPLINES = ["Estrutural", "Hidráulica", "Elétrica", "Fundações"];
 
   const taskMap = useMemo(() => {
     const m: Record<string, { name: string; projectId: string }> = {};
@@ -733,7 +738,15 @@ function ProjectWorkHistoryBlock({
     return m;
   }, [projects]);
 
-  const filtered = useMemo(() => {
+  const detectDiscipline = (projectName: string): string | null => {
+    const lower = projectName.toLowerCase();
+    for (const d of DISCIPLINES) {
+      if (lower.includes(d.toLowerCase())) return d;
+    }
+    return null;
+  };
+
+  const periodFiltered = useMemo(() => {
     return allTimeEntries.filter((e) => {
       if (!e.date) return false;
       if (mode === "day") return e.date === day;
@@ -741,6 +754,24 @@ function ProjectWorkHistoryBlock({
       return y === year && mo === month;
     });
   }, [allTimeEntries, mode, day, month, year]);
+
+  const usersInPeriod = useMemo(() => {
+    const set = new Set<string>();
+    periodFiltered.forEach((e) => { if (e.user_name) set.add(e.user_name); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [periodFiltered]);
+
+  const filtered = useMemo(() => {
+    return periodFiltered.filter((e) => {
+      if (userFilter !== "all" && e.user_name !== userFilter) return false;
+      if (discipline !== "all") {
+        const t = taskMap[e.task_id];
+        const pname = t ? projectMap[t.projectId] || "" : "";
+        if (detectDiscipline(pname) !== discipline) return false;
+      }
+      return true;
+    });
+  }, [periodFiltered, userFilter, discipline, taskMap, projectMap]);
 
   const grouped = useMemo(() => {
     const byProject: Record<string, { totalMin: number; taskIds: Set<string>; entries: HistEntry[] }> = {};
@@ -763,6 +794,35 @@ function ProjectWorkHistoryBlock({
       .sort((a, b) => b.totalMin - a.totalMin);
   }, [filtered, taskMap, projectMap]);
 
+  const periodLabel = mode === "day"
+    ? day
+    : `${String(month).padStart(2, "0")}-${year}`;
+
+  const handleExport = () => {
+    const rows: Record<string, string | number>[] = [];
+    grouped.forEach((g) => {
+      const disc = detectDiscipline(g.projectName) || "";
+      g.entries
+        .slice()
+        .sort((a, b) => (a.date + a.start_time).localeCompare(b.date + b.start_time))
+        .forEach((e) => {
+          const tn = taskMap[e.task_id]?.name || "Tarefa removida";
+          rows.push({
+            Projeto: g.projectName,
+            Disciplina: disc,
+            Tarefa: tn,
+            "Usuário": e.user_name || "",
+            Horas: Number(((e.duration_minutes || 0) / 60).toFixed(2)),
+            "Data/Período": mode === "day" ? `${e.date}${e.start_time ? " " + e.start_time : ""}` : e.date,
+          });
+        });
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Histórico");
+    XLSX.writeFile(wb, `historico-projetos-${periodLabel}.xlsx`);
+  };
+
   const fmtH = (min: number) => `${(min / 60).toFixed(1)}h`;
 
   const years = useMemo(() => {
@@ -776,11 +836,21 @@ function ProjectWorkHistoryBlock({
 
   return (
     <Card className="mt-6">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base flex items-center gap-2">
           <History className="h-4 w-4 text-primary" />
           Histórico de Projetos Trabalhados
         </CardTitle>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={grouped.length === 0}
+          className="h-8 text-xs gap-1.5"
+        >
+          <FileSpreadsheet className="h-3.5 w-3.5" />
+          Exportar Excel
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -826,6 +896,26 @@ function ProjectWorkHistoryBlock({
               </Select>
             </div>
           )}
+
+          <Select value={discipline} onValueChange={setDiscipline}>
+            <SelectTrigger className="h-8 w-[180px] text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as disciplinas</SelectItem>
+              {DISCIPLINES.map((d) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={userFilter} onValueChange={setUserFilter}>
+            <SelectTrigger className="h-8 w-[180px] text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os usuários</SelectItem>
+              {usersInPeriod.map((u) => (
+                <SelectItem key={u} value={u}>{u}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {grouped.length === 0 ? (
