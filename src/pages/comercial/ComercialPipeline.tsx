@@ -34,6 +34,7 @@ export default function ComercialPipeline() {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [approvalTarget, setApprovalTarget] = useState<CommercialProposal | null>(null);
   const [discountForm, setDiscountForm] = useState<ProposalDiscounts>({ estrutural: 0, hidraulica: 0, eletrica: 0 });
+  const [projectNumber, setProjectNumber] = useState<string>("");
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedId(id);
