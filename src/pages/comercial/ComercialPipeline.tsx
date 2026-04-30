@@ -68,11 +68,14 @@ export default function ComercialPipeline() {
 
   const handleApproveWithDiscount = () => {
     if (!approvalTarget || !user) return;
+    const trimmed = projectNumber.trim();
+    if (!trimmed) { toast.error("Informe o Número do Projeto."); return; }
     approveProposal.mutate({
       proposal: approvalTarget,
       discounts: discountForm,
       userId: user.id,
-    }, { onSuccess: () => setApprovalTarget(null) });
+      projectNumber: trimmed,
+    }, { onSuccess: () => { setApprovalTarget(null); setProjectNumber(""); } });
   };
 
   const fmt = (v: number) =>
