@@ -818,7 +818,11 @@ export default function FinanceiroDashboard() {
                                   <Badge variant="outline" className="text-xs">{entry.stage_label}</Badge>
                                 </TableCell>
                                 <TableCell className="text-sm">
-                                  {entry.is_installment ? (
+                                  {(entry as any).__synthetic ? (
+                                    <span className="text-blue-400">
+                                      {entry.installment_count}× de {fmt(Number(entry.amount))}
+                                    </span>
+                                  ) : entry.is_installment ? (
                                     <span className="text-blue-400">
                                       {entry.installment_count}× de {fmt(Number(entry.amount) / (entry.installment_count || 1))}
                                     </span>
