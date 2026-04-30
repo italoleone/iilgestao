@@ -739,8 +739,6 @@ interface CellState {
   execution_month: string;
   execution_year: string;
   execution_touched: boolean; // true se usuário alterou manualmente
-  is_installment: boolean;
-  installment_count: string;
 }
 
 type CellKey = string; // `${disciplineKey}__${stageKey}`
@@ -762,6 +760,21 @@ function BillingScheduleModal({
 
   const { data: existingSchedule = [] } = useBillingSchedule(proposal.id);
   const saveBilling = useSaveBillingSchedule();
+  const updateMode = useUpdateProposalBillingMode();
+
+  // Modo de faturamento (medicao | parcelado)
+  const [billingMode, setBillingMode] = useState<"medicao" | "parcelado">(
+    (proposal.billing_mode as "medicao" | "parcelado") ?? "medicao",
+  );
+  const [installmentCount, setInstallmentCount] = useState<string>(
+    proposal.installment_count ? String(proposal.installment_count) : "2",
+  );
+  const [installmentStartMonth, setInstallmentStartMonth] = useState<string>(
+    proposal.installment_start_month ? String(proposal.installment_start_month) : String(now.getMonth() + 1),
+  );
+  const [installmentStartYear, setInstallmentStartYear] = useState<string>(
+    proposal.installment_start_year ? String(proposal.installment_start_year) : String(now.getFullYear()),
+  );
 
   // Disciplinas com valor final > 0 nesta proposta
   const DISC_KEYS = (["estrutural", "hidraulica", "eletrica", "fundacoes"] as const);
@@ -808,8 +821,6 @@ function BillingScheduleModal({
           execution_month: hasExistingExec ? String(existing!.execution_month) : auto.m,
           execution_year: hasExistingExec ? String(existing!.execution_year) : auto.y,
           execution_touched: hasExistingExec,
-          is_installment: existing?.is_installment ?? false,
-          installment_count: existing?.installment_count ? String(existing.installment_count) : "2",
         };
       }
     }
@@ -827,7 +838,6 @@ function BillingScheduleModal({
     setCells((prev) => {
       const current = prev[key];
       const next = { ...current, ...partial };
-      // Se mudou faturamento e usuário ainda não tocou execução, recalcula
       const billingChanged = partial.billing_month !== undefined || partial.billing_year !== undefined;
       if (billingChanged && !next.execution_touched) {
         const auto = calcExecution(next.billing_month, next.billing_year);
@@ -838,7 +848,7 @@ function BillingScheduleModal({
     });
   };
 
-  // Totais
+  // Totais (modo medição)
   const totalScheduled = activeDisciplines.reduce((sum, disc) => {
     return sum + BILLING_STAGES.reduce((s, stage) => {
       const cell = cells[`${disc.key}__${stage.key}`];
@@ -847,7 +857,7 @@ function BillingScheduleModal({
     }, 0);
   }, 0);
 
-  const totalPctByDisc = (discKey: string, discValue: number): number => {
+  const totalPctByDisc = (discKey: string, _discValue: number): number => {
     return BILLING_STAGES.reduce((s, stage) => {
       const cell = cells[`${discKey}__${stage.key}`];
       if (!cell?.enabled) return s;
@@ -857,7 +867,41 @@ function BillingScheduleModal({
 
   const diff = totalValue - totalScheduled;
 
-  const handleSave = () => {
+  // Cálculo da parcela (modo parcelado)
+  const parcelas = Math.max(1, parseInt(installmentCount) || 1);
+  const valorParcela = totalValue / parcelas;
+
+  const handleSave = async () => {
+    if (billingMode === "parcelado") {
+      if (parcelas < 1) {
+        toast.error("Informe um número de parcelas válido");
+        return;
+      }
+      const startM = parseInt(installmentStartMonth);
+      const startY = parseInt(installmentStartYear);
+      if (!startM || !startY) {
+        toast.error("Informe o mês e ano de início das parcelas");
+        return;
+      }
+      try {
+        await updateMode.mutateAsync({
+          proposalId: proposal.id,
+          billing_mode: "parcelado",
+          installment_count: parcelas,
+          installment_start_month: startM,
+          installment_start_year: startY,
+        });
+        // No modo parcelado limpamos as entradas por etapa (se houver)
+        await saveBilling.mutateAsync({ proposalId: proposal.id, entries: [] });
+        toast.success("Cronograma parcelado salvo!");
+        onClose();
+      } catch (e: any) {
+        toast.error(e.message);
+      }
+      return;
+    }
+
+    // Modo Medição
     const entries: UpsertBillingScheduleInput[] = [];
     for (const disc of activeDisciplines) {
       for (const stage of BILLING_STAGES) {
@@ -882,13 +926,25 @@ function BillingScheduleModal({
           billing_month: parseInt(cell.billing_month),
           execution_year: cell.execution_year ? parseInt(cell.execution_year) : null,
           execution_month: cell.execution_month ? parseInt(cell.execution_month) : null,
-          is_installment: cell.is_installment,
-          installment_count: cell.is_installment ? parseInt(cell.installment_count) || 2 : null,
+          is_installment: false,
+          installment_count: null,
           created_by: userId,
         });
       }
     }
-    saveBilling.mutate({ proposalId: proposal.id, entries }, { onSuccess: onClose });
+    try {
+      await updateMode.mutateAsync({
+        proposalId: proposal.id,
+        billing_mode: "medicao",
+        installment_count: null,
+        installment_start_month: null,
+        installment_start_year: null,
+      });
+      await saveBilling.mutateAsync({ proposalId: proposal.id, entries });
+      onClose();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
   };
 
   return (
@@ -910,31 +966,103 @@ function BillingScheduleModal({
             <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
             <div className="text-sm space-y-0.5">
               <p>Valor contratado total: <strong>{fmt(totalValue)}</strong></p>
-              <p>
-                Total agendado:{" "}
-                <strong className={Math.abs(diff) > 0.01 ? "text-orange-500" : "text-green-500"}>
-                  {fmt(totalScheduled)}
-                </strong>
-              </p>
-              {Math.abs(diff) > 0.01 && (
-                <p className="text-orange-500 text-xs">
-                  {diff > 0
-                    ? `Faltam ${fmt(diff)} para totalizar o contrato`
-                    : `Excesso de ${fmt(Math.abs(diff))} sobre o contrato`}
-                </p>
+              {billingMode === "medicao" && (
+                <>
+                  <p>
+                    Total agendado:{" "}
+                    <strong className={Math.abs(diff) > 0.01 ? "text-orange-500" : "text-green-500"}>
+                      {fmt(totalScheduled)}
+                    </strong>
+                  </p>
+                  {Math.abs(diff) > 0.01 && (
+                    <p className="text-orange-500 text-xs">
+                      {diff > 0
+                        ? `Faltam ${fmt(diff)} para totalizar o contrato`
+                        : `Excesso de ${fmt(Math.abs(diff))} sobre o contrato`}
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </div>
 
-          {/* Uma seção por disciplina */}
-          {activeDisciplines.map((disc) => {
+          {/* Modo de faturamento */}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant={billingMode === "medicao" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setBillingMode("medicao")}
+              className={billingMode === "medicao" ? "bg-blue-600 hover:bg-blue-700" : ""}
+            >
+              Medição
+            </Button>
+            <Button
+              type="button"
+              variant={billingMode === "parcelado" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setBillingMode("parcelado")}
+              className={billingMode === "parcelado" ? "bg-blue-600 hover:bg-blue-700" : ""}
+            >
+              Parcelado
+            </Button>
+          </div>
+
+          {/* MODO PARCELADO */}
+          {billingMode === "parcelado" && (
+            <div className="border border-border rounded-xl p-4 space-y-4 bg-muted/20">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">Número de parcelas *</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={installmentCount}
+                    onChange={(e) => setInstallmentCount(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Mês de início *</Label>
+                  <Select value={installmentStartMonth} onValueChange={setInstallmentStartMonth}>
+                    <SelectTrigger className="mt-1 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {MONTH_LABELS.map((m, i) => (
+                        <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Ano de início *</Label>
+                  <Select value={installmentStartYear} onValueChange={setInstallmentStartYear}>
+                    <SelectTrigger className="mt-1 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {availableYears.map((y) => (
+                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-sm text-blue-500 font-semibold">
+                {parcelas}× de {fmt(valorParcela)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                As parcelas serão distribuídas mês a mês a partir de {MONTH_LABELS[parseInt(installmentStartMonth) - 1]}/{installmentStartYear}.
+              </p>
+            </div>
+          )}
+
+          {/* MODO MEDIÇÃO — Etapas por disciplina */}
+          {billingMode === "medicao" && activeDisciplines.map((disc) => {
             const totalPct = totalPctByDisc(disc.key, disc.value);
             const totalDiscScheduled = disc.value * totalPct / 100;
             const discDiff = disc.value - totalDiscScheduled;
 
             return (
               <div key={disc.key} className="border border-border rounded-xl overflow-hidden">
-                {/* Header da disciplina */}
                 <div className="flex items-center justify-between px-4 py-3 bg-muted/50 border-b border-border">
                   <div>
                     <span className="font-semibold text-sm">{disc.label}</span>
@@ -958,7 +1086,6 @@ function BillingScheduleModal({
                   </div>
                 </div>
 
-                {/* Etapas desta disciplina */}
                 <div className="divide-y divide-border/50">
                   {BILLING_STAGES.map((stage) => {
                     const cellKey: CellKey = `${disc.key}__${stage.key}`;
@@ -972,7 +1099,6 @@ function BillingScheduleModal({
                         key={stage.key}
                         className={`px-4 py-3 transition-colors ${cell.enabled ? "bg-blue-500/5" : ""}`}
                       >
-                        {/* Cabeçalho da etapa */}
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <Switch
@@ -990,10 +1116,8 @@ function BillingScheduleModal({
                           )}
                         </div>
 
-                        {/* Campos expandidos quando ativo */}
                         {cell.enabled && (
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2 pl-10">
-                            {/* Percentual */}
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2 pl-10">
                             <div>
                               <Label className="text-xs">% do valor *</Label>
                               <div className="relative mt-1">
@@ -1014,7 +1138,6 @@ function BillingScheduleModal({
                               )}
                             </div>
 
-                            {/* Mês */}
                             <div>
                               <Label className="text-xs">Mês *</Label>
                               <Select value={cell.billing_month} onValueChange={(v) => updateCell(cellKey, { billing_month: v })}>
@@ -1027,7 +1150,6 @@ function BillingScheduleModal({
                               </Select>
                             </div>
 
-                            {/* Ano */}
                             <div>
                               <Label className="text-xs">Ano *</Label>
                               <Select value={cell.billing_year} onValueChange={(v) => updateCell(cellKey, { billing_year: v })}>
@@ -1038,39 +1160,6 @@ function BillingScheduleModal({
                                   ))}
                                 </SelectContent>
                               </Select>
-                            </div>
-
-                            {/* Parcelado */}
-                            <div className="space-y-1">
-                              <Label className="text-xs">Parcelado?</Label>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Switch
-                                  checked={cell.is_installment}
-                                  onCheckedChange={(checked) => updateCell(cellKey, { is_installment: checked })}
-                                />
-                                <span className="text-xs text-muted-foreground">
-                                  {cell.is_installment ? "Sim" : "Não"}
-                                </span>
-                              </div>
-                              {cell.is_installment && (
-                                <div className="flex items-center gap-1 mt-1">
-                                  <Input
-                                    type="number"
-                                    min={2}
-                                    max={24}
-                                    value={cell.installment_count}
-                                    onChange={(e) => updateCell(cellKey, { installment_count: e.target.value })}
-                                    className="w-16 text-xs"
-                                    placeholder="Nº"
-                                  />
-                                  <span className="text-xs text-muted-foreground">parcelas</span>
-                                </div>
-                              )}
-                              {cell.is_installment && pct > 0 && parseInt(cell.installment_count) > 1 && (
-                                <p className="text-xs text-blue-400">
-                                  {parseInt(cell.installment_count)}× {fmt(calculatedAmount / parseInt(cell.installment_count))}
-                                </p>
-                              )}
                             </div>
                           </div>
                         )}
@@ -1083,86 +1172,88 @@ function BillingScheduleModal({
           })}
         </div>
 
-        {/* ─── Cronograma de Execução ─────────────────────────────────────── */}
-        <div className="space-y-3 mt-2">
-          <div className="flex items-center gap-2 pt-2 border-t border-border">
-            <CalendarClock className="h-5 w-5 text-emerald-500" />
-            <h3 className="text-base font-semibold">Cronograma de Execução</h3>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Defina o mês previsto de execução de cada etapa. Por padrão é sugerido 1 mês antes do faturamento, mas pode ser alterado.
-          </p>
-
-          {activeDisciplines.map((disc) => {
-            const enabledStages = BILLING_STAGES.filter(
-              (s) => cells[`${disc.key}__${s.key}`]?.enabled,
-            );
-            if (enabledStages.length === 0) return null;
-            return (
-              <div key={`exec-${disc.key}`} className="border border-border rounded-xl overflow-hidden">
-                <div className="px-4 py-2 bg-muted/50 border-b border-border">
-                  <span className="font-semibold text-sm">{disc.label}</span>
-                </div>
-                <div className="divide-y divide-border/50">
-                  {enabledStages.map((stage) => {
-                    const cellKey: CellKey = `${disc.key}__${stage.key}`;
-                    const cell = cells[cellKey];
-                    return (
-                      <div key={stage.key} className="px-4 py-2 flex items-center justify-between gap-3">
-                        <span className="text-sm">{stage.label}</span>
-                        <div className="flex items-center gap-2">
-                          <Select
-                            value={cell.execution_month}
-                            onValueChange={(v) =>
-                              updateCell(cellKey, { execution_month: v, execution_touched: true })
-                            }
-                          >
-                            <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {MONTH_LABELS.map((m, i) => (
-                                <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Select
-                            value={cell.execution_year}
-                            onValueChange={(v) =>
-                              updateCell(cellKey, { execution_year: v, execution_touched: true })
-                            }
-                          >
-                            <SelectTrigger className="w-20 h-8 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {availableYears.map((y) => (
-                                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-
-          {activeDisciplines.every((d) =>
-            BILLING_STAGES.every((s) => !cells[`${d.key}__${s.key}`]?.enabled),
-          ) && (
-            <p className="text-xs text-muted-foreground italic px-1">
-              Ative etapas no cronograma de faturamento acima para definir suas datas de execução.
+        {/* ─── Cronograma de Execução ─ apenas em modo Medição ──────────── */}
+        {billingMode === "medicao" && (
+          <div className="space-y-3 mt-2">
+            <div className="flex items-center gap-2 pt-2 border-t border-border">
+              <CalendarClock className="h-5 w-5 text-emerald-500" />
+              <h3 className="text-base font-semibold">Cronograma de Execução</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Defina o mês previsto de execução de cada etapa. Por padrão é sugerido 1 mês antes do faturamento, mas pode ser alterado.
             </p>
-          )}
-        </div>
+
+            {activeDisciplines.map((disc) => {
+              const enabledStages = BILLING_STAGES.filter(
+                (s) => cells[`${disc.key}__${s.key}`]?.enabled,
+              );
+              if (enabledStages.length === 0) return null;
+              return (
+                <div key={`exec-${disc.key}`} className="border border-border rounded-xl overflow-hidden">
+                  <div className="px-4 py-2 bg-muted/50 border-b border-border">
+                    <span className="font-semibold text-sm">{disc.label}</span>
+                  </div>
+                  <div className="divide-y divide-border/50">
+                    {enabledStages.map((stage) => {
+                      const cellKey: CellKey = `${disc.key}__${stage.key}`;
+                      const cell = cells[cellKey];
+                      return (
+                        <div key={stage.key} className="px-4 py-2 flex items-center justify-between gap-3">
+                          <span className="text-sm">{stage.label}</span>
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={cell.execution_month}
+                              onValueChange={(v) =>
+                                updateCell(cellKey, { execution_month: v, execution_touched: true })
+                              }
+                            >
+                              <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {MONTH_LABELS.map((m, i) => (
+                                  <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select
+                              value={cell.execution_year}
+                              onValueChange={(v) =>
+                                updateCell(cellKey, { execution_year: v, execution_touched: true })
+                              }
+                            >
+                              <SelectTrigger className="w-20 h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {availableYears.map((y) => (
+                                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+
+            {activeDisciplines.every((d) =>
+              BILLING_STAGES.every((s) => !cells[`${d.key}__${s.key}`]?.enabled),
+            ) && (
+              <p className="text-xs text-muted-foreground italic px-1">
+                Ative etapas no cronograma de faturamento acima para definir suas datas de execução.
+              </p>
+            )}
+          </div>
+        )}
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button
             onClick={handleSave}
-            disabled={saveBilling.isPending}
+            disabled={saveBilling.isPending || updateMode.isPending}
             className="bg-blue-600 hover:bg-blue-700"
           >
-            {saveBilling.isPending
+            {saveBilling.isPending || updateMode.isPending
               ? <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" />
               : <CalendarClock className="h-4 w-4 mr-1" />}
             Salvar Cronograma
