@@ -686,6 +686,12 @@ export default function DashboardPlanejamento() {
             </CardContent>
           </Card>
         </div>
+
+        <ProjectWorkHistoryBlock
+          allTimeEntries={allTimeEntries}
+          tasks={tasks}
+          projects={projects}
+        />
       </div>
     </AppLayout>
   );
