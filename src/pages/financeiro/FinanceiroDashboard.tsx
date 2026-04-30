@@ -87,6 +87,7 @@ export default function FinanceiroDashboard() {
   const { data: allReceivables = [] } = useReceivables();
   const { data: allPayables = [] } = usePayables();
   const { data: allBillingSchedules = [] } = useAllBillingSchedules();
+  const { data: installmentProposals = [] } = useAllInstallmentProposals();
   const markReceived = useMarkReceived();
   const markPaid = useMarkPaid();
 
