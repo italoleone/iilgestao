@@ -431,7 +431,7 @@ export function useAllBillingSchedules() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("proposal_billing_schedule")
-        .select("*, commercial_proposals(project_name, client_id, commercial_clients(name))")
+        .select("*, commercial_proposals(project_name, client_id, billing_mode, installment_count, installment_start_month, installment_start_year, commercial_clients(name))")
         .order("billing_year")
         .order("billing_month");
       if (error) throw error;
@@ -439,6 +439,10 @@ export function useAllBillingSchedules() {
         commercial_proposals: {
           project_name: string;
           client_id: string;
+          billing_mode?: string | null;
+          installment_count?: number | null;
+          installment_start_month?: number | null;
+          installment_start_year?: number | null;
           commercial_clients: { name: string } | null;
         } | null;
       })[];
