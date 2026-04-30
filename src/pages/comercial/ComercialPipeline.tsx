@@ -201,7 +201,7 @@ function ApprovalModal({ proposal, discounts, setDiscounts, projectNumber, setPr
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-          <Button onClick={onConfirm} disabled={isLoading} className="bg-green-600 hover:bg-green-700">
+          <Button onClick={onConfirm} disabled={isLoading || !projectNumber.trim()} className="bg-green-600 hover:bg-green-700">
             <CheckCircle className="h-4 w-4 mr-1" />Confirmar Aprovação
           </Button>
         </DialogFooter>
