@@ -836,11 +836,21 @@ function ProjectWorkHistoryBlock({
 
   return (
     <Card className="mt-6">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base flex items-center gap-2">
           <History className="h-4 w-4 text-primary" />
           Histórico de Projetos Trabalhados
         </CardTitle>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={grouped.length === 0}
+          className="h-8 text-xs gap-1.5"
+        >
+          <FileSpreadsheet className="h-3.5 w-3.5" />
+          Exportar Excel
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap items-center gap-3 mb-4">
