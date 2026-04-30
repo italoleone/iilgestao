@@ -13,6 +13,7 @@ import {
 } from "@/hooks/useCommercialData";
 import { useAuth } from "@/contexts/AuthContext";
 import { GripVertical, CheckCircle } from "lucide-react";
+import { toast } from "sonner";
 
 const COLUMN_COLORS: Record<ProposalStatus, string> = {
   lead: "border-t-slate-400",
