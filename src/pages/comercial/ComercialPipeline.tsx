@@ -53,6 +53,7 @@ export default function ComercialPipeline() {
     if (targetStatus === "aprovada") {
       setApprovalTarget(proposal);
       setDiscountForm({ estrutural: 0, hidraulica: 0, eletrica: 0 });
+      setProjectNumber("");
     } else {
       updateProposal.mutate({ id: draggedId, status: targetStatus as any });
     }
