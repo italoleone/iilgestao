@@ -69,7 +69,7 @@ export default function ProjetoDetalhe() {
   const { profiles } = useActiveProfiles();
   const { tasks: allTasks } = useTasks();
   const { canAccessFinanceiro: canSeeFinancial, canAccessAllProjects, profile: authProfile } = useAuth();
-  const { entries: projectTimeEntries } = useTimeEntries(undefined, id);
+  const { entries: projectTimeEntries, refetch: refetchProjectEntries } = useTimeEntries(undefined, id);
 
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
