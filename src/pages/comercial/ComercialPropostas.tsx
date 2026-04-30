@@ -181,6 +181,7 @@ export default function ComercialPropostas() {
     const initial: Record<string, string> = {};
     discs.forEach((d) => { initial[d] = ""; });
     setCoordinatorSelections(initial);
+    setProjectNumber("");
     setCoordinatorTarget(approvalTarget);
     supabase.from("profiles").select("id, name").eq("status", "active").order("name").then(({ data }) => {
       if (data) setActiveUsers(data.map((u) => ({ id: u.id, name: u.name })));
@@ -192,16 +193,20 @@ export default function ComercialPropostas() {
     const discs = Object.keys(coordinatorSelections);
     const allFilled = discs.every((d) => coordinatorSelections[d]);
     if (!allFilled) { toast.error("Selecione o coordenador para todas as disciplinas."); return; }
+    const trimmedNumber = projectNumber.trim();
+    if (!trimmedNumber) { toast.error("Informe o Número do Projeto."); return; }
     approveProposal.mutate({
       proposal: approvalTarget,
       discounts: discountForm,
       userId: user.id,
       coordinators: coordinatorSelections,
+      projectNumber: trimmedNumber,
     }, {
       onSuccess: () => {
         setApprovalTarget(null);
         setCoordinatorTarget(null);
         setDetailProposal(null);
+        setProjectNumber("");
       },
     });
   };
