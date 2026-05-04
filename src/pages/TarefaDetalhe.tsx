@@ -704,6 +704,13 @@ export default function TarefaDetalhe() {
           </CardContent>
         </Card>
 
+        {/* Arquivo para Revisão */}
+        <TaskReviewFile
+          taskId={task.id}
+          isResponsible={isTaskResponsible}
+          isCoordinator={isProjectCoordinator}
+        />
+
       </div>
 
       {/* Reject dialog */}
