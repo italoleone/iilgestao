@@ -43,40 +43,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [pendingApproval, setPendingApproval] = useState(false);
 
+  const fetchProfileOnce = async (userId: string) => {
+    return await Promise.all([
+      supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
+      supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+    ]);
+  };
+
   const fetchProfile = async (userId: string) => {
-    try {
-      const [{ data: profileData }, { data: roleData }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", userId).single(),
-        supabase.from("user_roles").select("role").eq("user_id", userId).single(),
-      ]);
+    let profileData: any = null;
+    let roleData: any = null;
 
-      if (profileData) {
-        const status = (profileData as any).status || "active";
-        if (status !== "active") {
-          // User not approved yet - sign them out
-          await supabase.auth.signOut();
-          setUser(null);
-          setProfile(null);
-          setPendingApproval(status === "pending");
-          setLoading(false);
-          return;
+    // Retry up to 3 times with 1s interval before giving up. Never sign the user out on transient errors.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const [profileRes, roleRes] = await fetchProfileOnce(userId);
+        if (profileRes.error) {
+          console.warn(`[Auth] profile fetch attempt ${attempt + 1} error:`, profileRes.error.message);
         }
-
-        setProfile({
-          id: profileData.id,
-          name: profileData.name,
-          email: profileData.email,
-          discipline: profileData.discipline,
-          cost_per_hour: Number(profileData.cost_per_hour) || 0,
-          monthly_capacity_hours: profileData.monthly_capacity_hours || 176,
-          avatar_url: profileData.avatar_url,
-          role: (roleData?.role as AppRole) || "projetista",
-        });
-        setPendingApproval(false);
+        if (roleRes?.error) {
+          console.warn(`[Auth] role fetch attempt ${attempt + 1} error:`, roleRes.error.message);
+        }
+        profileData = profileRes.data;
+        roleData = roleRes?.data;
+        if (profileData) break;
+      } catch (err) {
+        console.warn(`[Auth] profile fetch attempt ${attempt + 1} threw:`, err);
       }
-    } catch (err) {
-      console.error("Error fetching profile:", err);
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 1000));
     }
+
+    if (!profileData) {
+      // Could not load profile after retries — keep the session, just stop the loading state.
+      // Do NOT sign the user out here; transient RLS / network failures should not log them off.
+      console.error("[Auth] Profile could not be loaded after retries; keeping session alive.");
+      setLoading(false);
+      return;
+    }
+
+    const status = (profileData as any).status || "active";
+    if (status !== "active") {
+      // User not approved yet - sign them out (this is an explicit business rule, not an error path).
+      await supabase.auth.signOut();
+      setUser(null);
+      setProfile(null);
+      setPendingApproval(status === "pending");
+      setLoading(false);
+      return;
+    }
+
+    setProfile({
+      id: profileData.id,
+      name: profileData.name,
+      email: profileData.email,
+      discipline: profileData.discipline,
+      cost_per_hour: Number(profileData.cost_per_hour) || 0,
+      monthly_capacity_hours: profileData.monthly_capacity_hours || 176,
+      avatar_url: profileData.avatar_url,
+      role: (roleData?.role as AppRole) || "projetista",
+    });
+    setPendingApproval(false);
+    setLoading(false);
   };
 
   useEffect(() => {
