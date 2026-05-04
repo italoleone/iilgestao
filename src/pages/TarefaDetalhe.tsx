@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveTimers, startActiveTimer, stopActiveTimer } from "@/hooks/useActiveTimers";
+import { TaskReviewFile } from "@/components/TaskReviewFile";
 import { useTimeEntries } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { STAGE_NAMES } from "@/types";
