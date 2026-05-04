@@ -745,6 +745,36 @@ export type Database = {
           },
         ]
       }
+      task_review_comments: {
+        Row: {
+          comment: string
+          created_at: string
+          id: string
+          page: number | null
+          task_id: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          comment: string
+          created_at?: string
+          id?: string
+          page?: number | null
+          task_id: string
+          user_id: string
+          user_name?: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string
+          id?: string
+          page?: number | null
+          task_id?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           created_at: string
