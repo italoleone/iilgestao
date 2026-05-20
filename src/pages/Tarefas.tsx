@@ -150,7 +150,7 @@ export default function Tarefas() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const [tasksRes, projectsRes, profilesRes] = await Promise.all([
-      supabase.from("tasks").select("*").order("created_at", { ascending: false }),
+      supabase.from("tasks").select("*").not("status", "in", '("concluida","enviado_cliente")').order("created_at", { ascending: false }).limit(2000),
       supabase.from("projects").select("id, name, discipline, responsible, status").order("name"),
       supabase.from("profiles").select("id, name, status").eq("status", "active").order("name"),
     ]);
