@@ -47,6 +47,7 @@ export default function FinanceiroPagar() {
   const [statusFilter, setStatusFilter] = useState("todos");
   const [search, setSearch] = useState("");
   const [showMore, setShowMore] = useState(false);
+  const [dueDateFilter, setDueDateFilter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Payable | null>(null);
 
