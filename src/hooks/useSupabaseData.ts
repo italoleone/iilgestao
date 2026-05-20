@@ -188,7 +188,8 @@ export function useTasks() {
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(2000);
     if (error) {
       setTimeout(() => fetchTasks(false), 5000);
     } else if (data) {
