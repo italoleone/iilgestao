@@ -73,6 +73,7 @@ export default function FinanceiroPagar() {
     return payablesAll.filter(p => {
       if (catFilter !== "todos" && p.category !== catFilter) return false;
       if (supplierFilter !== "todos" && (p.supplier || "") !== supplierFilter) return false;
+      if (dueDateFilter && p.due_date !== dueDateFilter) return false;
       if (statusFilter !== "todos") {
         // status efetivo (com "atrasado" computado dinamicamente)
         const eff = p.status === "pago" ? "pago"
@@ -81,7 +82,7 @@ export default function FinanceiroPagar() {
       }
       return true;
     });
-  }, [payablesAll, catFilter, supplierFilter, statusFilter, todayStr]);
+  }, [payablesAll, catFilter, supplierFilter, statusFilter, dueDateFilter, todayStr]);
 
   // Totais por aba (calculados sobre baseFiltered, antes da aba)
   const totals = useMemo(() => {
