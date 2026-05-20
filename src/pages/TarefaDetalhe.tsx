@@ -226,8 +226,7 @@ export default function TarefaDetalhe() {
   const canValidate = isProjectCoordinator || role === "admin_geral" || role === "admin";
 
   // O que cada status permite
-  const canPlay = isTaskResponsible &&
-    ["nao_iniciada", "pausada", "reprovada", "em_andamento"].includes(task?.status || "");
+  const canPlay = (isTaskResponsible && ["nao_iniciada", "pausada", "reprovada", "em_andamento"].includes(task?.status || "")) || (canValidate && task?.status === "aguardando_validacao");
   const canSendValidation = isTaskResponsible && task?.status === "pausada";
   const canApproveReject = canValidate && task?.status === "aguardando_validacao";
   const canMarkConcluida = isTaskResponsible && task?.status === "aprovada";
