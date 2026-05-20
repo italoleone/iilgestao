@@ -226,8 +226,7 @@ export default function TarefaDetalhe() {
   const canValidate = isProjectCoordinator || role === "admin_geral" || role === "admin";
 
   // O que cada status permite
-  const canPlay = isTaskResponsible &&
-    ["nao_iniciada", "pausada", "reprovada", "em_andamento"].includes(task?.status || "");
+  const canPlay = (isTaskResponsible && ["nao_iniciada", "pausada", "reprovada", "em_andamento"].includes(task?.status || "")) || (canValidate && task?.status === "aguardando_validacao");
   const canSendValidation = isTaskResponsible && task?.status === "pausada";
   const canApproveReject = canValidate && task?.status === "aguardando_validacao";
   const canMarkConcluida = isTaskResponsible && task?.status === "aprovada";
@@ -546,7 +545,7 @@ export default function TarefaDetalhe() {
                   <div>
                     <p className="text-sm font-medium">Controle de Tempo</p>
                     <p className="text-xs text-muted-foreground">
-                      {timerStart ? "Atividade em andamento..." : "Clique para iniciar"}
+                      {timerStart ? "Atividade em andamento..." : canValidate && task?.status === "aguardando_validacao" ? "Registrar tempo de revisão" : "Clique para iniciar"}
                     </p>
                   </div>
                 </div>
