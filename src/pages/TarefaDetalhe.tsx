@@ -545,7 +545,7 @@ export default function TarefaDetalhe() {
                   <div>
                     <p className="text-sm font-medium">Controle de Tempo</p>
                     <p className="text-xs text-muted-foreground">
-                      {timerStart ? "Atividade em andamento..." : "Clique para iniciar"}
+                      {timerStart ? "Atividade em andamento..." : canValidate && task?.status === "aguardando_validacao" ? "Registrar tempo de revisão" : "Clique para iniciar"}
                     </p>
                   </div>
                 </div>
