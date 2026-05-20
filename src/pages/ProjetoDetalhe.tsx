@@ -249,10 +249,11 @@ export default function ProjetoDetalhe() {
   const handleSaveEntry = async () => {
     if (!editingEntry) return;
     setSavingEntry(true);
-    const [sh, sm] = editEntryData.start_time.split(":").map(Number);
-    const [eh, em] = editEntryData.end_time.split(":").map(Number);
+    const [sh, sm] = editEntryData.start_time.slice(0, 5).split(":").map(Number);
+    const [eh, em] = editEntryData.end_time.slice(0, 5).split(":").map(Number);
     let duration = (eh * 60 + em) - (sh * 60 + sm);
-    if (duration <= 0) duration = 1;
+    if (duration <= 0) duration = duration + 1440; // handles overnight entries (crosses midnight)
+    if (duration <= 0) duration = 1; // absolute fallback
     const { error } = await supabase
       .from("time_entries")
       .update({
