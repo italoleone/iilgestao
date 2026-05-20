@@ -631,7 +631,7 @@ export default function ProjetoDetalhe() {
                 <Label>Início (Play)</Label>
                 <Input
                   type="time"
-                  value={editEntryData.start_time}
+                  value={editEntryData.start_time.slice(0, 5)}
                   onChange={(e) => setEditEntryData(prev => ({ ...prev, start_time: e.target.value }))}
                 />
               </div>
