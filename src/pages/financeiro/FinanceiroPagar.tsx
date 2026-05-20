@@ -223,7 +223,7 @@ export default function FinanceiroPagar() {
           </div>
 
           {showMore && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border rounded-md bg-muted/30">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 border rounded-md bg-muted/30">
               <div>
                 <Label className="text-xs text-muted-foreground">Categoria</Label>
                 <Select value={catFilter} onValueChange={setCatFilter}>
