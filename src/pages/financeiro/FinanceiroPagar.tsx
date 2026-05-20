@@ -47,6 +47,7 @@ export default function FinanceiroPagar() {
   const [statusFilter, setStatusFilter] = useState("todos");
   const [search, setSearch] = useState("");
   const [showMore, setShowMore] = useState(false);
+  const [dueDateFilter, setDueDateFilter] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Payable | null>(null);
 
@@ -72,6 +73,7 @@ export default function FinanceiroPagar() {
     return payablesAll.filter(p => {
       if (catFilter !== "todos" && p.category !== catFilter) return false;
       if (supplierFilter !== "todos" && (p.supplier || "") !== supplierFilter) return false;
+      if (dueDateFilter && p.due_date !== dueDateFilter) return false;
       if (statusFilter !== "todos") {
         // status efetivo (com "atrasado" computado dinamicamente)
         const eff = p.status === "pago" ? "pago"
@@ -80,7 +82,7 @@ export default function FinanceiroPagar() {
       }
       return true;
     });
-  }, [payablesAll, catFilter, supplierFilter, statusFilter, todayStr]);
+  }, [payablesAll, catFilter, supplierFilter, statusFilter, dueDateFilter, todayStr]);
 
   // Totais por aba (calculados sobre baseFiltered, antes da aba)
   const totals = useMemo(() => {
@@ -147,11 +149,12 @@ export default function FinanceiroPagar() {
     setSupplierFilter("todos");
     setStatusFilter("todos");
     setSearch("");
+    setDueDateFilter("");
     setMonth(now.getMonth());
     setYear(now.getFullYear());
   };
 
-  const filtersActive = activeTab !== "todos" || catFilter !== "todos" || supplierFilter !== "todos" || statusFilter !== "todos" || search !== "";
+  const filtersActive = activeTab !== "todos" || catFilter !== "todos" || supplierFilter !== "todos" || statusFilter !== "todos" || search !== "" || dueDateFilter !== "";
 
   // Tabs config
   const tabs: { key: TabKey; label: string; value: number; color: string }[] = [
@@ -220,7 +223,7 @@ export default function FinanceiroPagar() {
           </div>
 
           {showMore && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border rounded-md bg-muted/30">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 border rounded-md bg-muted/30">
               <div>
                 <Label className="text-xs text-muted-foreground">Categoria</Label>
                 <Select value={catFilter} onValueChange={setCatFilter}>
@@ -249,6 +252,20 @@ export default function FinanceiroPagar() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Dia específico</Label>
+                <div className="relative">
+                  <Input type="date" value={dueDateFilter} onChange={e => setDueDateFilter(e.target.value)} className="h-10" />
+                  {dueDateFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setDueDateFilter("")}
+                      className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground"
+                      aria-label="Limpar data"
+                    >✕</button>
+                  )}
+                </div>
               </div>
             </div>
           )}
