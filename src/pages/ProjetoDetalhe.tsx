@@ -639,7 +639,7 @@ export default function ProjetoDetalhe() {
                 <Label>Término (Pause)</Label>
                 <Input
                   type="time"
-                  value={editEntryData.end_time}
+                  value={editEntryData.end_time.slice(0, 5)}
                   onChange={(e) => setEditEntryData(prev => ({ ...prev, end_time: e.target.value }))}
                 />
               </div>
