@@ -253,6 +253,20 @@ export default function FinanceiroPagar() {
                   <SelectContent>{[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Dia específico</Label>
+                <div className="relative">
+                  <Input type="date" value={dueDateFilter} onChange={e => setDueDateFilter(e.target.value)} className="h-10" />
+                  {dueDateFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setDueDateFilter("")}
+                      className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground"
+                      aria-label="Limpar data"
+                    >✕</button>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
