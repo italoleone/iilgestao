@@ -149,11 +149,12 @@ export default function FinanceiroPagar() {
     setSupplierFilter("todos");
     setStatusFilter("todos");
     setSearch("");
+    setDueDateFilter("");
     setMonth(now.getMonth());
     setYear(now.getFullYear());
   };
 
-  const filtersActive = activeTab !== "todos" || catFilter !== "todos" || supplierFilter !== "todos" || statusFilter !== "todos" || search !== "";
+  const filtersActive = activeTab !== "todos" || catFilter !== "todos" || supplierFilter !== "todos" || statusFilter !== "todos" || search !== "" || dueDateFilter !== "";
 
   // Tabs config
   const tabs: { key: TabKey; label: string; value: number; color: string }[] = [
