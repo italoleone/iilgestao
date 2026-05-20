@@ -339,7 +339,9 @@ export default function ProjetoDetalhe() {
           <Card className="shadow-sm animate-reveal-up delay-2" style={{ animationFillMode: "backwards" }}>
             <CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4" /> Horas</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Valor de Venda</span><span className="font-medium tabular-nums">R$ {formatBRL(project.saleValue)}</span></div>
+              {canSeeFinancial && (
+                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Valor de Venda</span><span className="font-medium tabular-nums">R$ {formatBRL(project.saleValue)}</span></div>
+              )}
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">Horas estimadas (tarefas)</span><span className="font-medium tabular-nums">{taskHours.estimated}h</span></div>
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">Horas realizadas (tarefas)</span><span className="font-medium tabular-nums">{taskHours.worked}h</span></div>
               <Progress value={taskHours.estimated > 0 ? (taskHours.worked / taskHours.estimated) * 100 : 0} className="h-2" />
