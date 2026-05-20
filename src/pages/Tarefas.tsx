@@ -239,9 +239,6 @@ export default function Tarefas() {
     const pendingValidationForMe = (t: typeof tasks[number]) =>
       t.status === "aguardando_validacao" && myCoordinatedProjectIds.has(t.project_id);
 
-    const isFinalized = (t: typeof tasks[number]) =>
-      ["concluida", "enviado_cliente"].includes(t.status);
-
     const isVisibleValidationTask = (t: typeof tasks[number]) =>
       t.status !== "aguardando_validacao" || pendingValidationForMe(t) || isAdminRole;
 
@@ -254,35 +251,27 @@ export default function Tarefas() {
 
     // 2. Filtro por papel
     if (role === "projetista") {
-      // Projetista só vê as próprias tarefas, exceto as já finalizadas
+      // Projetista só vê as próprias tarefas
       filtered = filtered.filter(t =>
-        (t.responsible === profile.id &&
-          !isFinalized(t))
+        t.responsible === profile.id
         || pendingValidationForMe(t)
       );
     } else if (role === "coordenador") {
       // Coordenador vê tarefas dos projetos onde ele é o responsible
       filtered = filtered.filter(t =>
         myCoordinatedProjectIds.has(t.project_id) &&
-        (filterProject === "all" || t.project_id === filterProject) &&
-        !isFinalized(t)
+        (filterProject === "all" || t.project_id === filterProject)
       );
     } else if (role === "planejamento") {
       // Planejamento acompanha tarefas, mas não recebe validações de projetos de outros usuários.
       filtered = filtered.filter(t =>
         (filterProject === "all" || t.project_id === filterProject) &&
-        !isFinalized(t) &&
         isVisibleValidationTask(t)
       );
     } else {
-      // Diretor e Gerente — veem tudo (exceto finalizadas na visão padrão)
+      // Diretor e Gerente — veem tudo
       if (filterProject !== "all") {
         filtered = filtered.filter(t => t.project_id === filterProject);
-      } else {
-        filtered = filtered.filter(t =>
-          (!isFinalized(t))
-          || pendingValidationForMe(t)
-        );
       }
     }
 
