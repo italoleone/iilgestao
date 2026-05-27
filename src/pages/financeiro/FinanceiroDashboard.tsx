@@ -103,9 +103,15 @@ export default function FinanceiroDashboard() {
   }, []);
 
   // KPIs
-  const receitaMes = useMemo(() =>
+  const recebidoMes = useMemo(() =>
     allReceivables
       .filter(r => r.received_date && isWithinInterval(parseISO(r.received_date), { start: kpiStart, end: kpiEnd }))
+      .reduce((s, r) => s + Number(r.amount), 0),
+    [allReceivables, selectedMonth, selectedYear, accumulated]);
+
+  const faturadoMes = useMemo(() =>
+    allReceivables
+      .filter(r => (r as any).competence_date && isWithinInterval(parseISO((r as any).competence_date), { start: kpiStart, end: kpiEnd }))
       .reduce((s, r) => s + Number(r.amount), 0),
     [allReceivables, selectedMonth, selectedYear, accumulated]);
 
@@ -115,7 +121,7 @@ export default function FinanceiroDashboard() {
       .reduce((s, p) => s + Number(p.amount), 0),
     [allPayables, selectedMonth, selectedYear, accumulated]);
 
-  const resultado = receitaMes - despesaMes;
+  const resultado = faturadoMes - despesaMes;
 
   const aReceber30 = useMemo(() => {
     if (accumulated) {
