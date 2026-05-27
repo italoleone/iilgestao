@@ -464,14 +464,15 @@ export function useRentabilidadePorProjeto(filters?: RentabilidadeFilters) {
 
       const rows: RentabilidadeRow[] = (projects || []).map((p: any) => {
         const ph = projectHours.get(p.id) || { totalMinutes: 0, cost: 0 };
-        const receita = p.sale_value || 0;
+        const fin = financialsMap.get(p.id) || { sale_value: 0, hours_sold: 0 };
+        const receita = fin.sale_value;
         const custoHoras = Math.round(ph.cost * 100) / 100;
         const custoImpostos = Math.round((taxCostByProject.get(p.id) || 0) * 100) / 100;
         const custoReal = custoHoras + custoImpostos;
         const margemRs = receita - custoReal;
         const margemPct = receita > 0 ? (margemRs / receita) * 100 : 0;
         const horasGastas = Math.round((ph.totalMinutes / 60) * 100) / 100;
-        const horasVendidas = p.hours_sold || 0;
+        const horasVendidas = fin.hours_sold;
         const eficiencia = horasGastas > 0 ? (horasVendidas / horasGastas) * 100 : 0;
         return {
           projectId: p.id,
