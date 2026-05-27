@@ -73,6 +73,7 @@ export default function FinanceiroReceber() {
     amount: 0,
     tax_percentage: 0,
     due_date: format(now, "yyyy-MM-dd"),
+    competence_date: format(now, "yyyy-MM-dd"),
     installment_number: "",
     recurrent: false,
     installments: 12,
