@@ -585,6 +585,7 @@ export type Database = {
           amount: number
           category: string
           client_name: string
+          competence_date: string | null
           created_at: string
           created_by: string
           description: string
@@ -603,6 +604,7 @@ export type Database = {
           amount?: number
           category?: string
           client_name: string
+          competence_date?: string | null
           created_at?: string
           created_by: string
           description: string
@@ -621,6 +623,7 @@ export type Database = {
           amount?: number
           category?: string
           client_name?: string
+          competence_date?: string | null
           created_at?: string
           created_by?: string
           description?: string
