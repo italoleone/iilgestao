@@ -164,14 +164,17 @@ export default function ProjetoDetalhe() {
       client: editClient,
       discipline: editDiscipline,
       responsible: editResponsible,
-      sale_value: parseBRL(editSaleValue),
       start_date: editStartDate,
       deadline: editDeadline,
       status: editStatus,
     }).eq("id", project.id);
+    // Update financial value in separate restricted table
+    const { error: finError } = await supabase.from("project_financials").update({
+      sale_value: parseBRL(editSaleValue),
+    }).eq("project_id", project.id);
     setEditSaving(false);
-    if (error) {
-      toast.error("Erro ao atualizar projeto: " + error.message);
+    if (error || finError) {
+      toast.error("Erro ao atualizar projeto: " + (error?.message || finError?.message));
     } else {
       toast.success("Projeto atualizado com sucesso.");
       fetchProject();
