@@ -14,8 +14,6 @@ interface DbProject {
   status: string;
   responsible: string;
   team: string[];
-  hours_sold: number;
-  sale_value: number;
   hours_worked: number;
   stages: any;
   revisions: any;
