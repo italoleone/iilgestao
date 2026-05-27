@@ -73,6 +73,7 @@ export default function FinanceiroReceber() {
     amount: 0,
     tax_percentage: 0,
     due_date: format(now, "yyyy-MM-dd"),
+    competence_date: format(now, "yyyy-MM-dd"),
     installment_number: "",
     recurrent: false,
     installments: 12,
@@ -92,6 +93,7 @@ export default function FinanceiroReceber() {
       amount: Number(r.amount),
       tax_percentage: Number((r as any).tax_percentage) || 0,
       due_date: r.due_date,
+      competence_date: (r as any).competence_date || r.due_date,
       installment_number: (r as any).installment_number || "",
       recurrent: false,
       installments: 12,
@@ -120,6 +122,7 @@ export default function FinanceiroReceber() {
       client_name: form.client_name,
       amount: Number(form.amount),
       due_date: form.due_date,
+      competence_date: form.competence_date,
       project_id: form.project_id || null,
       nf_number: form.nf_number || null,
       tax_percentage: Number(form.tax_percentage) || 0,
@@ -290,6 +293,10 @@ export default function FinanceiroReceber() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Data de Emissão NF *</Label>
+                  <Input type="date" value={form.competence_date} onChange={e => setForm({ ...form, competence_date: e.target.value })} />
+                </div>
                 <div>
                   <Label>Vencimento *</Label>
                   <Input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} />
