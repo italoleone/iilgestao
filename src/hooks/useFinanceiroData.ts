@@ -308,6 +308,8 @@ export function useProjetoCusto(projectId: string | null) {
     queryFn: async () => {
       const { data: project } = await supabase
         .from("projects").select("*").eq("id", projectId!).single();
+      const { data: financial } = await supabase
+        .from("project_financials").select("sale_value, hours_sold").eq("project_id", projectId!).maybeSingle();
       const { data: entries } = await supabase
         .from("time_entries").select("*").eq("project_id", projectId!);
       const { data: tasks } = await supabase
@@ -359,7 +361,7 @@ export function useProjetoCusto(projectId: string | null) {
       }, 0);
       const totalCustoFinal = totalCusto + custoImpostos;
 
-      const receita = project?.sale_value || 0;
+      const receita = Number(financial?.sale_value) || 0;
       const margemRs = receita - totalCustoFinal;
 
       return {
@@ -411,6 +413,11 @@ export function useRentabilidadePorProjeto(filters?: RentabilidadeFilters) {
       const { data: projects, error: pe } = await pq;
       if (pe) throw pe;
 
+      // Fetch project financials (sale_value, hours_sold) — restricted to financial roles
+      const { data: financialsData } = await supabase.from("project_financials").select("project_id, sale_value, hours_sold");
+      const financialsMap = new Map<string, { sale_value: number; hours_sold: number }>();
+      (financialsData || []).forEach((f: any) => financialsMap.set(f.project_id, { sale_value: Number(f.sale_value) || 0, hours_sold: Number(f.hours_sold) || 0 }));
+
       // Fetch time entries
       const { data: timeEntries, error: te } = await supabase.from("time_entries").select("*");
       if (te) throw te;
@@ -457,14 +464,15 @@ export function useRentabilidadePorProjeto(filters?: RentabilidadeFilters) {
 
       const rows: RentabilidadeRow[] = (projects || []).map((p: any) => {
         const ph = projectHours.get(p.id) || { totalMinutes: 0, cost: 0 };
-        const receita = p.sale_value || 0;
+        const fin = financialsMap.get(p.id) || { sale_value: 0, hours_sold: 0 };
+        const receita = fin.sale_value;
         const custoHoras = Math.round(ph.cost * 100) / 100;
         const custoImpostos = Math.round((taxCostByProject.get(p.id) || 0) * 100) / 100;
         const custoReal = custoHoras + custoImpostos;
         const margemRs = receita - custoReal;
         const margemPct = receita > 0 ? (margemRs / receita) * 100 : 0;
         const horasGastas = Math.round((ph.totalMinutes / 60) * 100) / 100;
-        const horasVendidas = p.hours_sold || 0;
+        const horasVendidas = fin.hours_sold;
         const eficiencia = horasGastas > 0 ? (horasVendidas / horasGastas) * 100 : 0;
         return {
           projectId: p.id,

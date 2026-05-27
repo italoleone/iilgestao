@@ -106,8 +106,6 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
         status: "em_andamento",
         responsible: coord,
         team: [coord],
-        hours_sold: 0,
-        sale_value: parseBRL(saleValues[disc]),
         hours_worked: 0,
         stages: STAGE_NAMES.map((stageName, i) => ({
           id: `s_${Date.now()}_${disc}_${i}`,
@@ -121,12 +119,30 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
       };
     });
 
+    // Capture sale_value per discipline to write into project_financials after insert
+    const saleValueByDiscipline: Record<string, number> = {};
+    selectedDisciplines.forEach((disc) => {
+      saleValueByDiscipline[disc] = parseBRL(saleValues[disc]);
+    });
+
     const { data: insertedProjects, error } = await supabase.from("projects").insert(projectRows).select("id, discipline, responsible, start_date, deadline");
 
     if (error) {
       setSaving(false);
       toast.error("Erro ao criar projeto: " + error.message);
       return;
+    }
+
+    // Update auto-created project_financials rows with sale_value
+    if (insertedProjects && insertedProjects.length > 0) {
+      await Promise.all(
+        insertedProjects.map((p: any) =>
+          supabase
+            .from("project_financials")
+            .update({ sale_value: saleValueByDiscipline[p.discipline] || 0, hours_sold: 0 })
+            .eq("project_id", p.id)
+        )
+      );
     }
 
     // Tarefas padrão NÃO são mais criadas automaticamente.

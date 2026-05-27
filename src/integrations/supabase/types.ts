@@ -448,19 +448,41 @@ export type Database = {
           },
         ]
       }
+      project_financials: {
+        Row: {
+          created_at: string
+          hours_sold: number
+          project_id: string
+          sale_value: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hours_sold?: number
+          project_id: string
+          sale_value?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hours_sold?: number
+          project_id?: string
+          sale_value?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           client: string
           created_at: string
           deadline: string
           discipline: string
-          hours_sold: number
           hours_worked: number
           id: string
           name: string
           responsible: string
           revisions: Json
-          sale_value: number
           stages: Json
           start_date: string
           status: string
@@ -471,13 +493,11 @@ export type Database = {
           created_at?: string
           deadline: string
           discipline: string
-          hours_sold?: number
           hours_worked?: number
           id?: string
           name: string
           responsible: string
           revisions?: Json
-          sale_value?: number
           stages?: Json
           start_date: string
           status?: string
@@ -488,13 +508,11 @@ export type Database = {
           created_at?: string
           deadline?: string
           discipline?: string
-          hours_sold?: number
           hours_worked?: number
           id?: string
           name?: string
           responsible?: string
           revisions?: Json
-          sale_value?: number
           stages?: Json
           start_date?: string
           status?: string

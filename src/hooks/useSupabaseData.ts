@@ -14,8 +14,6 @@ interface DbProject {
   status: string;
   responsible: string;
   team: string[];
-  hours_sold: number;
-  sale_value: number;
   hours_worked: number;
   stages: any;
   revisions: any;
@@ -84,8 +82,8 @@ function mapProject(row: DbProject): Project {
     status: row.status as ProjectStatus,
     responsible: row.responsible,
     team: row.team || [row.responsible],
-    hoursSold: row.hours_sold,
-    saleValue: row.sale_value,
+    hoursSold: 0,
+    saleValue: 0,
     hoursWorked: row.hours_worked,
     stages: validStages,
     revisions: Array.isArray(row.revisions) ? row.revisions : [],

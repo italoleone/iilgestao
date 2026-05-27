@@ -67,14 +67,26 @@ export default function FinanceiroSaldosProjeto() {
   useEffect(() => {
     const fetchAll = async () => {
       setLoading(true);
-      const [projRes, recRes] = await Promise.all([
+      const [projRes, finRes, recRes] = await Promise.all([
         supabase
           .from("projects")
-          .select("id, name, client, sale_value, status")
+          .select("id, name, client, status")
           .order("name"),
+        supabase.from("project_financials").select("project_id, sale_value"),
         supabase.from("receivables").select("*").order("due_date"),
       ]);
-      if (projRes.data) setProjects(projRes.data as ProjectRow[]);
+      if (projRes.data) {
+        const finMap = new Map<string, number>();
+        (finRes.data || []).forEach((f: any) => finMap.set(f.project_id, Number(f.sale_value) || 0));
+        const merged: ProjectRow[] = (projRes.data as any[]).map((p) => ({
+          id: p.id,
+          name: p.name,
+          client: p.client,
+          status: p.status,
+          sale_value: finMap.get(p.id) || 0,
+        }));
+        setProjects(merged);
+      }
       if (recRes.data) setReceivables(recRes.data as ReceivableRow[]);
       setLoading(false);
     };

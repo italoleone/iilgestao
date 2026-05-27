@@ -357,7 +357,6 @@ export function useApproveProposal() {
             deadline: new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0],
             responsible: coordId,
             team: [coordId],
-            sale_value: discValue,
             status: "em_andamento",
           } as any)
           .select()
@@ -365,9 +364,14 @@ export function useApproveProposal() {
         if (projError) throw projError;
 
         if (project) {
-          createdProjectIds.push((project as any).id);
+          const projectId = (project as any).id;
+          createdProjectIds.push(projectId);
+          // Update auto-created project_financials row with sale_value (restricted to financial roles)
+          await supabase
+            .from("project_financials")
+            .update({ sale_value: discValue })
+            .eq("project_id", projectId);
           // Tarefas padrão NÃO são mais criadas automaticamente na aprovação da proposta.
-          // O usuário deve criar as tarefas manualmente no Planejamento.
         }
       }
 
