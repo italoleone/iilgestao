@@ -117,22 +117,22 @@ export default function FinanceiroRentabilidade() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Projeto</TableHead>
+                  <SortHeader field="projectName">Projeto</SortHeader>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Disciplina</TableHead>
-                  <TableHead className="text-right">Receita</TableHead>
-                  <TableHead className="text-right">Custo Real</TableHead>
-                  <TableHead className="text-right">Margem R$</TableHead>
-                  <TableHead className="text-right">Margem %</TableHead>
-                  <TableHead className="text-right">Hs Vend.</TableHead>
-                  <TableHead className="text-right">Hs Gastas</TableHead>
-                  <TableHead className="text-right">Eficiência</TableHead>
+                  <SortHeader field="receita" className="text-right">Contratado</SortHeader>
+                  <SortHeader field="custoReal" className="text-right">Custo Real</SortHeader>
+                  <SortHeader field="margemRs" className="text-right">Margem R$</SortHeader>
+                  <SortHeader field="margemPct" className="text-right">Margem %</SortHeader>
+                  <SortHeader field="horasVendidas" className="text-right">Hs Vend.</SortHeader>
+                  <SortHeader field="horasGastas" className="text-right">Hs Gastas</SortHeader>
+                  <SortHeader field="eficiencia" className="text-right">Eficiência</SortHeader>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.length === 0 && <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground py-8">{isLoading ? "Carregando..." : "Nenhum projeto"}</TableCell></TableRow>}
-                {rows.map(r => (
+                {sortedRows.map(r => (
                   <TableRow key={r.projectId}>
                     <TableCell className="font-medium">{r.projectName}</TableCell>
                     <TableCell>{r.client}</TableCell>
