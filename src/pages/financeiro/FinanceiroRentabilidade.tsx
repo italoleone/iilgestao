@@ -90,8 +90,6 @@ export default function FinanceiroRentabilidade() {
 
         {/* Filters */}
         <div className="flex flex-wrap gap-3 items-end">
-          <div><Label className="text-xs">Mês</Label><Select value={String(month)} onValueChange={v => setMonth(Number(v))}><SelectTrigger className="w-28"><SelectValue /></SelectTrigger><SelectContent>{Array.from({ length: 12 }, (_, i) => <SelectItem key={i} value={String(i)}>{format(new Date(2024, i), "MMMM")}</SelectItem>)}</SelectContent></Select></div>
-          <div><Label className="text-xs">Ano</Label><Select value={String(year)} onValueChange={v => setYear(Number(v))}><SelectTrigger className="w-24"><SelectValue /></SelectTrigger><SelectContent>{[2024, 2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select></div>
           <div><Label className="text-xs">Disciplina</Label><Select value={discipline} onValueChange={setDiscipline}><SelectTrigger className="w-36"><SelectValue placeholder="Todas" /></SelectTrigger><SelectContent><SelectItem value="">Todas</SelectItem><SelectItem value="Estrutural">Estrutural</SelectItem><SelectItem value="Hidráulica">Hidráulica</SelectItem><SelectItem value="Elétrica">Elétrica</SelectItem><SelectItem value="Fundações">Fundações</SelectItem></SelectContent></Select></div>
         </div>
 
