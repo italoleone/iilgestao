@@ -413,6 +413,11 @@ export function useRentabilidadePorProjeto(filters?: RentabilidadeFilters) {
       const { data: projects, error: pe } = await pq;
       if (pe) throw pe;
 
+      // Fetch project financials (sale_value, hours_sold) — restricted to financial roles
+      const { data: financialsData } = await supabase.from("project_financials").select("project_id, sale_value, hours_sold");
+      const financialsMap = new Map<string, { sale_value: number; hours_sold: number }>();
+      (financialsData || []).forEach((f: any) => financialsMap.set(f.project_id, { sale_value: Number(f.sale_value) || 0, hours_sold: Number(f.hours_sold) || 0 }));
+
       // Fetch time entries
       const { data: timeEntries, error: te } = await supabase.from("time_entries").select("*");
       if (te) throw te;
