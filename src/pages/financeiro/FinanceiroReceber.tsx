@@ -122,6 +122,7 @@ export default function FinanceiroReceber() {
       client_name: form.client_name,
       amount: Number(form.amount),
       due_date: form.due_date,
+      competence_date: form.competence_date,
       project_id: form.project_id || null,
       nf_number: form.nf_number || null,
       tax_percentage: Number(form.tax_percentage) || 0,
