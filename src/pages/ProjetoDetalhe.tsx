@@ -102,15 +102,21 @@ export default function ProjetoDetalhe() {
 
   const fetchProject = () => {
     if (!id) return;
-    supabase.from("projects").select("*").eq("id", id).maybeSingle().then(({ data }) => {
+    supabase.from("projects").select("*").eq("id", id).maybeSingle().then(async ({ data }) => {
       if (data) {
         const d = data as any;
         const stages: Stage[] = Array.isArray(d.stages) ? d.stages : [];
+        // Fetch financial data separately (only accessible to financial roles)
+        const { data: fin } = await supabase
+          .from("project_financials")
+          .select("sale_value, hours_sold")
+          .eq("project_id", id)
+          .maybeSingle();
         setProject({
           id: d.id, name: d.name, client: d.client, discipline: d.discipline,
           startDate: d.start_date, deadline: d.deadline, status: d.status,
           responsible: d.responsible, team: d.team || [d.responsible],
-          hoursSold: d.hours_sold, saleValue: d.sale_value, hoursWorked: d.hours_worked,
+          hoursSold: Number(fin?.hours_sold) || 0, saleValue: Number(fin?.sale_value) || 0, hoursWorked: d.hours_worked,
           stages, revisions: Array.isArray(d.revisions) ? d.revisions : [],
         });
       }
