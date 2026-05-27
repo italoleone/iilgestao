@@ -103,9 +103,15 @@ export default function FinanceiroDashboard() {
   }, []);
 
   // KPIs
-  const receitaMes = useMemo(() =>
+  const recebidoMes = useMemo(() =>
     allReceivables
       .filter(r => r.received_date && isWithinInterval(parseISO(r.received_date), { start: kpiStart, end: kpiEnd }))
+      .reduce((s, r) => s + Number(r.amount), 0),
+    [allReceivables, selectedMonth, selectedYear, accumulated]);
+
+  const faturadoMes = useMemo(() =>
+    allReceivables
+      .filter(r => (r as any).competence_date && isWithinInterval(parseISO((r as any).competence_date), { start: kpiStart, end: kpiEnd }))
       .reduce((s, r) => s + Number(r.amount), 0),
     [allReceivables, selectedMonth, selectedYear, accumulated]);
 
@@ -115,7 +121,7 @@ export default function FinanceiroDashboard() {
       .reduce((s, p) => s + Number(p.amount), 0),
     [allPayables, selectedMonth, selectedYear, accumulated]);
 
-  const resultado = receitaMes - despesaMes;
+  const resultado = faturadoMes - despesaMes;
 
   const aReceber30 = useMemo(() => {
     if (accumulated) {
@@ -304,7 +310,8 @@ export default function FinanceiroDashboard() {
   };
 
   const kpis = [
-    { title: accumulated ? "Receita Acumulada" : "Receita do Mês", value: fmt(receitaMes), icon: TrendingUp, color: "text-emerald-400" },
+    { title: accumulated ? "Faturamento Acumulado" : "Faturamento", value: fmt(faturadoMes), icon: TrendingUp, color: "text-emerald-400" },
+    { title: accumulated ? "Recebido no Período (acum.)" : "Recebido no Período", value: fmt(recebidoMes), icon: TrendingUp, color: "text-emerald-400" },
     { title: accumulated ? "Despesas Acumuladas" : "Despesas do Mês", value: fmt(despesaMes), icon: TrendingDown, color: "text-red-400" },
     { title: accumulated ? "Resultado Acumulado" : "Resultado do Mês", value: fmt(resultado), icon: DollarSign, color: resultado >= 0 ? "text-emerald-400" : "text-red-400" },
     { title: accumulated ? "A Receber (acumulado)" : "A Receber (período)", value: fmt(aReceber30), icon: Clock, color: "text-accent" },
