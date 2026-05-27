@@ -308,6 +308,8 @@ export function useProjetoCusto(projectId: string | null) {
     queryFn: async () => {
       const { data: project } = await supabase
         .from("projects").select("*").eq("id", projectId!).single();
+      const { data: financial } = await supabase
+        .from("project_financials").select("sale_value, hours_sold").eq("project_id", projectId!).maybeSingle();
       const { data: entries } = await supabase
         .from("time_entries").select("*").eq("project_id", projectId!);
       const { data: tasks } = await supabase
@@ -359,7 +361,7 @@ export function useProjetoCusto(projectId: string | null) {
       }, 0);
       const totalCustoFinal = totalCusto + custoImpostos;
 
-      const receita = project?.sale_value || 0;
+      const receita = Number(financial?.sale_value) || 0;
       const margemRs = receita - totalCustoFinal;
 
       return {
