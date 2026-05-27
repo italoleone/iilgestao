@@ -294,6 +294,10 @@ export default function FinanceiroReceber() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <Label>Data de Emissão NF *</Label>
+                  <Input type="date" value={form.competence_date} onChange={e => setForm({ ...form, competence_date: e.target.value })} />
+                </div>
+                <div>
                   <Label>Vencimento *</Label>
                   <Input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} />
                 </div>
