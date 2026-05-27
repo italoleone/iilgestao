@@ -93,6 +93,7 @@ export default function FinanceiroReceber() {
       amount: Number(r.amount),
       tax_percentage: Number((r as any).tax_percentage) || 0,
       due_date: r.due_date,
+      competence_date: (r as any).competence_date || r.due_date,
       installment_number: (r as any).installment_number || "",
       recurrent: false,
       installments: 12,
