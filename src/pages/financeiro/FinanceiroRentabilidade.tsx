@@ -18,13 +18,35 @@ const margemBg = (pct: number) => pct > 40 ? "bg-emerald-500/20 text-emerald-400
 
 const now = new Date();
 
-export default function FinanceiroRentabilidade() {
-  const [month, setMonth] = useState(now.getMonth());
-  const [year, setYear] = useState(now.getFullYear());
-  const [discipline, setDiscipline] = useState("");
+type SortField = "projectName" | "receita" | "custoReal" | "margemRs" | "margemPct" | "horasVendidas" | "horasGastas" | "eficiencia";
 
-  const filters = useMemo(() => ({ month, year, discipline: discipline || undefined }), [month, year, discipline]);
+export default function FinanceiroRentabilidade() {
+  const [discipline, setDiscipline] = useState("");
+  const [sortField, setSortField] = useState<SortField>("margemPct");
+  const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDir("desc");
+    }
+  };
+
+  const filters = useMemo(() => ({ discipline: discipline || undefined }), [discipline]);
   const { data: rows = [], isLoading } = useRentabilidadePorProjeto(filters);
+
+  const sortedRows = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      const av = a[sortField];
+      const bv = b[sortField];
+      if (typeof av === "string" && typeof bv === "string") {
+        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
+    });
+  }, [rows, sortField, sortDir]);
 
   // KPIs
   const margemMedia = rows.length > 0 ? rows.reduce((s, r) => s + r.margemPct, 0) / rows.length : 0;
@@ -38,6 +60,20 @@ export default function FinanceiroRentabilidade() {
       name: r.projectName.length > 20 ? r.projectName.slice(0, 20) + "…" : r.projectName,
       margem: r.margemRs,
     })), [rows]);
+
+  const SortHeader = ({ field, children, className }: { field: SortField; children: React.ReactNode; className?: string }) => {
+    const active = sortField === field;
+    const arrow = active ? (sortDir === "asc" ? " ↑" : " ↓") : " ↕";
+    return (
+      <TableHead
+        className={cn("cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap", active ? "text-foreground" : "text-muted-foreground", className)}
+        onClick={() => handleSort(field)}
+      >
+        {children}
+        <span className={cn("ml-1 text-xs", active ? "opacity-100" : "opacity-30")}>{arrow}</span>
+      </TableHead>
+    );
+  };
 
   return (
     <AppLayout>
