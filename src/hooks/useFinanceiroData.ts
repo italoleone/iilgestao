@@ -22,6 +22,7 @@ export interface Receivable {
   nf_number: string | null;
   tax_percentage: number | null;
   installment_number: string | null;
+  competence_date: string | null;
 }
 
 export interface Payable {
