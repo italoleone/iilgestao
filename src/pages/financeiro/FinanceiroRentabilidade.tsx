@@ -90,7 +90,7 @@ export default function FinanceiroRentabilidade() {
 
         {/* Filters */}
         <div className="flex flex-wrap gap-3 items-end">
-          <div><Label className="text-xs">Disciplina</Label><Select value={discipline} onValueChange={setDiscipline}><SelectTrigger className="w-36"><SelectValue placeholder="Todas" /></SelectTrigger><SelectContent><SelectItem value="">Todas</SelectItem><SelectItem value="Estrutural">Estrutural</SelectItem><SelectItem value="Hidráulica">Hidráulica</SelectItem><SelectItem value="Elétrica">Elétrica</SelectItem><SelectItem value="Fundações">Fundações</SelectItem></SelectContent></Select></div>
+          <div><Label className="text-xs">Disciplina</Label><Select value={discipline || "all"} onValueChange={v => setDiscipline(v === "all" ? "" : v)}><SelectTrigger className="w-36"><SelectValue placeholder="Todas" /></SelectTrigger><SelectContent><SelectItem value="all">Todas</SelectItem><SelectItem value="Estrutural">Estrutural</SelectItem><SelectItem value="Hidráulica">Hidráulica</SelectItem><SelectItem value="Elétrica">Elétrica</SelectItem><SelectItem value="Fundações">Fundações</SelectItem></SelectContent></Select></div>
         </div>
 
         {/* Chart */}
