@@ -364,11 +364,11 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
           {selectedMeeting?.audio_path && dialogMode !== "speakers" && (
             <div className="pt-4 border-t">
               <p className="text-xs text-muted-foreground mb-2">Áudio da reunião:</p>
-              <audio
-                controls
-                className="w-full"
-                src={getAudioUrl(selectedMeeting.audio_path)}
-              />
+              {audioUrl ? (
+                <audio controls className="w-full" src={audioUrl} />
+              ) : (
+                <p className="text-xs text-muted-foreground">Carregando áudio...</p>
+              )}
             </div>
           )}
         </DialogContent>
