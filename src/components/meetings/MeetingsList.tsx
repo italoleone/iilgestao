@@ -234,8 +234,9 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
                     size="icon"
                     className="h-8 w-8"
                     title="Ouvir áudio"
-                    onClick={() => {
-                      const url = getAudioUrl(meeting.audio_path!);
+                    onClick={async () => {
+                      const url = await getAudioUrl(meeting.audio_path!);
+                      if (!url) return;
                       const audio = new Audio(url);
                       audio.play();
                     }}
