@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useActiveProfiles, getProfileById, useTasks } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { DISCIPLINE_SHORT, STATUS_LABELS, TASK_STATUS_LABELS, STAGE_NAMES, type ProjectStatus, type TaskStatus, type Discipline, type Project, type Stage } from "@/types";
-import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks, Loader2, Trash2, ChevronDown, Pencil, Check, ChevronsUpDown } from "lucide-react";
+import { ArrowLeft, Clock, DollarSign, Users, FileText, ListChecks, Loader2, Trash2, ChevronDown, Pencil, Check, ChevronsUpDown, Mic } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { MeetingsSection } from "@/components/meetings/MeetingsSection";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -75,6 +75,7 @@ export default function ProjetoDetalhe() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [filterUser, setFilterUser] = useState<string>("all");
+  const [meetingMode, setMeetingMode] = useState<"remoto" | "presencial">("remoto");
 
   // Edit dialog state
   const [editOpen, setEditOpen] = useState(false);
@@ -427,7 +428,31 @@ export default function ProjetoDetalhe() {
           </CardContent>
         </Card>
 
-        <MeetingsSection projectId={project.id} />
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={meetingMode === "remoto" ? "default" : "outline"}
+              size="sm"
+              className="gap-2"
+              onClick={() => setMeetingMode("remoto")}
+            >
+              <Mic className="h-4 w-4" />
+              Remoto
+            </Button>
+            <Button
+              type="button"
+              variant={meetingMode === "presencial" ? "default" : "outline"}
+              size="sm"
+              className="gap-2"
+              onClick={() => setMeetingMode("presencial")}
+            >
+              <Users className="h-4 w-4" />
+              Presencial
+            </Button>
+          </div>
+          <MeetingsSection projectId={project.id} mode={meetingMode} />
+        </div>
 
         <Card>
           <CardHeader className="pb-3">
