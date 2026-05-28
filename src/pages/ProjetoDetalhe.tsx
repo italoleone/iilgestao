@@ -75,6 +75,7 @@ export default function ProjetoDetalhe() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [filterUser, setFilterUser] = useState<string>("all");
+  const [meetingMode, setMeetingMode] = useState<"remoto" | "presencial">("remoto");
 
   // Edit dialog state
   const [editOpen, setEditOpen] = useState(false);
