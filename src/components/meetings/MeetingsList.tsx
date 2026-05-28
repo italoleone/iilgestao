@@ -147,9 +147,14 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
     }
   };
 
-  const openDialog = (meeting: Meeting, mode: "minutes" | "transcription" | "speakers") => {
+  const openDialog = async (meeting: Meeting, mode: "minutes" | "transcription" | "speakers") => {
     setSelectedMeeting(meeting);
     setDialogMode(mode);
+    setAudioUrl("");
+    if (mode !== "speakers" && meeting.audio_path) {
+      const url = await getAudioUrl(meeting.audio_path);
+      setAudioUrl(url);
+    }
     if (mode === "speakers") {
       setEditingSpeakers(meeting.speaker_map || {});
     }
