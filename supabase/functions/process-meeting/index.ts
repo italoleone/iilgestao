@@ -47,6 +47,7 @@ serve(async (req) => {
   try {
     const body = await req.json();
     meetingId = body.meeting_id;
+    const manual_notes: string | undefined = body.manual_notes;
 
     if (!meetingId) throw new Error("meeting_id is required");
 
@@ -73,33 +74,39 @@ serve(async (req) => {
 
     if (meetingError || !meeting) throw new Error("Meeting not found");
 
-    // Download audio from storage
-    const { data: audioData, error: audioError } = await supabase.storage
-      .from("meeting-audio")
-      .download(meeting.audio_path);
-
-    if (audioError || !audioData) throw new Error("Audio file not found in storage");
-
-    // Convert to base64
-    const arrayBuffer = await audioData.arrayBuffer();
-    const base64Audio = uint8ArrayToBase64(new Uint8Array(arrayBuffer));
-
-    const audioFormat = meeting.audio_path.endsWith(".m4a") ? "m4a" : "webm";
-
     // ──────────────────────────────────────────────────
-    // STEP 1: High-precision transcription with diarization
+    // STEP 1: Obtain transcription
     // ──────────────────────────────────────────────────
-    console.log("Starting transcription with diarization...");
+    let transcription: string;
 
-    const transcription = await callAI(
-      lovableApiKey,
-      [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `Você é um transcritor profissional de alta precisão. Transcreva o áudio a seguir em português brasileiro com as seguintes regras obrigatórias:
+    if (manual_notes) {
+      // Presencial: use the manual notes directly as the "transcription"
+      console.log("Using manual notes (presencial mode)...");
+      transcription = `[Anotações manuais]\n${manual_notes}`;
+    } else {
+      // Remoto: download audio and transcribe as before
+      const { data: audioData, error: audioError } = await supabase.storage
+        .from("meeting-audio")
+        .download(meeting.audio_path);
+
+      if (audioError || !audioData) throw new Error("Audio file not found in storage");
+
+      const arrayBuffer = await audioData.arrayBuffer();
+      const base64Audio = uint8ArrayToBase64(new Uint8Array(arrayBuffer));
+
+      const audioFormat = meeting.audio_path.endsWith(".m4a") ? "m4a" : "webm";
+
+      console.log("Starting transcription with diarization...");
+
+      transcription = await callAI(
+        lovableApiKey,
+        [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Você é um transcritor profissional de alta precisão. Transcreva o áudio a seguir em português brasileiro com as seguintes regras obrigatórias:
 
 1. DIARIZAÇÃO: Identifique TODOS os falantes diferentes e atribua rótulos sequenciais: [Voz 1], [Voz 2], [Voz 3], etc.
 2. FORMATO: Cada trecho de fala deve começar com o rótulo do falante em uma nova linha:
@@ -113,22 +120,23 @@ serve(async (req) => {
 4. Se houver apenas um falante, use [Voz 1] para todo o áudio.
 5. NÃO adicione comentários, resumos ou interpretações. Apenas a transcrição limpa e formatada.
 6. Seja EXTREMAMENTE preciso com nomes próprios, termos técnicos e números mencionados.`,
-            },
-            {
-              type: "input_audio",
-              input_audio: {
-                data: base64Audio,
-                format: audioFormat,
               },
-            },
-          ],
-        },
-      ],
-      "google/gemini-2.5-pro"
-    );
+              {
+                type: "input_audio",
+                input_audio: {
+                  data: base64Audio,
+                  format: audioFormat,
+                },
+              },
+            ],
+          },
+        ],
+        "google/gemini-2.5-pro"
+      );
 
-    if (!transcription) {
-      throw new Error("Empty transcription returned");
+      if (!transcription) {
+        throw new Error("Empty transcription returned");
+      }
     }
 
     console.log("Transcription complete. Generating professional minutes...");
