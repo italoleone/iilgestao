@@ -49,13 +49,13 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [dialogMode, setDialogMode] = useState<"minutes" | "transcription" | "speakers">("minutes");
   const [editingSpeakers, setEditingSpeakers] = useState<Record<string, string>>({});
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
-  const [dialogMode, setDialogMode] = useState<"minutes" | "transcription" | "speakers">("minutes");
-  const [editingSpeakers, setEditingSpeakers] = useState<Record<string, string>>({});
   const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string>("");
+
+  const fetchMeetings = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from("meetings")
+      .select("*")
       .eq("project_id", projectId)
       .order("created_at", { ascending: false });
     setMeetings((data as Meeting[]) || []);
