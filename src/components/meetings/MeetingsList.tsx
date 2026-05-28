@@ -50,6 +50,7 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
   const [dialogMode, setDialogMode] = useState<"minutes" | "transcription" | "speakers">("minutes");
   const [editingSpeakers, setEditingSpeakers] = useState<Record<string, string>>({});
   const [generatingPdf, setGeneratingPdf] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string>("");
 
   const fetchMeetings = useCallback(async () => {
     const { data } = await (supabase as any)
@@ -83,9 +84,15 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
     return () => { supabase.removeChannel(channel); };
   }, [projectId, fetchMeetings]);
 
-  const getAudioUrl = (path: string) => {
-    const { data } = supabase.storage.from("meeting-audio").getPublicUrl(path);
-    return data.publicUrl;
+  const getAudioUrl = async (path: string): Promise<string> => {
+    const { data, error } = await supabase.storage
+      .from("meeting-audio")
+      .createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) {
+      toast.error("Não foi possível carregar o áudio.");
+      return "";
+    }
+    return data.signedUrl;
   };
 
   const handleRetryProcessing = async (meetingId: string) => {
@@ -140,9 +147,14 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
     }
   };
 
-  const openDialog = (meeting: Meeting, mode: "minutes" | "transcription" | "speakers") => {
+  const openDialog = async (meeting: Meeting, mode: "minutes" | "transcription" | "speakers") => {
     setSelectedMeeting(meeting);
     setDialogMode(mode);
+    setAudioUrl("");
+    if (mode !== "speakers" && meeting.audio_path) {
+      const url = await getAudioUrl(meeting.audio_path);
+      setAudioUrl(url);
+    }
     if (mode === "speakers") {
       setEditingSpeakers(meeting.speaker_map || {});
     }
@@ -222,8 +234,9 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
                     size="icon"
                     className="h-8 w-8"
                     title="Ouvir áudio"
-                    onClick={() => {
-                      const url = getAudioUrl(meeting.audio_path!);
+                    onClick={async () => {
+                      const url = await getAudioUrl(meeting.audio_path!);
+                      if (!url) return;
                       const audio = new Audio(url);
                       audio.play();
                     }}
@@ -351,11 +364,11 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
           {selectedMeeting?.audio_path && dialogMode !== "speakers" && (
             <div className="pt-4 border-t">
               <p className="text-xs text-muted-foreground mb-2">Áudio da reunião:</p>
-              <audio
-                controls
-                className="w-full"
-                src={getAudioUrl(selectedMeeting.audio_path)}
-              />
+              {audioUrl ? (
+                <audio controls className="w-full" src={audioUrl} />
+              ) : (
+                <p className="text-xs text-muted-foreground">Carregando áudio...</p>
+              )}
             </div>
           )}
         </DialogContent>
