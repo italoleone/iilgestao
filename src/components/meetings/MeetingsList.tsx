@@ -84,9 +84,15 @@ export function MeetingsList({ projectId, refreshKey }: MeetingsListProps) {
     return () => { supabase.removeChannel(channel); };
   }, [projectId, fetchMeetings]);
 
-  const getAudioUrl = (path: string) => {
-    const { data } = supabase.storage.from("meeting-audio").getPublicUrl(path);
-    return data.publicUrl;
+  const getAudioUrl = async (path: string): Promise<string> => {
+    const { data, error } = await supabase.storage
+      .from("meeting-audio")
+      .createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) {
+      toast.error("Não foi possível carregar o áudio.");
+      return "";
+    }
+    return data.signedUrl;
   };
 
   const handleRetryProcessing = async (meetingId: string) => {
