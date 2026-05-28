@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, Square } from "lucide-react";
+import { Mic, Square, FileText, Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -8,15 +9,19 @@ import { toast } from "sonner";
 interface MeetingRecorderProps {
   projectId: string;
   onRecordingSaved: () => void;
+  mode: "remoto" | "presencial";
 }
 
 const MAX_DURATION = 7200; // 2 hours in seconds
 
-export function MeetingRecorder({ projectId, onRecordingSaved }: MeetingRecorderProps) {
+export function MeetingRecorder({ projectId, onRecordingSaved, mode }: MeetingRecorderProps) {
   const { user } = useAuth();
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualText, setManualText] = useState("");
+  const [savingManual, setSavingManual] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
@@ -72,7 +77,6 @@ export function MeetingRecorder({ projectId, onRecordingSaved }: MeetingRecorder
 
       toast.info("Salvando gravação...");
 
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from("meeting-audio")
         .upload(fileName, blob, { contentType: mimeTypeRef.current });
@@ -82,7 +86,6 @@ export function MeetingRecorder({ projectId, onRecordingSaved }: MeetingRecorder
         return;
       }
 
-      // Create meeting record
       const { data: meeting, error: insertError } = await (supabase as any)
         .from("meetings")
         .insert({
@@ -106,7 +109,6 @@ export function MeetingRecorder({ projectId, onRecordingSaved }: MeetingRecorder
       toast.success("Gravação salva! Processando transcrição e ata...");
       onRecordingSaved();
 
-      // Fire and forget - process in background
       supabase.functions.invoke("process-meeting", {
         body: { meeting_id: meeting.id },
       });
@@ -119,7 +121,6 @@ export function MeetingRecorder({ projectId, onRecordingSaved }: MeetingRecorder
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Detect supported mime type
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : MediaRecorder.isTypeSupported("audio/webm")
@@ -153,6 +154,90 @@ export function MeetingRecorder({ projectId, onRecordingSaved }: MeetingRecorder
       toast.error("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
     }
   };
+
+  const saveManualMeeting = async () => {
+    if (!user || !manualText.trim()) return;
+    setSavingManual(true);
+    try {
+      const now = new Date();
+      const dateStr = now.toLocaleDateString("pt-BR");
+      const startTime = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+      const { data: meeting, error } = await (supabase as any)
+        .from("meetings")
+        .insert({
+          project_id: projectId,
+          name: `Reunião Presencial ${dateStr}`,
+          date: now.toISOString().split("T")[0],
+          start_time: startTime,
+          end_time: null,
+          audio_path: null,
+          processing_status: "pendente",
+          created_by: user.id,
+        })
+        .select("id")
+        .single();
+
+      if (error || !meeting) {
+        toast.error("Erro ao registrar reunião: " + (error?.message || "Erro desconhecido"));
+        return;
+      }
+
+      toast.success("Reunião registrada! Gerando ata...");
+      setManualText("");
+      setManualOpen(false);
+      onRecordingSaved();
+
+      supabase.functions.invoke("process-meeting", {
+        body: { meeting_id: meeting.id, manual_notes: manualText.trim() },
+      });
+    } finally {
+      setSavingManual(false);
+    }
+  };
+
+  if (mode === "presencial") {
+    if (!manualOpen) {
+      return (
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => setManualOpen(true)}>
+          <FileText className="h-4 w-4" />
+          Registrar Ata Manual
+        </Button>
+      );
+    }
+    return (
+      <div className="w-full space-y-2">
+        <Textarea
+          placeholder="Digite as anotações da reunião presencial. A IA irá estruturar a ata automaticamente..."
+          value={manualText}
+          onChange={(e) => setManualText(e.target.value)}
+          rows={5}
+          className="text-sm resize-none"
+        />
+        <div className="flex gap-2 justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setManualOpen(false);
+              setManualText("");
+            }}
+          >
+            Cancelar
+          </Button>
+          <Button
+            size="sm"
+            className="gap-2"
+            disabled={savingManual || !manualText.trim()}
+            onClick={saveManualMeeting}
+          >
+            {savingManual ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            Salvar e Gerar Ata
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (saving) {
     return (
