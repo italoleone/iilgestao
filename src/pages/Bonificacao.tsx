@@ -145,7 +145,22 @@ export default function Bonificacao() {
       ]);
 
       if (configRes.data) setConfig(configRes.data as unknown as BonusConfig);
-      if (profilesRes.data) setProfiles(profilesRes.data as unknown as Profile[]);
+      if (profilesRes.data) {
+        const mapped = (profilesRes.data as Array<{
+          id: string;
+          name: string;
+          discipline: string | null;
+          status: string;
+          user_roles: Array<{ role: string }> | null;
+        }>).map((p) => ({
+          id: p.id,
+          name: p.name,
+          discipline: p.discipline,
+          status: p.status,
+          role: p.user_roles?.[0]?.role ?? "projetista",
+        }));
+        setProfiles(mapped);
+      }
       if (salariesRes.data) setSalaries(salariesRes.data as unknown as BonusSalary[]);
 
       const projMap: Record<string, string> = {};
