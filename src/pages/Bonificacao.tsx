@@ -177,13 +177,15 @@ export default function Bonificacao() {
         });
         const mapped = (profilesRes.data as Array<{
           id: string; name: string; discipline: string | null; status: string;
-        }>).map((p) => ({
-          id: p.id,
-          name: p.name,
-          discipline: p.discipline,
-          status: p.status,
-          role: rolesMap[p.id] ?? "projetista",
-        }));
+        }>)
+          .map((p) => ({
+            id: p.id,
+            name: p.name,
+            discipline: p.discipline,
+            status: p.status,
+            role: rolesMap[p.id] ?? "projetista",
+          }))
+          .filter((p) => p.role === "projetista");
         setProfiles(mapped);
       }
       if (salariesRes.data) setSalaries(salariesRes.data as unknown as BonusSalary[]);
