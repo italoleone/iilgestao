@@ -82,6 +82,7 @@ const DISCIPLINE_LABELS: Record<string, string> = {
 };
 
 const STATUS_FINAL = ["concluida", "aprovada", "enviado_cliente"];
+const STATUS_PENDING = ["nao_iniciada", "em_andamento", "pausada", "aguardando_validacao", "reprovada"];
 
 function roundDec(n: number, dec = 2): number {
   return Math.round(n * 10 ** dec) / 10 ** dec;
