@@ -81,8 +81,8 @@ const DISCIPLINE_LABELS: Record<string, string> = {
   eletrica: "Elétrica",
 };
 
-const STATUS_FINAL = ["concluida", "aprovada", "enviado_cliente"];
-const STATUS_PENDING = ["nao_iniciada", "em_andamento", "pausada", "aguardando_validacao", "reprovada"];
+const STATUS_FINAL = ["aguardando_validacao", "aprovada", "concluida", "enviado_cliente"];
+const STATUS_PENDING = ["nao_iniciada", "em_andamento", "pausada", "reprovada"];
 
 function roundDec(n: number, dec = 2): number {
   return Math.round(n * 10 ** dec) / 10 ** dec;
