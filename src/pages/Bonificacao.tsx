@@ -33,6 +33,7 @@ interface Profile {
   name: string;
   role: string;
   discipline: string | null;
+  status: string;
 }
 
 interface TaskRow {
