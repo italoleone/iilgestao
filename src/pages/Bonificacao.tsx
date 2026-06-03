@@ -599,9 +599,7 @@ export default function Bonificacao() {
             <div className="space-y-3">
               {([
                 { key: "year", label: "Ano", type: "number" },
-                { key: "working_days_total", label: "Dias úteis do ano", type: "number" },
-                { key: "working_days_after_discounts", label: "Dias úteis (após férias + recesso + jan/fev)", type: "number" },
-                { key: "target_days", label: "Dias disponíveis no período (para referência)", type: "number" },
+                { key: "working_days_after_discounts", label: "Dias úteis (após férias + recesso)", type: "number" },
                 { key: "start_date", label: "Início da vigência", type: "date" },
                 { key: "end_date", label: "Fim da vigência", type: "date" },
               ] as const).map(({ key, label, type }) => (
