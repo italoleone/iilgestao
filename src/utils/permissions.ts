@@ -58,3 +58,7 @@ export function getTaskFilter(role: AppRole, userId: string): TaskFilter {
       return { byTaskResponsible: userId };
   }
 }
+
+export function canAccessBonificacao(role: AppRole): boolean {
+  return role === "admin_geral" || role === "admin" || role === "planejamento";
+}
