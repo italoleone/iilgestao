@@ -108,6 +108,27 @@ function taskSaldoBadge(estimated: number, worked: number) {
   return { label: "no prazo", style: "bg-slate-100 text-slate-600 border-slate-200", icon: "no prazo" as const };
 }
 
+function feasibilityConfig(f: "ok" | "warning" | "impossible") {
+  if (f === "ok") return {
+    label: "Bônus viável",
+    sublabel: "Ainda há dias disponíveis",
+    badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    dotClass: "bg-emerald-500",
+  };
+  if (f === "warning") return {
+    label: "No limite",
+    sublabel: "Sem folga, qualquer atraso perde o bônus",
+    badgeClass: "bg-amber-100 text-amber-700 border-amber-200",
+    dotClass: "bg-amber-500",
+  };
+  return {
+    label: "Bônus inviável",
+    sublabel: "Dias insuficientes para concluir as tarefas",
+    badgeClass: "bg-red-100 text-red-700 border-red-200",
+    dotClass: "bg-red-500",
+  };
+}
+
 export default function Bonificacao() {
   const { profile: authProfile } = useAuth();
 
