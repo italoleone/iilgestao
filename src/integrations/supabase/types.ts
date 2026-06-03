@@ -56,6 +56,69 @@ export type Database = {
           },
         ]
       }
+      bonus_config: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          start_date: string
+          target_days: number
+          updated_at: string
+          working_days_after_discounts: number
+          working_days_total: number
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          start_date: string
+          target_days: number
+          updated_at?: string
+          working_days_after_discounts: number
+          working_days_total: number
+          year: number
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          start_date?: string
+          target_days?: number
+          updated_at?: string
+          working_days_after_discounts?: number
+          working_days_total?: number
+          year?: number
+        }
+        Relationships: []
+      }
+      bonus_salary: {
+        Row: {
+          created_at: string
+          gross_salary: number
+          id: string
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          gross_salary?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          gross_salary?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           created_at: string

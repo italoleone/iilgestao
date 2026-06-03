@@ -28,6 +28,7 @@ import ComercialPropostas from "./pages/comercial/ComercialPropostas";
 import ComercialPipeline from "./pages/comercial/ComercialPipeline";
 import ComercialRelatorios from "./pages/comercial/ComercialRelatorios";
 import NotFound from "./pages/NotFound";
+import Bonificacao from "./pages/Bonificacao";
 
 const queryClient = new QueryClient();
 
@@ -79,6 +80,7 @@ function AppRoutes() {
       <Route path="/tarefas/:id" element={<ProtectedRoute><TarefaDetalhe /></ProtectedRoute>} />
       <Route path="/horas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><Horas /></ProtectedRoute>} />
       <Route path="/cronograma" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Cronograma /></ProtectedRoute>} />
+      <Route path="/bonificacao" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Bonificacao /></ProtectedRoute>} />
       <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroDashboard /></ProtectedRoute>} />
       <Route path="/financeiro/receber" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroReceber /></ProtectedRoute>} />
       <Route path="/financeiro/pagar" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><FinanceiroPagar /></ProtectedRoute>} />

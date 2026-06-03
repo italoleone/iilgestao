@@ -17,6 +17,7 @@ import {
   TrendingDown,
   Wallet,
   CalendarRange,
+  Award,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -28,6 +29,7 @@ import {
   canAccessPlanejamento,
   canAccessFinanceiro,
   canAccessComercial,
+  canAccessBonificacao,
 } from "@/utils/permissions";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -63,6 +65,12 @@ const modules: NavModule[] = [
     icon: CalendarRange,
     url: "/cronograma",
     visible: (role) => role === "admin_geral" || role === "admin" || role === "planejamento",
+  },
+  {
+    title: "Bonificação",
+    icon: Award,
+    url: "/bonificacao",
+    visible: canAccessBonificacao,
   },
   {
     title: "Financeiro",
