@@ -146,7 +146,7 @@ export default function Bonificacao() {
 
       if (configRes.data) setConfig(configRes.data as unknown as BonusConfig);
       if (profilesRes.data) {
-        const mapped = (profilesRes.data as Array<{
+        const mapped = (profilesRes.data as unknown as Array<{
           id: string;
           name: string;
           discipline: string | null;
