@@ -165,7 +165,7 @@ export default function Bonificacao() {
         supabase.from("profiles").select("id, name, discipline, status").eq("status", "active"),
         supabase.from("user_roles").select("user_id, role"),
         supabase.from("bonus_salary").select("*").eq("year", currentYear),
-        supabase.from("tasks").select("id, name, project_id, estimated_hours, hours_worked, status, stage_name, responsible").in("status", STATUS_FINAL),
+        supabase.from("tasks").select("id, name, project_id, estimated_hours, hours_worked, status, stage_name, responsible").in("status", [...STATUS_FINAL, ...STATUS_PENDING]),
         supabase.from("projects").select("id, name"),
       ]);
 
@@ -201,6 +201,7 @@ export default function Bonificacao() {
         status: t.status,
         stage_name: t.stage_name,
         responsible: t.responsible || "",
+        isPending: STATUS_PENDING.includes(t.status),
       }));
       setAllTasks(tasks);
     } catch {
@@ -212,26 +213,38 @@ export default function Bonificacao() {
 
   const results: CollaboratorResult[] = useMemo(() => {
     if (!config) return [];
-    const potentialExtra = config.working_days_after_discounts - config.target_days;
+    const availableTotal = config.working_days_after_discounts;
 
     return profiles.map((p) => {
       const sal = salaries.find((s) => s.user_id === p.id);
       const salary = sal?.gross_salary || 0;
       const myTasks = allTasks.filter((t) => t.responsible === p.id);
 
-      const totalHoursWorked = myTasks.reduce((acc, t) => acc + (t.hours_worked || 0), 0);
-      const realDays = roundDec(totalHoursWorked / HOURS_PER_DAY);
-      const extraDays = roundDec(realDays - config.target_days);
-      const bonusDays = Math.max(0, Math.min(extraDays, potentialExtra));
+      const doneTasks = myTasks.filter((t) => STATUS_FINAL.includes(t.status));
+      const pendingTasks = myTasks.filter((t) => t.isPending);
 
-      const dayBonusValue = potentialExtra > 0 ? roundDec(salary / potentialExtra) : 0;
+      const realDays = roundDec(
+        doneTasks.reduce((acc, t) => acc + (t.hours_worked || 0), 0) / HOURS_PER_DAY
+      );
 
-      const criterion60 = realDays >= config.target_days
-        ? roundDec(bonusDays * dayBonusValue * 0.6)
+      const pendingDays = roundDec(
+        pendingTasks.reduce((acc, t) => acc + (t.estimated_hours || 0), 0) / HOURS_PER_DAY
+      );
+
+      const projectedDays = roundDec(realDays + pendingDays);
+      const availableDays = roundDec(availableTotal - projectedDays);
+
+      const feasible: "ok" | "warning" | "impossible" =
+        availableDays > 0 ? "ok" :
+        availableDays === 0 ? "warning" : "impossible";
+
+      const daysUsedByDone = realDays;
+      const criterion60 = salary > 0 && daysUsedByDone < availableTotal
+        ? roundDec(salary * 0.6)
         : 0;
 
-      const totalTasks = myTasks.length;
-      const lateTasks = myTasks.filter((t) => t.hours_worked > t.estimated_hours).length;
+      const totalTasks = doneTasks.length;
+      const lateTasks = doneTasks.filter((t) => t.hours_worked > t.estimated_hours).length;
       const onTimePct = totalTasks > 0 ? (totalTasks - lateTasks) / totalTasks : 1;
       const criterion40 = roundDec(salary * onTimePct * 0.4);
 
@@ -246,15 +259,17 @@ export default function Bonificacao() {
         hours_worked: t.hours_worked,
         status: t.status,
         stage_name: t.stage_name,
+        isPending: t.isPending,
       }));
 
       return {
         profile: p,
         salary,
         realDays,
-        extraDays,
-        dayBonusValue,
-        bonusDays,
+        pendingDays,
+        projectedDays,
+        availableDays,
+        feasible,
         totalTasks,
         lateTasks,
         onTimePct: roundDec(onTimePct * 100),
