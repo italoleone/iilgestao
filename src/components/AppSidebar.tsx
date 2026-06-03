@@ -29,6 +29,7 @@ import {
   canAccessPlanejamento,
   canAccessFinanceiro,
   canAccessComercial,
+  canAccessBonificacao,
 } from "@/utils/permissions";
 
 const ROLE_LABELS: Record<string, string> = {
