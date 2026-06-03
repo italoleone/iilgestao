@@ -353,7 +353,7 @@ export default function Bonificacao() {
             </h1>
             {config && (
               <p className="text-sm text-muted-foreground mt-1">
-                Meta: {config.target_days} dias · Período: {config.working_days_after_discounts} dias úteis disponíveis
+                {config.working_days_after_discounts} dias úteis disponíveis no período
               </p>
             )}
           </div>
@@ -410,8 +410,10 @@ export default function Bonificacao() {
 
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div>
-                    <p className="text-xs text-muted-foreground">Dias reais</p>
-                    <p className="text-sm font-semibold">{fmtDays(r.realDays)}</p>
+                    <p className="text-xs text-muted-foreground">Dias livres</p>
+                    <p className={`text-sm font-semibold ${r.availableDays > 0 ? "text-emerald-600" : r.availableDays === 0 ? "text-amber-600" : "text-red-600"}`}>
+                      {fmtDays(r.availableDays)}d
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Atrasos</p>
@@ -436,8 +438,14 @@ export default function Bonificacao() {
                   </Button>
                 )}
 
-                <div className="flex items-center justify-end text-xs text-muted-foreground">
-                  Ver detalhes <ChevronRight className="h-3 w-3 ml-1" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`inline-block w-2 h-2 rounded-full ${feasibilityConfig(r.feasible).dotClass}`} />
+                    <span className="text-xs text-muted-foreground">{feasibilityConfig(r.feasible).label}</span>
+                  </div>
+                  <div className="flex items-center text-xs text-muted-foreground">
+                    Ver detalhes <ChevronRight className="h-3 w-3 ml-1" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -458,10 +466,23 @@ export default function Bonificacao() {
                   </DialogTitle>
                 </DialogHeader>
 
+                {(() => {
+                  const fc = feasibilityConfig(detailCollab.feasible);
+                  return (
+                    <div className={`flex items-start gap-3 rounded-md border px-4 py-3 ${fc.badgeClass}`}>
+                      <span className={`mt-0.5 inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${fc.dotClass}`} />
+                      <div>
+                        <p className="text-sm font-semibold">{fc.label}</p>
+                        <p className="text-xs mt-0.5 opacity-80">{fc.sublabel} · {fmtDays(detailCollab.availableDays)}d livres projetados ({fmtDays(detailCollab.realDays)}d concluídos + {fmtDays(detailCollab.pendingDays)}d pendentes = {fmtDays(detailCollab.projectedDays)}d de {config?.working_days_after_discounts ?? "—"}d disponíveis)</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
-                    { label: "Dias realizados", value: fmtDays(detailCollab.realDays) + "d" },
-                    { label: "Meta mínima", value: (config?.target_days ?? "—") + "d" },
+                    { label: "Dias concluídos", value: fmtDays(detailCollab.realDays) + "d" },
+                    { label: "Dias pendentes", value: fmtDays(detailCollab.pendingDays) + "d" },
                     { label: "Tarefas no prazo", value: `${detailCollab.totalTasks - detailCollab.lateTasks}/${detailCollab.totalTasks}` },
                     { label: "Pontualidade", value: fmt(detailCollab.onTimePct) + "%" },
                   ].map((item) => (
@@ -477,11 +498,9 @@ export default function Bonificacao() {
                     <p className="text-xs text-muted-foreground">Saldo de dias (60%)</p>
                     <p className="text-lg font-semibold mt-1">{detailCollab.salary > 0 ? `R$ ${fmt(detailCollab.criterion60)}` : "—"}</p>
                     <p className="text-xs text-muted-foreground mt-2">
-                      {detailCollab.bonusDays > 0
-                        ? `${fmtDays(detailCollab.bonusDays)} dias além da meta × R$ ${fmt(detailCollab.dayBonusValue)}/dia`
-                        : detailCollab.realDays < (config?.target_days ?? 0)
-                          ? "Abaixo da meta mínima — critério zerado"
-                          : "Nenhum dia excedente ainda"}
+                      {detailCollab.criterion60 > 0
+                        ? `Tarefas concluídas usaram ${fmtDays(detailCollab.realDays)}d de ${config?.working_days_after_discounts ?? "—"}d disponíveis — sobrou dias`
+                        : `Tarefas concluídas já consumiram ${fmtDays(detailCollab.realDays)}d dos ${config?.working_days_after_discounts ?? "—"}d disponíveis — critério zerado`}
                     </p>
                   </div>
                   <div className="border rounded-md p-4">
@@ -547,8 +566,8 @@ export default function Bonificacao() {
                             </td>
                             <td className="p-2 text-right">{fmtDays(detailCollab.realDays)}d</td>
                             <td className="p-2 text-center">
-                              <span className={detailCollab.extraDays >= 0 ? "text-emerald-600" : "text-red-600"}>
-                                {detailCollab.extraDays >= 0 ? "+" : ""}{fmtDays(detailCollab.extraDays)}d
+                              <span className={detailCollab.availableDays >= 0 ? "text-emerald-600" : "text-red-600"}>
+                                {detailCollab.availableDays >= 0 ? "+" : ""}{fmtDays(detailCollab.availableDays)}d
                               </span>
                             </td>
                             <td className="p-2" />
@@ -582,7 +601,7 @@ export default function Bonificacao() {
                 { key: "year", label: "Ano", type: "number" },
                 { key: "working_days_total", label: "Dias úteis do ano", type: "number" },
                 { key: "working_days_after_discounts", label: "Dias úteis (após férias + recesso + jan/fev)", type: "number" },
-                { key: "target_days", label: "Meta mínima de dias", type: "number" },
+                { key: "target_days", label: "Dias disponíveis no período (para referência)", type: "number" },
                 { key: "start_date", label: "Início da vigência", type: "date" },
                 { key: "end_date", label: "Fim da vigência", type: "date" },
               ] as const).map(({ key, label, type }) => (
