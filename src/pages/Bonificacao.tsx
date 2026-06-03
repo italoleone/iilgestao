@@ -33,6 +33,7 @@ interface Profile {
   name: string;
   role: string;
   discipline: string | null;
+  status: string;
 }
 
 interface TaskRow {
@@ -137,14 +138,29 @@ export default function Bonificacao() {
     try {
       const [configRes, profilesRes, salariesRes, tasksRes, projectsRes] = await Promise.all([
         supabase.from("bonus_config").select("*").eq("year", currentYear).maybeSingle(),
-        supabase.from("profiles").select("id, name, role, discipline").eq("status", "active"),
+        supabase.from("profiles").select("id, name, discipline, status, user_roles(role)").eq("status", "active"),
         supabase.from("bonus_salary").select("*").eq("year", currentYear),
         supabase.from("tasks").select("id, name, project_id, estimated_hours, hours_worked, status, stage_name, responsible").in("status", STATUS_FINAL),
         supabase.from("projects").select("id, name"),
       ]);
 
       if (configRes.data) setConfig(configRes.data as unknown as BonusConfig);
-      if (profilesRes.data) setProfiles(profilesRes.data as unknown as Profile[]);
+      if (profilesRes.data) {
+        const mapped = (profilesRes.data as unknown as Array<{
+          id: string;
+          name: string;
+          discipline: string | null;
+          status: string;
+          user_roles: Array<{ role: string }> | null;
+        }>).map((p) => ({
+          id: p.id,
+          name: p.name,
+          discipline: p.discipline,
+          status: p.status,
+          role: p.user_roles?.[0]?.role ?? "projetista",
+        }));
+        setProfiles(mapped);
+      }
       if (salariesRes.data) setSalaries(salariesRes.data as unknown as BonusSalary[]);
 
       const projMap: Record<string, string> = {};
