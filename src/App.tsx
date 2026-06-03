@@ -28,6 +28,7 @@ import ComercialPropostas from "./pages/comercial/ComercialPropostas";
 import ComercialPipeline from "./pages/comercial/ComercialPipeline";
 import ComercialRelatorios from "./pages/comercial/ComercialRelatorios";
 import NotFound from "./pages/NotFound";
+import Bonificacao from "./pages/Bonificacao";
 
 const queryClient = new QueryClient();
 
