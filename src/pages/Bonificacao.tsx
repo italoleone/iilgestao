@@ -44,15 +44,17 @@ interface TaskRow {
   hours_worked: number;
   status: string;
   stage_name: string;
+  isPending: boolean;
 }
 
 interface CollaboratorResult {
   profile: Profile;
   salary: number;
   realDays: number;
-  extraDays: number;
-  dayBonusValue: number;
-  bonusDays: number;
+  pendingDays: number;
+  projectedDays: number;
+  availableDays: number;
+  feasible: "ok" | "warning" | "impossible";
   totalTasks: number;
   lateTasks: number;
   onTimePct: number;
