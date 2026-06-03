@@ -136,9 +136,10 @@ export default function Bonificacao() {
   async function loadAll() {
     setLoading(true);
     try {
-      const [configRes, profilesRes, salariesRes, tasksRes, projectsRes] = await Promise.all([
+      const [configRes, profilesRes, rolesRes, salariesRes, tasksRes, projectsRes] = await Promise.all([
         supabase.from("bonus_config").select("*").eq("year", currentYear).maybeSingle(),
-        supabase.from("profiles").select("id, name, discipline, status, user_roles(role)").eq("status", "active"),
+        supabase.from("profiles").select("id, name, discipline, status").eq("status", "active"),
+        supabase.from("user_roles").select("user_id, role"),
         supabase.from("bonus_salary").select("*").eq("year", currentYear),
         supabase.from("tasks").select("id, name, project_id, estimated_hours, hours_worked, status, stage_name, responsible").in("status", STATUS_FINAL),
         supabase.from("projects").select("id, name"),
@@ -146,18 +147,18 @@ export default function Bonificacao() {
 
       if (configRes.data) setConfig(configRes.data as unknown as BonusConfig);
       if (profilesRes.data) {
-        const mapped = (profilesRes.data as unknown as Array<{
-          id: string;
-          name: string;
-          discipline: string | null;
-          status: string;
-          user_roles: Array<{ role: string }> | null;
+        const rolesMap: Record<string, string> = {};
+        (rolesRes.data || []).forEach((r: { user_id: string; role: string }) => {
+          rolesMap[r.user_id] = r.role;
+        });
+        const mapped = (profilesRes.data as Array<{
+          id: string; name: string; discipline: string | null; status: string;
         }>).map((p) => ({
           id: p.id,
           name: p.name,
           discipline: p.discipline,
           status: p.status,
-          role: p.user_roles?.[0]?.role ?? "projetista",
+          role: rolesMap[p.id] ?? "projetista",
         }));
         setProfiles(mapped);
       }
