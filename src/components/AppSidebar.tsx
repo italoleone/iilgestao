@@ -67,6 +67,12 @@ const modules: NavModule[] = [
     visible: (role) => role === "admin_geral" || role === "admin" || role === "planejamento",
   },
   {
+    title: "Bonificação",
+    icon: Award,
+    url: "/bonificacao",
+    visible: canAccessBonificacao,
+  },
+  {
     title: "Financeiro",
     icon: BarChart3,
     visible: canAccessFinanceiro,
