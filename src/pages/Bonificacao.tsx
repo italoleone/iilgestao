@@ -138,7 +138,7 @@ export default function Bonificacao() {
     try {
       const [configRes, profilesRes, salariesRes, tasksRes, projectsRes] = await Promise.all([
         supabase.from("bonus_config").select("*").eq("year", currentYear).maybeSingle(),
-        supabase.from("profiles").select("id, name, role, discipline").eq("status", "active"),
+        supabase.from("profiles").select("id, name, discipline, status, user_roles(role)").eq("status", "active"),
         supabase.from("bonus_salary").select("*").eq("year", currentYear),
         supabase.from("tasks").select("id, name, project_id, estimated_hours, hours_worked, status, stage_name, responsible").in("status", STATUS_FINAL),
         supabase.from("projects").select("id, name"),
