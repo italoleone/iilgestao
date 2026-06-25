@@ -19,6 +19,7 @@ import Alertas from "./pages/Alertas";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
 import Perfil from "./pages/Perfil";
+import ResetPassword from "./pages/ResetPassword";
 import Usuarios from "./pages/Usuarios";
 import DashboardPlanejamento from "./pages/DashboardPlanejamento";
 import Cronograma from "./pages/Cronograma";
@@ -72,6 +73,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={user && !pendingApproval ? <Navigate to={defaultRoute} replace /> : <Login />} />
       <Route path="/cadastro" element={user && !pendingApproval ? <Navigate to={defaultRoute} replace /> : <Cadastro />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/" element={<Navigate to="/planejamento" replace />} />
       <Route path="/planejamento" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><DashboardPlanejamento /></ProtectedRoute>} />
       <Route path="/projetos" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><Projetos /></ProtectedRoute>} />
