@@ -19,6 +19,7 @@ import Alertas from "./pages/Alertas";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
 import Perfil from "./pages/Perfil";
+import ResetPassword from "./pages/ResetPassword";
 import Usuarios from "./pages/Usuarios";
 import DashboardPlanejamento from "./pages/DashboardPlanejamento";
 import Cronograma from "./pages/Cronograma";
