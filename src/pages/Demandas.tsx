@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,13 +11,26 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck } from "lucide-react";
+import { Plus, ClipboardCheck, Pencil } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  DEMAND_TYPES,
+  DEMAND_TYPE_LABELS,
+  DEMAND_TYPE_COLORS,
+  type DemandType,
+} from "@/types/demands";
 
 interface ProjectOption {
   id: string;
@@ -29,6 +41,7 @@ interface ProjectOption {
 interface Demand {
   id: string;
   project_id: string;
+  demand_type: DemandType;
   description: string;
   created_by: string;
   is_done: boolean;
@@ -37,8 +50,125 @@ interface Demand {
 }
 
 function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("pt-BR");
+  return new Date(iso).toLocaleDateString("pt-BR");
+}
+
+interface DemandFormDialogProps {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  projects: ProjectOption[];
+  demand?: Demand | null;
+  onSaved: () => void;
+}
+
+function DemandFormDialog({ open, onOpenChange, projects, demand, onSaved }: DemandFormDialogProps) {
+  const { profile } = useAuth();
+  const { toast } = useToast();
+  const isEdit = !!demand;
+
+  const [demandType, setDemandType] = useState<DemandType | "">("");
+  const [projectId, setProjectId] = useState("");
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setDemandType(demand?.demand_type ?? "");
+      setProjectId(demand?.project_id ?? "");
+      setDescription(demand?.description ?? "");
+    }
+  }, [open, demand]);
+
+  const handleSubmit = async () => {
+    if (!profile || !demandType || !projectId || !description.trim()) return;
+    setSubmitting(true);
+    let error;
+    if (isEdit && demand) {
+      ({ error } = await supabase
+        .from("demands")
+        .update({
+          demand_type: demandType,
+          project_id: projectId,
+          description: description.trim(),
+        })
+        .eq("id", demand.id));
+    } else {
+      ({ error } = await supabase.from("demands").insert({
+        demand_type: demandType,
+        project_id: projectId,
+        description: description.trim(),
+        created_by: profile.id,
+      }));
+    }
+    setSubmitting(false);
+    if (error) {
+      toast({
+        title: isEdit ? "Erro ao salvar demanda" : "Erro ao criar demanda",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({ title: isEdit ? "Demanda atualizada" : "Demanda criada com sucesso" });
+    onOpenChange(false);
+    onSaved();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Editar Demanda" : "Nova Demanda"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label>Tipo de Demanda</Label>
+            <Select value={demandType} onValueChange={(v) => setDemandType(v as DemandType)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar tipo..." />
+              </SelectTrigger>
+              <SelectContent>
+                {DEMAND_TYPES.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("h-2 w-2 rounded-full", DEMAND_TYPE_COLORS[t].dot)} />
+                      {DEMAND_TYPE_LABELS[t]}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Projeto</Label>
+            <ProjectCombobox
+              projects={projects.filter((p) => p.status !== "concluido")}
+              value={projectId}
+              onValueChange={setProjectId}
+              placeholder="Selecionar projeto..."
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Descrição</Label>
+            <Textarea
+              placeholder="Ex: Fazer furação do tipo X"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            onClick={handleSubmit}
+            disabled={!demandType || !projectId || !description.trim() || submitting}
+          >
+            {submitting ? "Salvando..." : isEdit ? "Salvar Alterações" : "Criar Demanda"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default function Demandas() {
@@ -48,11 +178,9 @@ export default function Demandas() {
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [demands, setDemands] = useState<Demand[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [formProject, setFormProject] = useState("");
-  const [formDescription, setFormDescription] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editDemand, setEditDemand] = useState<Demand | null>(null);
+  const [filter, setFilter] = useState<"all" | DemandType>("all");
 
   const seesAll = isDiretorOrGerente || isPlanejamento;
 
@@ -80,47 +208,25 @@ export default function Demandas() {
 
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name || "Projeto";
 
-  const sortedDemands = useMemo(() => {
-    const pending = demands.filter((d) => !d.is_done);
-    const done = demands.filter((d) => d.is_done);
+  const filteredDemands = useMemo(() => {
+    const base = filter === "all" ? demands : demands.filter((d) => d.demand_type === filter);
+    const pending = base.filter((d) => !d.is_done);
+    const done = base.filter((d) => d.is_done);
     return [...pending, ...done];
-  }, [demands]);
+  }, [demands, filter]);
 
   const pendingCount = useMemo(() => demands.filter((d) => !d.is_done).length, [demands]);
-
-  const resetForm = () => {
-    setFormProject("");
-    setFormDescription("");
-  };
-
-  const handleCreate = async () => {
-    if (!profile || !formProject || !formDescription.trim()) return;
-    setSubmitting(true);
-    const { error } = await supabase.from("demands").insert({
-      project_id: formProject,
-      description: formDescription.trim(),
-      created_by: profile.id,
-    });
-    setSubmitting(false);
-    if (error) {
-      toast({ title: "Erro ao criar demanda", description: error.message, variant: "destructive" });
-      return;
-    }
-    toast({ title: "Demanda criada com sucesso" });
-    setDialogOpen(false);
-    resetForm();
-    fetchAll();
-  };
 
   const handleToggle = async (demand: Demand, checked: boolean) => {
     if (!profile || demand.created_by !== profile.id) return;
     const previous = demands;
-    const optimistic = demands.map((d) =>
-      d.id === demand.id
-        ? { ...d, is_done: checked, done_at: checked ? new Date().toISOString() : null }
-        : d
+    setDemands(
+      demands.map((d) =>
+        d.id === demand.id
+          ? { ...d, is_done: checked, done_at: checked ? new Date().toISOString() : null }
+          : d,
+      ),
     );
-    setDemands(optimistic);
     const { error } = await supabase
       .from("demands")
       .update({ is_done: checked, done_at: checked ? new Date().toISOString() : null })
@@ -149,59 +255,47 @@ export default function Demandas() {
             </p>
           </div>
 
-          <Dialog
-            open={dialogOpen}
-            onOpenChange={(o) => {
-              setDialogOpen(o);
-              if (!o) resetForm();
-            }}
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova Demanda
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setFilter("all")}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium border transition-colors",
+              filter === "all"
+                ? "bg-foreground text-background border-foreground"
+                : "bg-muted text-muted-foreground border-transparent hover:bg-muted/70",
+            )}
           >
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Demanda
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Nova Demanda</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-2">
-                <div className="space-y-2">
-                  <Label>Projeto</Label>
-                  <ProjectCombobox
-                    projects={projects.filter((p) => p.status !== "concluido")}
-                    value={formProject}
-                    onValueChange={setFormProject}
-                    placeholder="Selecionar projeto..."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Descrição</Label>
-                  <Textarea
-                    placeholder="Ex: Fazer furação do TIPO X"
-                    value={formDescription}
-                    onChange={(e) => setFormDescription(e.target.value)}
-                    rows={4}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={handleCreate}
-                  disabled={!formProject || !formDescription.trim() || submitting}
-                >
-                  {submitting ? "Criando..." : "Criar Demanda"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            Todos
+          </button>
+          {DEMAND_TYPES.map((t) => {
+            const c = DEMAND_TYPE_COLORS[t];
+            const active = filter === t;
+            return (
+              <button
+                key={t}
+                onClick={() => setFilter(t)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium border transition-colors flex items-center gap-1.5",
+                  active ? c.badge : "bg-muted text-muted-foreground border-transparent hover:bg-muted/70",
+                )}
+              >
+                <span className={cn("h-1.5 w-1.5 rounded-full", c.dot)} />
+                {DEMAND_TYPE_LABELS[t]}
+              </button>
+            );
+          })}
         </div>
 
         <div className="space-y-3">
           {loading ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
-          ) : sortedDemands.length === 0 ? (
+          ) : filteredDemands.length === 0 ? (
             <Card className="shadow-sm">
               <CardContent className="py-10 flex flex-col items-center text-center gap-2">
                 <ClipboardCheck className="h-8 w-8 text-muted-foreground" />
@@ -209,43 +303,59 @@ export default function Demandas() {
               </CardContent>
             </Card>
           ) : (
-            sortedDemands.map((demand, i) => {
-              const canToggle = profile?.id === demand.created_by;
+            filteredDemands.map((demand, i) => {
+              const canEdit = profile?.id === demand.created_by;
+              const c = DEMAND_TYPE_COLORS[demand.demand_type];
               return (
                 <Card
                   key={demand.id}
                   className="shadow-sm animate-reveal-up"
-                  style={{
-                    animationDelay: `${(i + 1) * 40}ms`,
-                    animationFillMode: "backwards",
-                  }}
+                  style={{ animationDelay: `${(i + 1) * 40}ms`, animationFillMode: "backwards" }}
                 >
                   <CardContent className="flex items-start gap-3 py-4">
-                    <div className="pt-0.5">
+                    <div className="pt-1">
                       <Checkbox
                         checked={demand.is_done}
-                        disabled={!canToggle}
-                        onCheckedChange={(c) => handleToggle(demand, Boolean(c))}
+                        disabled={!canEdit}
+                        onCheckedChange={(v) => handleToggle(demand, Boolean(v))}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border",
+                          c.badge,
+                        )}
+                      >
+                        {DEMAND_TYPE_LABELS[demand.demand_type]}
+                      </span>
                       <p
-                        className={
+                        className={cn(
+                          "mt-1.5 text-sm",
                           demand.is_done
-                            ? "text-sm line-through text-muted-foreground/60"
-                            : "text-sm font-medium"
-                        }
+                            ? "line-through text-muted-foreground/60"
+                            : "font-medium",
+                        )}
                       >
                         {demand.description}
                       </p>
-                      <div className="mt-1.5">
-                        <Badge variant="secondary" className="text-xs font-normal">
-                          {projectName(demand.project_id)}
-                        </Badge>
-                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {projectName(demand.project_id)}
+                      </p>
                     </div>
-                    <div className="text-xs text-muted-foreground shrink-0">
-                      {formatDate(demand.created_at)}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-muted-foreground">
+                        {formatDate(demand.created_at)}
+                      </span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        disabled={!canEdit}
+                        onClick={() => setEditDemand(demand)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -253,6 +363,20 @@ export default function Demandas() {
             })
           )}
         </div>
+
+        <DemandFormDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          projects={projects}
+          onSaved={fetchAll}
+        />
+        <DemandFormDialog
+          open={!!editDemand}
+          onOpenChange={(o) => !o && setEditDemand(null)}
+          projects={projects}
+          demand={editDemand}
+          onSaved={fetchAll}
+        />
       </div>
     </AppLayout>
   );
