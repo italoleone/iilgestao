@@ -59,6 +59,7 @@ const modules: NavModule[] = [
       { title: "Dashboard", url: "/planejamento", icon: LayoutDashboard },
       { title: "Projetos", url: "/projetos", icon: FolderKanban },
       { title: "Tarefas", url: "/tarefas", icon: ListChecks },
+      { title: "Demandas", url: "/demandas", icon: ClipboardCheck },
     ],
   },
   {
