@@ -81,6 +81,7 @@ function AppRoutes() {
       <Route path="/projetos/:id" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><ProjetoDetalhe /></ProtectedRoute>} />
       <Route path="/tarefas" element={<ProtectedRoute><Tarefas /></ProtectedRoute>} />
       <Route path="/tarefas/:id" element={<ProtectedRoute><TarefaDetalhe /></ProtectedRoute>} />
+      <Route path="/demandas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><Demandas /></ProtectedRoute>} />
       <Route path="/horas" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento", "coordenador"]}><Horas /></ProtectedRoute>} />
       <Route path="/cronograma" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Cronograma /></ProtectedRoute>} />
       <Route path="/bonificacao" element={<ProtectedRoute allowedRoles={["admin_geral", "admin", "planejamento"]}><Bonificacao /></ProtectedRoute>} />
