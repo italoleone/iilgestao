@@ -30,6 +30,7 @@ import ComercialPipeline from "./pages/comercial/ComercialPipeline";
 import ComercialRelatorios from "./pages/comercial/ComercialRelatorios";
 import NotFound from "./pages/NotFound";
 import Bonificacao from "./pages/Bonificacao";
+import Demandas from "./pages/Demandas";
 
 const queryClient = new QueryClient();
 
