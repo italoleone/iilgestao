@@ -276,29 +276,35 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          demand_type: Database["public"]["Enums"]["demand_type"]
           description: string
           done_at: string | null
           id: string
           is_done: boolean
           project_id: string
+          updated_at: string
         }
         Insert: {
           created_at?: string
           created_by: string
+          demand_type: Database["public"]["Enums"]["demand_type"]
           description: string
           done_at?: string | null
           id?: string
           is_done?: boolean
           project_id: string
+          updated_at?: string
         }
         Update: {
           created_at?: string
           created_by?: string
+          demand_type?: Database["public"]["Enums"]["demand_type"]
           description?: string
           done_at?: string | null
           id?: string
           is_done?: boolean
           project_id?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -1071,6 +1077,11 @@ export type Database = {
         | "planejamento"
         | "coordenador"
         | "projetista"
+      demand_type:
+        | "estrutura"
+        | "alvenaria_estrutural"
+        | "hidraulica"
+        | "eletrica"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1204,6 +1215,12 @@ export const Constants = {
         "planejamento",
         "coordenador",
         "projetista",
+      ],
+      demand_type: [
+        "estrutura",
+        "alvenaria_estrutural",
+        "hidraulica",
+        "eletrica",
       ],
     },
   },
