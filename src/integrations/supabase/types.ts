@@ -272,6 +272,51 @@ export type Database = {
           },
         ]
       }
+      demands: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string
+          done_at: string | null
+          id: string
+          is_done: boolean
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description: string
+          done_at?: string | null
+          id?: string
+          is_done?: boolean
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string
+          done_at?: string | null
+          id?: string
+          is_done?: boolean
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demands_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demands_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meetings: {
         Row: {
           audio_path: string | null
