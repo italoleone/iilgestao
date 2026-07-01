@@ -337,7 +337,10 @@ export default function Demandas() {
   const pendingCount = useMemo(() => demands.filter((d) => !d.is_done).length, [demands]);
 
   const handleToggle = async (demand: Demand, checked: boolean) => {
-    if (!profile || demand.created_by !== profile.id) return;
+    if (!profile) return;
+    const allowed =
+      demand.created_by === profile.id || isDiretorOrGerente || isPlanejamento;
+    if (!allowed) return;
     const previous = demands;
     setDemands(
       demands.map((d) =>
