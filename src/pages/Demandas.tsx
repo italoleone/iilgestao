@@ -437,7 +437,8 @@ export default function Demandas() {
             </Card>
           ) : (
             filteredDemands.map((demand, i) => {
-              const canEdit = profile?.id === demand.created_by;
+              const canEdit =
+                profile?.id === demand.created_by || isDiretorOrGerente || isPlanejamento;
               const c = DEMAND_TYPE_COLORS[demand.demand_type];
               const assignedName = demand.assigned_profile?.name;
               return (
