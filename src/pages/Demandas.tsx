@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +24,7 @@ import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, Pencil } from "lucide-react";
+import { Plus, ClipboardCheck, Pencil, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DEMAND_TYPES,
@@ -38,6 +39,11 @@ interface ProjectOption {
   status?: string;
 }
 
+interface UserOption {
+  id: string;
+  name: string;
+}
+
 interface Demand {
   id: string;
   project_id: string;
@@ -47,6 +53,9 @@ interface Demand {
   is_done: boolean;
   done_at: string | null;
   created_at: string;
+  priority: number | null;
+  assigned_to: string | null;
+  assigned_profile?: { name: string } | null;
 }
 
 function formatDate(iso: string) {
@@ -57,11 +66,12 @@ interface DemandFormDialogProps {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   projects: ProjectOption[];
+  users: UserOption[];
   demand?: Demand | null;
   onSaved: () => void;
 }
 
-function DemandFormDialog({ open, onOpenChange, projects, demand, onSaved }: DemandFormDialogProps) {
+function DemandFormDialog({ open, onOpenChange, projects, users, demand, onSaved }: DemandFormDialogProps) {
   const { profile } = useAuth();
   const { toast } = useToast();
   const isEdit = !!demand;
@@ -69,6 +79,8 @@ function DemandFormDialog({ open, onOpenChange, projects, demand, onSaved }: Dem
   const [demandType, setDemandType] = useState<DemandType | "">("");
   const [projectId, setProjectId] = useState("");
   const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<string>("");
+  const [assignedTo, setAssignedTo] = useState<string>("none");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -76,12 +88,16 @@ function DemandFormDialog({ open, onOpenChange, projects, demand, onSaved }: Dem
       setDemandType(demand?.demand_type ?? "");
       setProjectId(demand?.project_id ?? "");
       setDescription(demand?.description ?? "");
+      setPriority(demand?.priority != null ? String(demand.priority) : "");
+      setAssignedTo(demand?.assigned_to ?? "none");
     }
   }, [open, demand]);
 
   const handleSubmit = async () => {
     if (!profile || !demandType || !projectId || !description.trim()) return;
     setSubmitting(true);
+    const priorityValue = priority.trim() === "" ? null : Math.max(1, parseInt(priority, 10));
+    const assignedValue = assignedTo === "none" ? null : assignedTo;
     let error;
     if (isEdit && demand) {
       ({ error } = await supabase
@@ -90,6 +106,8 @@ function DemandFormDialog({ open, onOpenChange, projects, demand, onSaved }: Dem
           demand_type: demandType,
           project_id: projectId,
           description: description.trim(),
+          priority: priorityValue,
+          assigned_to: assignedValue,
         })
         .eq("id", demand.id));
     } else {
@@ -98,6 +116,8 @@ function DemandFormDialog({ open, onOpenChange, projects, demand, onSaved }: Dem
         project_id: projectId,
         description: description.trim(),
         created_by: profile.id,
+        priority: priorityValue,
+        assigned_to: assignedValue,
       }));
     }
     setSubmitting(false);
@@ -157,6 +177,32 @@ function DemandFormDialog({ open, onOpenChange, projects, demand, onSaved }: Dem
               rows={4}
             />
           </div>
+          <div className="space-y-2">
+            <Label>Prioridade</Label>
+            <Input
+              type="number"
+              min={1}
+              placeholder="Ex: 1"
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Responsável</Label>
+            <Select value={assignedTo} onValueChange={setAssignedTo}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar responsável..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem responsável</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <DialogFooter>
           <Button
@@ -171,11 +217,85 @@ function DemandFormDialog({ open, onOpenChange, projects, demand, onSaved }: Dem
   );
 }
 
+interface PriorityCellProps {
+  demand: Demand;
+  canEdit: boolean;
+  onUpdate: (id: string, priority: number | null) => Promise<void>;
+}
+
+function PriorityCell({ demand, canEdit, onUpdate }: PriorityCellProps) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState<string>(demand.priority != null ? String(demand.priority) : "");
+
+  useEffect(() => {
+    setValue(demand.priority != null ? String(demand.priority) : "");
+  }, [demand.priority]);
+
+  const commit = async () => {
+    setEditing(false);
+    const trimmed = value.trim();
+    const parsed = trimmed === "" ? null : parseInt(trimmed, 10);
+    if (parsed !== null && (!Number.isFinite(parsed) || parsed < 1)) {
+      setValue(demand.priority != null ? String(demand.priority) : "");
+      return;
+    }
+    if (parsed === demand.priority) return;
+    await onUpdate(demand.id, parsed);
+  };
+
+  if (!canEdit) {
+    return (
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+        <span>Prioridade:</span>
+        <span className={demand.priority == null ? "text-muted-foreground/50" : "text-foreground"}>
+          {demand.priority ?? "—"}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+      <span>Prioridade:</span>
+      {editing ? (
+        <input
+          type="number"
+          min={1}
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            if (e.key === "Escape") {
+              setValue(demand.priority != null ? String(demand.priority) : "");
+              setEditing(false);
+            }
+          }}
+          className="w-16 text-sm border-b border-input bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className={cn(
+            "text-sm hover:text-foreground transition-colors",
+            demand.priority == null ? "text-muted-foreground/50" : "text-foreground",
+          )}
+        >
+          {demand.priority ?? "—"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function Demandas() {
   const { profile, isDiretorOrGerente, isPlanejamento } = useAuth();
   const { toast } = useToast();
 
   const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [demands, setDemands] = useState<Demand[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -186,18 +306,18 @@ export default function Demandas() {
 
   const fetchAll = async () => {
     if (!profile) return;
-    const [projectsRes, demandsRes] = await Promise.all([
+    const demandsQuery = supabase
+      .from("demands")
+      .select("*, assigned_profile:profiles!assigned_to(name)")
+      .order("created_at", { ascending: false });
+    const [projectsRes, usersRes, demandsRes] = await Promise.all([
       supabase.from("projects").select("id, name, status").order("name"),
-      seesAll
-        ? supabase.from("demands").select("*").order("created_at", { ascending: false })
-        : supabase
-            .from("demands")
-            .select("*")
-            .eq("created_by", profile.id)
-            .order("created_at", { ascending: false }),
+      supabase.from("profiles").select("id, name").order("name"),
+      seesAll ? demandsQuery : demandsQuery.eq("created_by", profile.id),
     ]);
     if (projectsRes.data) setProjects(projectsRes.data as ProjectOption[]);
-    if (demandsRes.data) setDemands(demandsRes.data as Demand[]);
+    if (usersRes.data) setUsers(usersRes.data as UserOption[]);
+    if (demandsRes.data) setDemands(demandsRes.data as unknown as Demand[]);
     setLoading(false);
   };
 
@@ -208,11 +328,19 @@ export default function Demandas() {
 
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name || "Projeto";
 
+  const sortDemands = (list: Demand[]) => {
+    return [...list].sort((a, b) => {
+      if (a.is_done !== b.is_done) return a.is_done ? 1 : -1;
+      const ap = a.priority ?? Number.POSITIVE_INFINITY;
+      const bp = b.priority ?? Number.POSITIVE_INFINITY;
+      if (ap !== bp) return ap - bp;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  };
+
   const filteredDemands = useMemo(() => {
     const base = filter === "all" ? demands : demands.filter((d) => d.demand_type === filter);
-    const pending = base.filter((d) => !d.is_done);
-    const done = base.filter((d) => d.is_done);
-    return [...pending, ...done];
+    return sortDemands(base);
   }, [demands, filter]);
 
   const pendingCount = useMemo(() => demands.filter((d) => !d.is_done).length, [demands]);
@@ -235,6 +363,20 @@ export default function Demandas() {
       setDemands(previous);
       toast({
         title: "Não foi possível atualizar",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUpdatePriority = async (id: string, priority: number | null) => {
+    const previous = demands;
+    setDemands(demands.map((d) => (d.id === id ? { ...d, priority } : d)));
+    const { error } = await supabase.from("demands").update({ priority }).eq("id", id);
+    if (error) {
+      setDemands(previous);
+      toast({
+        title: "Não foi possível atualizar a prioridade",
         description: error.message,
         variant: "destructive",
       });
@@ -306,6 +448,7 @@ export default function Demandas() {
             filteredDemands.map((demand, i) => {
               const canEdit = profile?.id === demand.created_by;
               const c = DEMAND_TYPE_COLORS[demand.demand_type];
+              const assignedName = demand.assigned_profile?.name;
               return (
                 <Card
                   key={demand.id}
@@ -342,6 +485,24 @@ export default function Demandas() {
                       <p className="mt-1 text-xs text-muted-foreground">
                         {projectName(demand.project_id)}
                       </p>
+                      <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
+                        <PriorityCell
+                          demand={demand}
+                          canEdit={!!canEdit}
+                          onUpdate={handleUpdatePriority}
+                        />
+                        {assignedName ? (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <UserCircle size={12} />
+                            <span>{assignedName}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-xs italic text-muted-foreground/50">
+                            <UserCircle size={12} />
+                            <span>Sem responsável</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs text-muted-foreground">
@@ -368,12 +529,14 @@ export default function Demandas() {
           open={createOpen}
           onOpenChange={setCreateOpen}
           projects={projects}
+          users={users}
           onSaved={fetchAll}
         />
         <DemandFormDialog
           open={!!editDemand}
           onOpenChange={(o) => !o && setEditDemand(null)}
           projects={projects}
+          users={users}
           demand={editDemand}
           onSaved={fetchAll}
         />

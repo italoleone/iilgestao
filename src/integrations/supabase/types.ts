@@ -274,6 +274,7 @@ export type Database = {
       }
       demands: {
         Row: {
+          assigned_to: string | null
           created_at: string
           created_by: string
           demand_type: Database["public"]["Enums"]["demand_type"]
@@ -281,10 +282,12 @@ export type Database = {
           done_at: string | null
           id: string
           is_done: boolean
+          priority: number | null
           project_id: string
           updated_at: string
         }
         Insert: {
+          assigned_to?: string | null
           created_at?: string
           created_by: string
           demand_type: Database["public"]["Enums"]["demand_type"]
@@ -292,10 +295,12 @@ export type Database = {
           done_at?: string | null
           id?: string
           is_done?: boolean
+          priority?: number | null
           project_id: string
           updated_at?: string
         }
         Update: {
+          assigned_to?: string | null
           created_at?: string
           created_by?: string
           demand_type?: Database["public"]["Enums"]["demand_type"]
@@ -303,10 +308,18 @@ export type Database = {
           done_at?: string | null
           id?: string
           is_done?: boolean
+          priority?: number | null
           project_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "demands_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "demands_created_by_fkey"
             columns: ["created_by"]
