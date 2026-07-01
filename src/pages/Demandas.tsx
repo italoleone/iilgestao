@@ -476,23 +476,17 @@ export default function Demandas() {
                       <p className="mt-1 text-xs text-muted-foreground">
                         {projectName(demand.project_id)}
                       </p>
-                      <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
+                      <div className="mt-2 flex items-center justify-between min-h-[20px]">
                         <PriorityCell
                           demand={demand}
                           canEdit={!!canEdit}
                           onUpdate={handleUpdatePriority}
                         />
                         {assignedName ? (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <UserCircle size={12} />
-                            <span>{assignedName}</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 text-xs italic text-muted-foreground/50">
-                            <UserCircle size={12} />
-                            <span>Sem responsável</span>
-                          </div>
-                        )}
+                          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <User size={12} /> {assignedName}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
