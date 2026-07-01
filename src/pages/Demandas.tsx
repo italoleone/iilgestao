@@ -24,7 +24,7 @@ import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, Pencil, UserCircle } from "lucide-react";
+import { Plus, ClipboardCheck, Pencil, User, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DEMAND_TYPES,
@@ -243,50 +243,41 @@ function PriorityCell({ demand, canEdit, onUpdate }: PriorityCellProps) {
     await onUpdate(demand.id, parsed);
   };
 
-  if (!canEdit) {
+  if (editing && canEdit) {
     return (
-      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-        <span>Prioridade:</span>
-        <span className={demand.priority == null ? "text-muted-foreground/50" : "text-foreground"}>
-          {demand.priority ?? "—"}
-        </span>
-      </div>
+      <input
+        type="number"
+        min={1}
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") {
+            setValue(demand.priority != null ? String(demand.priority) : "");
+            setEditing(false);
+          }
+        }}
+        className="w-16 text-xs border-b border-input bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      />
     );
   }
 
+  if (demand.priority == null) return null;
+
+  const badge = (
+    <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold border bg-primary/10 text-primary border-primary/20">
+      <Hash size={10} /> {demand.priority}
+    </span>
+  );
+
+  if (!canEdit) return badge;
+
   return (
-    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-      <span>Prioridade:</span>
-      {editing ? (
-        <input
-          type="number"
-          min={1}
-          autoFocus
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            if (e.key === "Escape") {
-              setValue(demand.priority != null ? String(demand.priority) : "");
-              setEditing(false);
-            }
-          }}
-          className="w-16 text-sm border-b border-input bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className={cn(
-            "text-sm hover:text-foreground transition-colors",
-            demand.priority == null ? "text-muted-foreground/50" : "text-foreground",
-          )}
-        >
-          {demand.priority ?? "—"}
-        </button>
-      )}
-    </div>
+    <button type="button" onClick={() => setEditing(true)} className="focus:outline-none">
+      {badge}
+    </button>
   );
 }
 
@@ -346,7 +337,10 @@ export default function Demandas() {
   const pendingCount = useMemo(() => demands.filter((d) => !d.is_done).length, [demands]);
 
   const handleToggle = async (demand: Demand, checked: boolean) => {
-    if (!profile || demand.created_by !== profile.id) return;
+    if (!profile) return;
+    const allowed =
+      demand.created_by === profile.id || isDiretorOrGerente || isPlanejamento;
+    if (!allowed) return;
     const previous = demands;
     setDemands(
       demands.map((d) =>
@@ -446,7 +440,8 @@ export default function Demandas() {
             </Card>
           ) : (
             filteredDemands.map((demand, i) => {
-              const canEdit = profile?.id === demand.created_by;
+              const canEdit =
+                profile?.id === demand.created_by || isDiretorOrGerente || isPlanejamento;
               const c = DEMAND_TYPE_COLORS[demand.demand_type];
               const assignedName = demand.assigned_profile?.name;
               return (
@@ -485,23 +480,17 @@ export default function Demandas() {
                       <p className="mt-1 text-xs text-muted-foreground">
                         {projectName(demand.project_id)}
                       </p>
-                      <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
+                      <div className="mt-2 flex items-center justify-between min-h-[20px]">
                         <PriorityCell
                           demand={demand}
                           canEdit={!!canEdit}
                           onUpdate={handleUpdatePriority}
                         />
                         {assignedName ? (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <UserCircle size={12} />
-                            <span>{assignedName}</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 text-xs italic text-muted-foreground/50">
-                            <UserCircle size={12} />
-                            <span>Sem responsável</span>
-                          </div>
-                        )}
+                          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <User size={12} /> {assignedName}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
