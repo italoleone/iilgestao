@@ -24,7 +24,7 @@ import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, Pencil, UserCircle } from "lucide-react";
+import { Plus, ClipboardCheck, Pencil, User, Hash } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DEMAND_TYPES,
