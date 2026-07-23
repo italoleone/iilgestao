@@ -429,6 +429,25 @@ export default function Demandas() {
           })}
         </div>
 
+        <div className="flex items-center gap-2">
+          <div className="flex-1 max-w-sm">
+            <ProjectCombobox
+              projects={[{ id: "all", name: "Todos os projetos" }, ...projects]}
+              value={projectFilter}
+              onValueChange={setProjectFilter}
+              placeholder="Filtrar por projeto..."
+            />
+          </div>
+          {projectFilter !== "all" && (
+            <button
+              onClick={() => setProjectFilter("all")}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Limpar
+            </button>
+          )}
+        </div>
+
         <div className="space-y-3">
           {loading ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
