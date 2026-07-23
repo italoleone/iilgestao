@@ -292,6 +292,7 @@ export default function Demandas() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editDemand, setEditDemand] = useState<Demand | null>(null);
   const [filter, setFilter] = useState<"all" | DemandType>("all");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
 
   const seesAll = isDiretorOrGerente || isPlanejamento || isCoordenador;
 
@@ -330,9 +331,10 @@ export default function Demandas() {
   };
 
   const filteredDemands = useMemo(() => {
-    const base = filter === "all" ? demands : demands.filter((d) => d.demand_type === filter);
+    let base = filter === "all" ? demands : demands.filter((d) => d.demand_type === filter);
+    if (projectFilter !== "all") base = base.filter((d) => d.project_id === projectFilter);
     return sortDemands(base);
-  }, [demands, filter]);
+  }, [demands, filter, projectFilter]);
 
   const pendingCount = useMemo(() => demands.filter((d) => !d.is_done).length, [demands]);
 
