@@ -282,7 +282,7 @@ function PriorityCell({ demand, canEdit, onUpdate }: PriorityCellProps) {
 }
 
 export default function Demandas() {
-  const { profile, isDiretorOrGerente, isPlanejamento } = useAuth();
+  const { profile, isDiretorOrGerente, isPlanejamento, isCoordenador } = useAuth();
   const { toast } = useToast();
 
   const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -293,7 +293,7 @@ export default function Demandas() {
   const [editDemand, setEditDemand] = useState<Demand | null>(null);
   const [filter, setFilter] = useState<"all" | DemandType>("all");
 
-  const seesAll = isDiretorOrGerente || isPlanejamento;
+  const seesAll = isDiretorOrGerente || isPlanejamento || isCoordenador;
 
   const fetchAll = async () => {
     if (!profile) return;
@@ -338,8 +338,7 @@ export default function Demandas() {
 
   const handleToggle = async (demand: Demand, checked: boolean) => {
     if (!profile) return;
-    const allowed =
-      demand.created_by === profile.id || isDiretorOrGerente || isPlanejamento;
+    const allowed = isDiretorOrGerente || isPlanejamento || isCoordenador;
     if (!allowed) return;
     const previous = demands;
     setDemands(
@@ -440,8 +439,7 @@ export default function Demandas() {
             </Card>
           ) : (
             filteredDemands.map((demand, i) => {
-              const canEdit =
-                profile?.id === demand.created_by || isDiretorOrGerente || isPlanejamento;
+              const canEdit = isDiretorOrGerente || isPlanejamento || isCoordenador;
               const c = DEMAND_TYPE_COLORS[demand.demand_type];
               const assignedName = demand.assigned_profile?.name;
               return (
