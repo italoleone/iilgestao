@@ -303,6 +303,8 @@ export default function Demandas() {
   const [editDemand, setEditDemand] = useState<Demand | null>(null);
   const [filter, setFilter] = useState<"all" | DemandType>("all");
   const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState<string>("all");
+  const [deleteTarget, setDeleteTarget] = useState<Demand | null>(null);
 
   const seesAll = isDiretorOrGerente || isPlanejamento || isCoordenador;
 
