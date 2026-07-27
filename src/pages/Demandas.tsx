@@ -353,8 +353,6 @@ export default function Demandas() {
 
   const handleToggle = async (demand: Demand, checked: boolean) => {
     if (!profile) return;
-    const allowed = isDiretorOrGerente || isPlanejamento || isCoordenador;
-    if (!allowed) return;
     const previous = demands;
     setDemands(
       demands.map((d) =>
