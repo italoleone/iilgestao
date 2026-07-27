@@ -389,6 +389,22 @@ export default function Demandas() {
     }
   };
 
+  const handleDelete = async (demand: Demand) => {
+    const previous = demands;
+    setDemands(demands.filter((d) => d.id !== demand.id));
+    const { error } = await supabase.from("demands").delete().eq("id", demand.id);
+    if (error) {
+      setDemands(previous);
+      toast({
+        title: "Não foi possível excluir a demanda",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({ title: "Demanda excluída" });
+  };
+
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto space-y-6">
