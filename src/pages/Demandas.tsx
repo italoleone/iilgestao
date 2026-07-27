@@ -306,7 +306,7 @@ export default function Demandas() {
   const [userFilter, setUserFilter] = useState<string>("all");
   const [deleteTarget, setDeleteTarget] = useState<Demand | null>(null);
 
-  const seesAll = isDiretorOrGerente || isPlanejamento || isCoordenador;
+  const seesAll = true;
 
   const fetchAll = async () => {
     if (!profile) return;
