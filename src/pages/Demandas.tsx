@@ -24,7 +24,17 @@ import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, Pencil, User, Hash } from "lucide-react";
+import { Plus, ClipboardCheck, Pencil, User, Hash, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import {
   DEMAND_TYPES,
@@ -293,6 +303,8 @@ export default function Demandas() {
   const [editDemand, setEditDemand] = useState<Demand | null>(null);
   const [filter, setFilter] = useState<"all" | DemandType>("all");
   const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState<string>("all");
+  const [deleteTarget, setDeleteTarget] = useState<Demand | null>(null);
 
   const seesAll = isDiretorOrGerente || isPlanejamento || isCoordenador;
 
@@ -333,15 +345,14 @@ export default function Demandas() {
   const filteredDemands = useMemo(() => {
     let base = filter === "all" ? demands : demands.filter((d) => d.demand_type === filter);
     if (projectFilter !== "all") base = base.filter((d) => d.project_id === projectFilter);
+    if (userFilter !== "all") base = base.filter((d) => d.assigned_to === userFilter);
     return sortDemands(base);
-  }, [demands, filter, projectFilter]);
+  }, [demands, filter, projectFilter, userFilter]);
 
   const pendingCount = useMemo(() => demands.filter((d) => !d.is_done).length, [demands]);
 
   const handleToggle = async (demand: Demand, checked: boolean) => {
     if (!profile) return;
-    const allowed = isDiretorOrGerente || isPlanejamento || isCoordenador;
-    if (!allowed) return;
     const previous = demands;
     setDemands(
       demands.map((d) =>
@@ -376,6 +387,22 @@ export default function Demandas() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleDelete = async (demand: Demand) => {
+    const previous = demands;
+    setDemands(demands.filter((d) => d.id !== demand.id));
+    const { error } = await supabase.from("demands").delete().eq("id", demand.id);
+    if (error) {
+      setDemands(previous);
+      toast({
+        title: "Não foi possível excluir a demanda",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({ title: "Demanda excluída" });
   };
 
   return (
@@ -448,6 +475,25 @@ export default function Demandas() {
           )}
         </div>
 
+        <div className="flex items-center gap-2">
+          <div className="flex-1 max-w-sm">
+            <ProjectCombobox
+              projects={[{ id: "all", name: "Todos os usuários" }, ...users]}
+              value={userFilter}
+              onValueChange={setUserFilter}
+              placeholder="Filtrar por responsável..."
+            />
+          </div>
+          {userFilter !== "all" && (
+            <button
+              onClick={() => setUserFilter("all")}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Limpar
+            </button>
+          )}
+        </div>
+
         <div className="space-y-3">
           {loading ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
@@ -460,7 +506,7 @@ export default function Demandas() {
             </Card>
           ) : (
             filteredDemands.map((demand, i) => {
-              const canEdit = isDiretorOrGerente || isPlanejamento || isCoordenador;
+              const canEdit = true;
               const c = DEMAND_TYPE_COLORS[demand.demand_type];
               const assignedName = demand.assigned_profile?.name;
               return (
@@ -525,6 +571,14 @@ export default function Demandas() {
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => setDeleteTarget(demand)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -548,6 +602,28 @@ export default function Demandas() {
           demand={editDemand}
           onSaved={fetchAll}
         />
+
+        <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir demanda?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação não pode ser desfeita. A demanda será removida permanentemente.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (deleteTarget) handleDelete(deleteTarget);
+                  setDeleteTarget(null);
+                }}
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   );
