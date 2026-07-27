@@ -345,8 +345,9 @@ export default function Demandas() {
   const filteredDemands = useMemo(() => {
     let base = filter === "all" ? demands : demands.filter((d) => d.demand_type === filter);
     if (projectFilter !== "all") base = base.filter((d) => d.project_id === projectFilter);
+    if (userFilter !== "all") base = base.filter((d) => d.assigned_to === userFilter);
     return sortDemands(base);
-  }, [demands, filter, projectFilter]);
+  }, [demands, filter, projectFilter, userFilter]);
 
   const pendingCount = useMemo(() => demands.filter((d) => !d.is_done).length, [demands]);
 
