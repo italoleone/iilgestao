@@ -129,7 +129,7 @@ export function AppSidebar() {
   const getVisibleChildren = (mod: NavModule) => {
     if (!mod.children) return [];
     if (userRole === "projetista") {
-      return mod.children.filter((c) => c.url === "/tarefas");
+      return mod.children.filter((c) => c.url === "/tarefas" || c.url === "/demandas");
     }
     // Coordenador sees all planning children (Dashboard, Projetos, Tarefas)
     // Planejamento sees all planning children
