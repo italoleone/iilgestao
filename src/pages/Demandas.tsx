@@ -506,7 +506,7 @@ export default function Demandas() {
             </Card>
           ) : (
             filteredDemands.map((demand, i) => {
-              const canEdit = isDiretorOrGerente || isPlanejamento || isCoordenador;
+              const canEdit = true;
               const c = DEMAND_TYPE_COLORS[demand.demand_type];
               const assignedName = demand.assigned_profile?.name;
               return (
