@@ -824,6 +824,36 @@ export default function Demandas() {
         </div>
         )}
 
+        <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar projetista à equipe</DialogTitle>
+            </DialogHeader>
+            <div className="py-2 space-y-2">
+              <Label>Projetista</Label>
+              <Select value={newMemberId} onValueChange={setNewMemberId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar projetista..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {users
+                    .filter((u) => u.id !== profile?.id && !myTeam.some((m) => m.id === u.id))
+                    .map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleAddMember} disabled={!newMemberId}>
+                Adicionar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <DemandFormDialog
           open={createOpen}
           onOpenChange={setCreateOpen}
