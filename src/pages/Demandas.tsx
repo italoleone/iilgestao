@@ -24,7 +24,7 @@ import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, Pencil, User, Hash, Trash2 } from "lucide-react";
+import { Plus, ClipboardCheck, Pencil, User, UserCheck, Hash, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +66,8 @@ interface Demand {
   priority: number | null;
   assigned_to: string | null;
   assigned_profile?: { name: string } | null;
+  coordenador_id: string | null;
+  coordenador_profile?: { name: string } | null;
 }
 
 function formatDate(iso: string) {
