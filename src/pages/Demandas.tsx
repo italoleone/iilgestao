@@ -331,6 +331,7 @@ export default function Demandas() {
   const [userFilter, setUserFilter] = useState<string>("all");
   const [deleteTarget, setDeleteTarget] = useState<Demand | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+  const canUseKanban = isCoordenador || isDiretorOrGerente || isPlanejamento;
   const [myTeam, setMyTeam] = useState<UserOption[]>([]);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [newMemberId, setNewMemberId] = useState<string>("");
@@ -374,9 +375,9 @@ export default function Demandas() {
 
   useEffect(() => {
     fetchAll();
-    if (isCoordenador) fetchMyTeam();
+    if (canUseKanban) fetchMyTeam();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, seesAll, isCoordenador]);
+  }, [profile?.id, seesAll, canUseKanban]);
 
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name || "Projeto";
 
@@ -592,7 +593,7 @@ export default function Demandas() {
           </div>
 
           <div className="flex items-center gap-2">
-            {isCoordenador && (
+            {canUseKanban && (
               <Button
                 variant="outline"
                 onClick={() => setViewMode(viewMode === "list" ? "kanban" : "list")}
@@ -676,7 +677,7 @@ export default function Demandas() {
           )}
         </div>
 
-        {viewMode === "kanban" && isCoordenador ? (
+        {viewMode === "kanban" && canUseKanban ? (
           <div className="space-y-4">
             <div className="flex justify-end">
               <Button variant="outline" size="sm" onClick={() => setAddMemberOpen(true)}>
