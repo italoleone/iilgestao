@@ -537,6 +537,7 @@ export type Database = {
           discipline: string | null
           email: string
           id: string
+          is_coordenador: boolean
           monthly_capacity_hours: number | null
           name: string
           status: string
@@ -548,6 +549,7 @@ export type Database = {
           discipline?: string | null
           email?: string
           id: string
+          is_coordenador?: boolean
           monthly_capacity_hours?: number | null
           name?: string
           status?: string
@@ -559,6 +561,7 @@ export type Database = {
           discipline?: string | null
           email?: string
           id?: string
+          is_coordenador?: boolean
           monthly_capacity_hours?: number | null
           name?: string
           status?: string
