@@ -1,0 +1,1 @@
+ALTER TABLE public.demands ADD COLUMN coordenador_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL;

@@ -24,7 +24,7 @@ import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, Pencil, User, Hash, Trash2 } from "lucide-react";
+import { Plus, ClipboardCheck, Pencil, User, UserCheck, Hash, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +66,8 @@ interface Demand {
   priority: number | null;
   assigned_to: string | null;
   assigned_profile?: { name: string } | null;
+  coordenador_id: string | null;
+  coordenador_profile?: { name: string } | null;
 }
 
 function formatDate(iso: string) {
@@ -77,11 +79,12 @@ interface DemandFormDialogProps {
   onOpenChange: (o: boolean) => void;
   projects: ProjectOption[];
   users: UserOption[];
+  coordenadores: UserOption[];
   demand?: Demand | null;
   onSaved: () => void;
 }
 
-function DemandFormDialog({ open, onOpenChange, projects, users, demand, onSaved }: DemandFormDialogProps) {
+function DemandFormDialog({ open, onOpenChange, projects, users, coordenadores, demand, onSaved }: DemandFormDialogProps) {
   const { profile } = useAuth();
   const { toast } = useToast();
   const isEdit = !!demand;
@@ -91,6 +94,7 @@ function DemandFormDialog({ open, onOpenChange, projects, users, demand, onSaved
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<string>("");
   const [assignedTo, setAssignedTo] = useState<string>("none");
+  const [coordenadorId, setCoordenadorId] = useState<string>("none");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -100,6 +104,7 @@ function DemandFormDialog({ open, onOpenChange, projects, users, demand, onSaved
       setDescription(demand?.description ?? "");
       setPriority(demand?.priority != null ? String(demand.priority) : "");
       setAssignedTo(demand?.assigned_to ?? "none");
+      setCoordenadorId(demand?.coordenador_id ?? "none");
     }
   }, [open, demand]);
 
@@ -108,6 +113,7 @@ function DemandFormDialog({ open, onOpenChange, projects, users, demand, onSaved
     setSubmitting(true);
     const priorityValue = priority.trim() === "" ? null : Math.max(1, parseInt(priority, 10));
     const assignedValue = assignedTo === "none" ? null : assignedTo;
+    const coordenadorValue = coordenadorId === "none" ? null : coordenadorId;
     let error;
     if (isEdit && demand) {
       ({ error } = await supabase
@@ -118,6 +124,7 @@ function DemandFormDialog({ open, onOpenChange, projects, users, demand, onSaved
           description: description.trim(),
           priority: priorityValue,
           assigned_to: assignedValue,
+          coordenador_id: coordenadorValue,
         })
         .eq("id", demand.id));
     } else {
@@ -128,6 +135,7 @@ function DemandFormDialog({ open, onOpenChange, projects, users, demand, onSaved
         created_by: profile.id,
         priority: priorityValue,
         assigned_to: assignedValue,
+        coordenador_id: coordenadorValue,
       }));
     }
     setSubmitting(false);
@@ -206,6 +214,22 @@ function DemandFormDialog({ open, onOpenChange, projects, users, demand, onSaved
               <SelectContent>
                 <SelectItem value="none">Sem responsável</SelectItem>
                 {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Coordenador</Label>
+            <Select value={coordenadorId} onValueChange={setCoordenadorId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar coordenador..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem coordenador</SelectItem>
+                {coordenadores.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
                     {u.name}
                   </SelectItem>
@@ -297,6 +321,7 @@ export default function Demandas() {
 
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [coordenadores, setCoordenadores] = useState<UserOption[]>([]);
   const [demands, setDemands] = useState<Demand[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -312,15 +337,20 @@ export default function Demandas() {
     if (!profile) return;
     const demandsQuery = supabase
       .from("demands")
-      .select("*, assigned_profile:profiles!assigned_to(name)")
+      .select("*, assigned_profile:profiles!assigned_to(name), coordenador_profile:profiles!coordenador_id(name)")
       .order("created_at", { ascending: false });
-    const [projectsRes, usersRes, demandsRes] = await Promise.all([
+    const [projectsRes, usersRes, demandsRes, rolesRes] = await Promise.all([
       supabase.from("projects").select("id, name, status").order("name"),
       supabase.from("profiles").select("id, name").order("name"),
       seesAll ? demandsQuery : demandsQuery.eq("created_by", profile.id),
+      supabase.from("user_roles").select("user_id, role").eq("role", "coordenador"),
     ]);
     if (projectsRes.data) setProjects(projectsRes.data as ProjectOption[]);
-    if (usersRes.data) setUsers(usersRes.data as UserOption[]);
+    if (usersRes.data) {
+      setUsers(usersRes.data as UserOption[]);
+      const coordIds = new Set((rolesRes.data ?? []).map((r: { user_id: string }) => r.user_id));
+      setCoordenadores((usersRes.data as UserOption[]).filter((u) => coordIds.has(u.id)));
+    }
     if (demandsRes.data) setDemands(demandsRes.data as unknown as Demand[]);
     setLoading(false);
   };
@@ -551,11 +581,18 @@ export default function Demandas() {
                           canEdit={!!canEdit}
                           onUpdate={handleUpdatePriority}
                         />
-                        {assignedName ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <User size={12} /> {assignedName}
-                          </span>
-                        ) : null}
+                        <div className="flex items-center gap-3">
+                          {assignedName ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <User size={12} /> {assignedName}
+                            </span>
+                          ) : null}
+                          {demand.coordenador_profile?.name ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <UserCheck size={12} /> {demand.coordenador_profile.name}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -592,6 +629,7 @@ export default function Demandas() {
           onOpenChange={setCreateOpen}
           projects={projects}
           users={users}
+          coordenadores={coordenadores}
           onSaved={fetchAll}
         />
         <DemandFormDialog
@@ -599,6 +637,7 @@ export default function Demandas() {
           onOpenChange={(o) => !o && setEditDemand(null)}
           projects={projects}
           users={users}
+          coordenadores={coordenadores}
           demand={editDemand}
           onSaved={fetchAll}
         />
