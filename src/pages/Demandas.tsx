@@ -676,6 +676,53 @@ export default function Demandas() {
           )}
         </div>
 
+        {viewMode === "kanban" && isCoordenador ? (
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={() => setAddMemberOpen(true)}>
+                <Plus className="h-4 w-4 mr-1.5" />
+                Adicionar projetista
+              </Button>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-4">
+              {kanbanColumns.map((col) => {
+                const items = kanbanDemands.filter((d) => (d.assigned_to ?? null) === col.id);
+                return (
+                  <div
+                    key={col.id ?? "unassigned"}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const demandId = e.dataTransfer.getData("demandId");
+                      handleDropAssign(demandId, col.id);
+                    }}
+                    className="w-72 shrink-0 rounded-xl border bg-muted/40 p-3 space-y-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold truncate">{col.name}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">{items.length}</span>
+                        {col.id ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMember(col.id as string)}
+                            className="text-xs text-muted-foreground hover:text-destructive px-1"
+                            title="Remover da equipe"
+                          >
+                            ×
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="space-y-2 min-h-[80px]">
+                      {items.map((d) => renderKanbanCard(d))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
         <div className="space-y-3">
           {loading ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
@@ -775,6 +822,7 @@ export default function Demandas() {
             })
           )}
         </div>
+        )}
 
         <DemandFormDialog
           open={createOpen}
