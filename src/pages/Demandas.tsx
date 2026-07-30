@@ -579,7 +579,7 @@ export default function Demandas() {
 
   return (
     <AppLayout>
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className={cn("mx-auto space-y-6", viewMode === "kanban" ? "max-w-full" : "max-w-3xl")}>
         <div
           className="animate-reveal-up flex items-start justify-between gap-4"
           style={{ animationFillMode: "backwards" }}
@@ -591,10 +591,20 @@ export default function Demandas() {
             </p>
           </div>
 
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Demanda
-          </Button>
+          <div className="flex items-center gap-2">
+            {isCoordenador && (
+              <Button
+                variant="outline"
+                onClick={() => setViewMode(viewMode === "list" ? "kanban" : "list")}
+              >
+                {viewMode === "list" ? "Minhas Demandas" : "Ver Lista"}
+              </Button>
+            )}
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Demanda
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
