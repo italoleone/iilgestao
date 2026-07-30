@@ -348,14 +348,14 @@ export default function Demandas() {
       supabase.from("projects").select("id, name, status").order("name"),
       supabase.from("profiles").select("id, name").order("name"),
       seesAll ? demandsQuery : demandsQuery.eq("created_by", profile.id),
-      supabase.from("user_roles").select("user_id, role").eq("role", "coordenador"),
+      supabase.from("profiles").select("id, name").eq("is_coordenador", true).order("name"),
     ]);
     if (projectsRes.data) setProjects(projectsRes.data as ProjectOption[]);
     if (usersRes.data) {
       setUsers(usersRes.data as UserOption[]);
-      const coordIds = new Set((rolesRes.data ?? []).map((r: { user_id: string }) => r.user_id));
-      setCoordenadores((usersRes.data as UserOption[]).filter((u) => coordIds.has(u.id)));
     }
+    setCoordenadores((rolesRes.data ?? []) as UserOption[]);
+
     if (demandsRes.data) setDemands(demandsRes.data as unknown as Demand[]);
     setLoading(false);
   };
