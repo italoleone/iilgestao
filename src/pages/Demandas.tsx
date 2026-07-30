@@ -79,11 +79,12 @@ interface DemandFormDialogProps {
   onOpenChange: (o: boolean) => void;
   projects: ProjectOption[];
   users: UserOption[];
+  coordenadores: UserOption[];
   demand?: Demand | null;
   onSaved: () => void;
 }
 
-function DemandFormDialog({ open, onOpenChange, projects, users, demand, onSaved }: DemandFormDialogProps) {
+function DemandFormDialog({ open, onOpenChange, projects, users, coordenadores, demand, onSaved }: DemandFormDialogProps) {
   const { profile } = useAuth();
   const { toast } = useToast();
   const isEdit = !!demand;
@@ -93,6 +94,7 @@ function DemandFormDialog({ open, onOpenChange, projects, users, demand, onSaved
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<string>("");
   const [assignedTo, setAssignedTo] = useState<string>("none");
+  const [coordenadorId, setCoordenadorId] = useState<string>("none");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -102,6 +104,7 @@ function DemandFormDialog({ open, onOpenChange, projects, users, demand, onSaved
       setDescription(demand?.description ?? "");
       setPriority(demand?.priority != null ? String(demand.priority) : "");
       setAssignedTo(demand?.assigned_to ?? "none");
+      setCoordenadorId(demand?.coordenador_id ?? "none");
     }
   }, [open, demand]);
 
