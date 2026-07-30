@@ -221,6 +221,22 @@ function DemandFormDialog({ open, onOpenChange, projects, users, coordenadores, 
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2">
+            <Label>Coordenador</Label>
+            <Select value={coordenadorId} onValueChange={setCoordenadorId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecionar coordenador..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem coordenador</SelectItem>
+                {coordenadores.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <DialogFooter>
           <Button
@@ -305,6 +321,7 @@ export default function Demandas() {
 
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [coordenadores, setCoordenadores] = useState<UserOption[]>([]);
   const [demands, setDemands] = useState<Demand[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -320,15 +337,20 @@ export default function Demandas() {
     if (!profile) return;
     const demandsQuery = supabase
       .from("demands")
-      .select("*, assigned_profile:profiles!assigned_to(name)")
+      .select("*, assigned_profile:profiles!assigned_to(name), coordenador_profile:profiles!coordenador_id(name)")
       .order("created_at", { ascending: false });
-    const [projectsRes, usersRes, demandsRes] = await Promise.all([
+    const [projectsRes, usersRes, demandsRes, rolesRes] = await Promise.all([
       supabase.from("projects").select("id, name, status").order("name"),
       supabase.from("profiles").select("id, name").order("name"),
       seesAll ? demandsQuery : demandsQuery.eq("created_by", profile.id),
+      supabase.from("user_roles").select("user_id, role").eq("role", "coordenador"),
     ]);
     if (projectsRes.data) setProjects(projectsRes.data as ProjectOption[]);
-    if (usersRes.data) setUsers(usersRes.data as UserOption[]);
+    if (usersRes.data) {
+      setUsers(usersRes.data as UserOption[]);
+      const coordIds = new Set((rolesRes.data ?? []).map((r: { user_id: string }) => r.user_id));
+      setCoordenadores((usersRes.data as UserOption[]).filter((u) => coordIds.has(u.id)));
+    }
     if (demandsRes.data) setDemands(demandsRes.data as unknown as Demand[]);
     setLoading(false);
   };
