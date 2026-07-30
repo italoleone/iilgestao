@@ -581,11 +581,18 @@ export default function Demandas() {
                           canEdit={!!canEdit}
                           onUpdate={handleUpdatePriority}
                         />
-                        {assignedName ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <User size={12} /> {assignedName}
-                          </span>
-                        ) : null}
+                        <div className="flex items-center gap-3">
+                          {assignedName ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <User size={12} /> {assignedName}
+                            </span>
+                          ) : null}
+                          {demand.coordenador_profile?.name ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <UserCheck size={12} /> {demand.coordenador_profile.name}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -622,6 +629,7 @@ export default function Demandas() {
           onOpenChange={setCreateOpen}
           projects={projects}
           users={users}
+          coordenadores={coordenadores}
           onSaved={fetchAll}
         />
         <DemandFormDialog
@@ -629,6 +637,7 @@ export default function Demandas() {
           onOpenChange={(o) => !o && setEditDemand(null)}
           projects={projects}
           users={users}
+          coordenadores={coordenadores}
           demand={editDemand}
           onSaved={fetchAll}
         />
