@@ -113,6 +113,7 @@ function DemandFormDialog({ open, onOpenChange, projects, users, coordenadores, 
     setSubmitting(true);
     const priorityValue = priority.trim() === "" ? null : Math.max(1, parseInt(priority, 10));
     const assignedValue = assignedTo === "none" ? null : assignedTo;
+    const coordenadorValue = coordenadorId === "none" ? null : coordenadorId;
     let error;
     if (isEdit && demand) {
       ({ error } = await supabase
@@ -123,6 +124,7 @@ function DemandFormDialog({ open, onOpenChange, projects, users, coordenadores, 
           description: description.trim(),
           priority: priorityValue,
           assigned_to: assignedValue,
+          coordenador_id: coordenadorValue,
         })
         .eq("id", demand.id));
     } else {
@@ -133,6 +135,7 @@ function DemandFormDialog({ open, onOpenChange, projects, users, coordenadores, 
         created_by: profile.id,
         priority: priorityValue,
         assigned_to: assignedValue,
+        coordenador_id: coordenadorValue,
       }));
     }
     setSubmitting(false);
