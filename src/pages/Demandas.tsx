@@ -330,6 +330,10 @@ export default function Demandas() {
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState<string>("all");
   const [deleteTarget, setDeleteTarget] = useState<Demand | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+  const [myTeam, setMyTeam] = useState<UserOption[]>([]);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [newMemberId, setNewMemberId] = useState<string>("");
 
   const seesAll = true;
 
@@ -355,10 +359,24 @@ export default function Demandas() {
     setLoading(false);
   };
 
+  const fetchMyTeam = async () => {
+    if (!profile) return;
+    const { data } = await supabase
+      .from("coordenador_projetistas")
+      .select("projetista_id, profiles!projetista_id(id, name)")
+      .eq("coordenador_id", profile.id);
+    const mapped = (data ?? [])
+      .map((r: any) => r.profiles)
+      .filter(Boolean)
+      .map((p: any) => ({ id: p.id, name: p.name })) as UserOption[];
+    setMyTeam(mapped.sort((a, b) => a.name.localeCompare(b.name)));
+  };
+
   useEffect(() => {
     fetchAll();
+    if (isCoordenador) fetchMyTeam();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, seesAll]);
+  }, [profile?.id, seesAll, isCoordenador]);
 
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name || "Projeto";
 
@@ -435,9 +453,133 @@ export default function Demandas() {
     toast({ title: "Demanda excluída" });
   };
 
+  const kanbanDemands = useMemo(() => {
+    if (!profile) return [];
+    let base = demands.filter((d) => d.coordenador_id === profile.id);
+    if (filter !== "all") base = base.filter((d) => d.demand_type === filter);
+    if (projectFilter !== "all") base = base.filter((d) => d.project_id === projectFilter);
+    return sortDemands(base);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demands, filter, projectFilter, profile?.id]);
+
+  const handleAddMember = async () => {
+    if (!profile || !newMemberId) return;
+    const { error } = await supabase
+      .from("coordenador_projetistas")
+      .insert({ coordenador_id: profile.id, projetista_id: newMemberId });
+    if (error) {
+      toast({
+        title: "Não foi possível adicionar o projetista",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    setAddMemberOpen(false);
+    setNewMemberId("");
+    await fetchMyTeam();
+  };
+
+  const handleRemoveMember = async (projetistaId: string) => {
+    if (!profile) return;
+    const { error } = await supabase
+      .from("coordenador_projetistas")
+      .delete()
+      .eq("coordenador_id", profile.id)
+      .eq("projetista_id", projetistaId);
+    if (error) {
+      toast({
+        title: "Não foi possível remover o projetista",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+    await supabase
+      .from("demands")
+      .update({ assigned_to: null })
+      .eq("assigned_to", projetistaId)
+      .eq("coordenador_id", profile.id);
+    await Promise.all([fetchMyTeam(), fetchAll()]);
+  };
+
+  const handleDropAssign = async (demandId: string, assignedTo: string | null) => {
+    if (!demandId) return;
+    const previous = demands;
+    const target = demands.find((d) => d.id === demandId);
+    if (!target || target.assigned_to === assignedTo) return;
+    const assignedName = assignedTo ? myTeam.find((m) => m.id === assignedTo)?.name ?? "" : null;
+    setDemands(
+      demands.map((d) =>
+        d.id === demandId
+          ? {
+              ...d,
+              assigned_to: assignedTo,
+              assigned_profile: assignedName ? { name: assignedName } : null,
+            }
+          : d,
+      ),
+    );
+    const { error } = await supabase
+      .from("demands")
+      .update({ assigned_to: assignedTo })
+      .eq("id", demandId);
+    if (error) {
+      setDemands(previous);
+      toast({
+        title: "Não foi possível mover a demanda",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const renderKanbanCard = (demand: Demand) => {
+    const c = DEMAND_TYPE_COLORS[demand.demand_type];
+    return (
+      <div
+        key={demand.id}
+        draggable
+        onDragStart={(e) => e.dataTransfer.setData("demandId", demand.id)}
+        className="rounded-lg border bg-card p-3 shadow-sm cursor-grab active:cursor-grabbing"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border",
+              c.badge,
+            )}
+          >
+            {DEMAND_TYPE_LABELS[demand.demand_type]}
+          </span>
+          {demand.priority != null ? (
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold border bg-primary/10 text-primary border-primary/20">
+              <Hash size={10} /> {demand.priority}
+            </span>
+          ) : null}
+        </div>
+        <p
+          className={cn(
+            "mt-2 text-sm",
+            demand.is_done ? "line-through text-muted-foreground/60" : "font-medium",
+          )}
+        >
+          {demand.description}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{projectName(demand.project_id)}</p>
+      </div>
+    );
+  };
+
+  const kanbanColumns: { id: string | null; name: string }[] = [
+    { id: null, name: "Sem atribuição" },
+    ...myTeam.map((m) => ({ id: m.id as string | null, name: m.name })),
+  ];
+
+
   return (
     <AppLayout>
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className={cn("mx-auto space-y-6", viewMode === "kanban" ? "max-w-full" : "max-w-3xl")}>
         <div
           className="animate-reveal-up flex items-start justify-between gap-4"
           style={{ animationFillMode: "backwards" }}
@@ -449,10 +591,20 @@ export default function Demandas() {
             </p>
           </div>
 
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Demanda
-          </Button>
+          <div className="flex items-center gap-2">
+            {isCoordenador && (
+              <Button
+                variant="outline"
+                onClick={() => setViewMode(viewMode === "list" ? "kanban" : "list")}
+              >
+                {viewMode === "list" ? "Minhas Demandas" : "Ver Lista"}
+              </Button>
+            )}
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Demanda
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -524,6 +676,53 @@ export default function Demandas() {
           )}
         </div>
 
+        {viewMode === "kanban" && isCoordenador ? (
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={() => setAddMemberOpen(true)}>
+                <Plus className="h-4 w-4 mr-1.5" />
+                Adicionar projetista
+              </Button>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-4">
+              {kanbanColumns.map((col) => {
+                const items = kanbanDemands.filter((d) => (d.assigned_to ?? null) === col.id);
+                return (
+                  <div
+                    key={col.id ?? "unassigned"}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const demandId = e.dataTransfer.getData("demandId");
+                      handleDropAssign(demandId, col.id);
+                    }}
+                    className="w-72 shrink-0 rounded-xl border bg-muted/40 p-3 space-y-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold truncate">{col.name}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">{items.length}</span>
+                        {col.id ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMember(col.id as string)}
+                            className="text-xs text-muted-foreground hover:text-destructive px-1"
+                            title="Remover da equipe"
+                          >
+                            ×
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="space-y-2 min-h-[80px]">
+                      {items.map((d) => renderKanbanCard(d))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
         <div className="space-y-3">
           {loading ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
@@ -623,6 +822,37 @@ export default function Demandas() {
             })
           )}
         </div>
+        )}
+
+        <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar projetista à equipe</DialogTitle>
+            </DialogHeader>
+            <div className="py-2 space-y-2">
+              <Label>Projetista</Label>
+              <Select value={newMemberId} onValueChange={setNewMemberId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar projetista..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {users
+                    .filter((u) => u.id !== profile?.id && !myTeam.some((m) => m.id === u.id))
+                    .map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleAddMember} disabled={!newMemberId}>
+                Adicionar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <DemandFormDialog
           open={createOpen}
