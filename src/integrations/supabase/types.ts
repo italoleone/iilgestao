@@ -275,6 +275,7 @@ export type Database = {
       demands: {
         Row: {
           assigned_to: string | null
+          coordenador_id: string | null
           created_at: string
           created_by: string
           demand_type: Database["public"]["Enums"]["demand_type"]
@@ -288,6 +289,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          coordenador_id?: string | null
           created_at?: string
           created_by: string
           demand_type: Database["public"]["Enums"]["demand_type"]
@@ -301,6 +303,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          coordenador_id?: string | null
           created_at?: string
           created_by?: string
           demand_type?: Database["public"]["Enums"]["demand_type"]
@@ -316,6 +319,13 @@ export type Database = {
           {
             foreignKeyName: "demands_assigned_to_fkey"
             columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demands_coordenador_id_fkey"
+            columns: ["coordenador_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
