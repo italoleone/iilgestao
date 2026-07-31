@@ -277,31 +277,24 @@ export type Database = {
           coordenador_id: string
           created_at: string
           id: string
-          projetista_id: string
+          projetista_nome: string
         }
         Insert: {
           coordenador_id: string
           created_at?: string
           id?: string
-          projetista_id: string
+          projetista_nome: string
         }
         Update: {
           coordenador_id?: string
           created_at?: string
           id?: string
-          projetista_id?: string
+          projetista_nome?: string
         }
         Relationships: [
           {
             foreignKeyName: "coordenador_projetistas_coordenador_id_fkey"
             columns: ["coordenador_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "coordenador_projetistas_projetista_id_fkey"
-            columns: ["projetista_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -319,6 +312,7 @@ export type Database = {
           done_at: string | null
           id: string
           is_done: boolean
+          kanban_assignee_nome: string | null
           priority: number | null
           project_id: string
           updated_at: string
@@ -333,6 +327,7 @@ export type Database = {
           done_at?: string | null
           id?: string
           is_done?: boolean
+          kanban_assignee_nome?: string | null
           priority?: number | null
           project_id: string
           updated_at?: string
@@ -347,6 +342,7 @@ export type Database = {
           done_at?: string | null
           id?: string
           is_done?: boolean
+          kanban_assignee_nome?: string | null
           priority?: number | null
           project_id?: string
           updated_at?: string
