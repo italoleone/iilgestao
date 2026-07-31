@@ -65,6 +65,7 @@ interface Demand {
   created_at: string;
   priority: number | null;
   assigned_to: string | null;
+  kanban_assignee_nome: string | null;
   assigned_profile?: { name: string } | null;
   coordenador_id: string | null;
   coordenador_profile?: { name: string } | null;
@@ -332,9 +333,9 @@ export default function Demandas() {
   const [deleteTarget, setDeleteTarget] = useState<Demand | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
   const canUseKanban = isCoordenador || isDiretorOrGerente || isPlanejamento;
-  const [myTeam, setMyTeam] = useState<UserOption[]>([]);
+  const [myTeam, setMyTeam] = useState<string[]>([]);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
-  const [newMemberId, setNewMemberId] = useState<string>("");
+  const [newMemberName, setNewMemberName] = useState<string>("");
 
   const seesAll = true;
 
@@ -364,13 +365,13 @@ export default function Demandas() {
     if (!profile) return;
     const { data } = await supabase
       .from("coordenador_projetistas")
-      .select("projetista_id, profiles!projetista_id(id, name)")
+      .select("projetista_nome")
       .eq("coordenador_id", profile.id);
     const mapped = (data ?? [])
-      .map((r: any) => r.profiles)
+      .map((r: any) => r.projetista_nome as string)
       .filter(Boolean)
-      .map((p: any) => ({ id: p.id, name: p.name })) as UserOption[];
-    setMyTeam(mapped.sort((a, b) => a.name.localeCompare(b.name)));
+      .sort((a, b) => a.localeCompare(b));
+    setMyTeam(mapped);
   };
 
   useEffect(() => {
@@ -464,10 +465,11 @@ export default function Demandas() {
   }, [demands, filter, projectFilter, profile?.id]);
 
   const handleAddMember = async () => {
-    if (!profile || !newMemberId) return;
+    const nome = newMemberName.trim();
+    if (!profile || !nome) return;
     const { error } = await supabase
       .from("coordenador_projetistas")
-      .insert({ coordenador_id: profile.id, projetista_id: newMemberId });
+      .insert({ coordenador_id: profile.id, projetista_nome: nome });
     if (error) {
       toast({
         title: "Não foi possível adicionar o projetista",
@@ -477,17 +479,17 @@ export default function Demandas() {
       return;
     }
     setAddMemberOpen(false);
-    setNewMemberId("");
+    setNewMemberName("");
     await fetchMyTeam();
   };
 
-  const handleRemoveMember = async (projetistaId: string) => {
+  const handleRemoveMember = async (nome: string) => {
     if (!profile) return;
     const { error } = await supabase
       .from("coordenador_projetistas")
       .delete()
       .eq("coordenador_id", profile.id)
-      .eq("projetista_id", projetistaId);
+      .eq("projetista_nome", nome);
     if (error) {
       toast({
         title: "Não foi possível remover o projetista",
@@ -498,8 +500,8 @@ export default function Demandas() {
     }
     await supabase
       .from("demands")
-      .update({ assigned_to: null })
-      .eq("assigned_to", projetistaId)
+      .update({ kanban_assignee_nome: null })
+      .eq("kanban_assignee_nome", nome)
       .eq("coordenador_id", profile.id);
     await Promise.all([fetchMyTeam(), fetchAll()]);
   };
@@ -508,22 +510,15 @@ export default function Demandas() {
     if (!demandId) return;
     const previous = demands;
     const target = demands.find((d) => d.id === demandId);
-    if (!target || target.assigned_to === assignedTo) return;
-    const assignedName = assignedTo ? myTeam.find((m) => m.id === assignedTo)?.name ?? "" : null;
+    if (!target || (target.kanban_assignee_nome ?? null) === assignedTo) return;
     setDemands(
       demands.map((d) =>
-        d.id === demandId
-          ? {
-              ...d,
-              assigned_to: assignedTo,
-              assigned_profile: assignedName ? { name: assignedName } : null,
-            }
-          : d,
+        d.id === demandId ? { ...d, kanban_assignee_nome: assignedTo } : d,
       ),
     );
     const { error } = await supabase
       .from("demands")
-      .update({ assigned_to: assignedTo })
+      .update({ kanban_assignee_nome: assignedTo })
       .eq("id", demandId);
     if (error) {
       setDemands(previous);
@@ -574,7 +569,7 @@ export default function Demandas() {
 
   const kanbanColumns: { id: string | null; name: string }[] = [
     { id: null, name: "Sem atribuição" },
-    ...myTeam.map((m) => ({ id: m.id as string | null, name: m.name })),
+    ...myTeam.map((nome) => ({ id: nome as string | null, name: nome })),
   ];
 
 
@@ -687,7 +682,7 @@ export default function Demandas() {
             </div>
             <div className="flex gap-4 overflow-x-auto pb-4">
               {kanbanColumns.map((col) => {
-                const items = kanbanDemands.filter((d) => (d.assigned_to ?? null) === col.id);
+                const items = kanbanDemands.filter((d) => (d.kanban_assignee_nome ?? null) === col.id);
                 return (
                   <div
                     key={col.id ?? "unassigned"}
@@ -832,23 +827,14 @@ export default function Demandas() {
             </DialogHeader>
             <div className="py-2 space-y-2">
               <Label>Projetista</Label>
-              <Select value={newMemberId} onValueChange={setNewMemberId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar projetista..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {users
-                    .filter((u) => u.id !== profile?.id && !myTeam.some((m) => m.id === u.id))
-                    .map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <Input
+                value={newMemberName}
+                onChange={(e) => setNewMemberName(e.target.value)}
+                placeholder="Nome do projetista"
+              />
             </div>
             <DialogFooter>
-              <Button onClick={handleAddMember} disabled={!newMemberId}>
+              <Button onClick={handleAddMember} disabled={!newMemberName.trim()}>
                 Adicionar
               </Button>
             </DialogFooter>
