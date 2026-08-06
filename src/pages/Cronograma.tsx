@@ -16,7 +16,10 @@ import {
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
-import { ChevronLeft, ChevronRight, CalendarRange, Plus, Loader2 } from "lucide-react";
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
+import { ChevronLeft, ChevronRight, CalendarRange, CalendarDays, Plus, Loader2, Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -63,6 +66,15 @@ interface Allocation {
   notes: string | null;
 }
 
+interface PersonOption {
+  key: string;
+  nome: string;
+  coordenadorId: string;
+  coordenadorNome: string;
+  discipline: string;
+}
+
+
 // --- date helpers (pure YYYY-MM-DD, no timezone) ---
 function toISO(d: Date) {
   const y = d.getFullYear();
@@ -99,6 +111,12 @@ export default function Cronograma() {
     date: string;
     allocation?: Allocation;
   } | null>(null);
+
+  const [monthOpen, setMonthOpen] = useState(false);
+  const [selectedPerson, setSelectedPerson] = useState<PersonOption | null>(null);
+  const [monthRef, setMonthRef] = useState(new Date());
+
+
 
   const weekStart = useMemo(() => mondayOf(refDate), [refDate]);
   const weekDays = useMemo(() => [0, 1, 2, 3, 4].map((i) => addDays(weekStart, i)), [weekStart]);
@@ -180,6 +198,85 @@ export default function Cronograma() {
     },
   });
 
+  // --- Todas as pessoas (para a visão mensal) ---
+  const { data: allPeople = [] } = useQuery({
+    queryKey: ["cronograma-all-people"],
+    enabled: monthOpen,
+    queryFn: async (): Promise<PersonOption[]> => {
+      const [{ data: coords, error: e1 }, { data: rows, error: e2 }] = await Promise.all([
+        supabase.from("profiles").select("id, name, discipline").eq("is_coordenador", true).order("name"),
+        supabase.from("coordenador_projetistas").select("coordenador_id, projetista_nome"),
+      ]);
+      if (e1) throw e1;
+      if (e2) throw e2;
+      const coordList = (coords ?? []) as Coordenador[];
+      const coordById = new Map(coordList.map((c) => [c.id, c]));
+      const out: PersonOption[] = [];
+      const seen = new Set<string>();
+      const push = (nome: string, coordenadorId: string) => {
+        const c = coordById.get(coordenadorId);
+        if (!c) return;
+        const key = `${coordenadorId}|${nome}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({
+          key,
+          nome,
+          coordenadorId,
+          coordenadorNome: c.name,
+          discipline: c.discipline || "",
+        });
+      };
+      coordList.forEach((c) => push(c.name, c.id));
+      ((rows ?? []) as { coordenador_id: string; projetista_nome: string }[]).forEach((r) =>
+        push(r.projetista_nome, r.coordenador_id)
+      );
+      return out.sort((a, b) => a.nome.localeCompare(b.nome));
+    },
+  });
+
+  // --- Semanas do mês (Seg-Sex) ---
+  const monthYear = monthRef.getFullYear();
+  const monthIndex = monthRef.getMonth();
+  const monthWeeks = useMemo(() => {
+    const first = new Date(monthYear, monthIndex, 1);
+    const last = new Date(monthYear, monthIndex + 1, 0);
+    const weeks: Date[][] = [];
+    let cursor = mondayOf(first);
+    while (cursor <= last) {
+      weeks.push([0, 1, 2, 3, 4].map((i) => addDays(cursor, i)));
+      cursor = addDays(cursor, 7);
+    }
+    return weeks;
+  }, [monthYear, monthIndex]);
+
+  const monthStartISO = toISO(new Date(monthYear, monthIndex, 1));
+  const monthEndISO = toISO(new Date(monthYear, monthIndex + 1, 0));
+
+  const { data: monthAllocations = [], isLoading: loadingMonth } = useQuery({
+    queryKey: ["cronograma-allocations-mensal", selectedPerson?.coordenadorId, selectedPerson?.nome, monthYear, monthIndex],
+    enabled: monthOpen && !!selectedPerson,
+    queryFn: async (): Promise<Allocation[]> => {
+      const { data, error } = await supabase
+        .from("schedule_allocations")
+        .select("id, coordenador_id, projetista_nome, date, entry_type, label, project_id, notes")
+        .eq("coordenador_id", selectedPerson!.coordenadorId)
+        .eq("projetista_nome", selectedPerson!.nome)
+        .gte("date", monthStartISO)
+        .lte("date", monthEndISO);
+      if (error) throw error;
+      return (data ?? []) as Allocation[];
+    },
+  });
+
+  const monthAllocMap = useMemo(() => {
+    const m = new Map<string, Allocation>();
+    monthAllocations.forEach((a) => m.set(a.date, a));
+    return m;
+  }, [monthAllocations]);
+
+
+
   const allocMap = useMemo(() => {
     const m = new Map<string, Allocation>();
     allocations.forEach((a) => m.set(`${a.coordenador_id}|${a.projetista_nome}|${a.date}`, a));
@@ -237,6 +334,7 @@ export default function Cronograma() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cronograma-allocations"] });
+      qc.invalidateQueries({ queryKey: ["cronograma-allocations-mensal"] });
       setEditing(null);
       toast.success("Alocação salva");
     },
@@ -250,6 +348,7 @@ export default function Cronograma() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cronograma-allocations"] });
+      qc.invalidateQueries({ queryKey: ["cronograma-allocations-mensal"] });
       setEditing(null);
       toast.success("Alocação removida");
     },
@@ -282,6 +381,13 @@ export default function Cronograma() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Button variant="outline" onClick={() => setMonthOpen(true)}>
+              <CalendarDays className="h-4 w-4 mr-2" />
+              Ver mês do projetista
+            </Button>
+
+
 
             <div className="flex items-center gap-1">
               <Button variant="outline" size="icon" onClick={() => setRefDate(addDays(weekStart, -7))}>
@@ -373,6 +479,111 @@ export default function Cronograma() {
           </div>
         )}
       </div>
+
+      <Dialog open={monthOpen} onOpenChange={setMonthOpen}>
+        <DialogContent className="max-w-[1200px] w-[95vw] max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              Visão mensal do projetista
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2 max-w-[520px]">
+              <Label>Projetista</Label>
+              <PersonCombobox
+                people={allPeople}
+                value={selectedPerson?.key ?? ""}
+                onSelect={(p) => setSelectedPerson(p)}
+              />
+            </div>
+
+            {!selectedPerson ? (
+              <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
+                Selecione um projetista para visualizar o mês.
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="outline" size="icon" onClick={() => setMonthRef(new Date(monthYear, monthIndex - 1, 1))}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" onClick={() => setMonthRef(new Date())}>Hoje</Button>
+                  <Button variant="outline" size="icon" onClick={() => setMonthRef(new Date(monthYear, monthIndex + 1, 1))}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm font-medium ml-2">
+                    {MONTHS[monthIndex]} de {monthYear}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {selectedPerson.nome}
+                    {selectedPerson.discipline ? ` — ${selectedPerson.discipline}` : ""} (Coordenador: {selectedPerson.coordenadorNome})
+                  </span>
+                </div>
+
+                {loadingMonth ? (
+                  <div className="flex items-center justify-center py-20 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando...
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-sm table-fixed">
+                      <thead>
+                        <tr className="bg-muted/50">
+                          {WEEKDAYS.map((w) => (
+                            <th key={w} className="text-left p-3 font-medium min-w-[160px]">{w}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthWeeks.map((week, wi) => (
+                          <tr key={wi} className="border-t align-top">
+                            {week.map((d, di) => {
+                              const inMonth = d.getMonth() === monthIndex && d.getFullYear() === monthYear;
+                              if (!inMonth) {
+                                return <td key={di} className="p-2 bg-muted/20" />;
+                              }
+                              const iso = toISO(d);
+                              const alloc = monthAllocMap.get(iso);
+                              const editable =
+                                editAll || (role === "coordenador" && profile?.id === selectedPerson.coordenadorId);
+                              return (
+                                <td key={di} className="p-2 group">
+                                  <p className="text-[11px] text-muted-foreground mb-1">{dd(d)}/{mm(d)}</p>
+                                  <Cell
+                                    allocation={alloc}
+                                    discipline={selectedPerson.discipline}
+                                    editable={editable}
+                                    onOpen={() =>
+                                      setEditing({
+                                        coordenadorId: selectedPerson.coordenadorId,
+                                        projetista: selectedPerson.nome,
+                                        date: iso,
+                                        allocation: alloc,
+                                      })
+                                    }
+                                  />
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMonthOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
 
       {editing && (
         <AllocationDialog
@@ -587,5 +798,78 @@ function AllocationDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PersonCombobox({
+  people, value, onSelect,
+}: {
+  people: PersonOption[];
+  value: string;
+  onSelect: (p: PersonOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const norm = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const selected = people.find((p) => p.key === value);
+  const filtered = useMemo(() => {
+    if (!search) return people;
+    const q = norm(search);
+    return people.filter(
+      (p) => norm(p.nome).includes(q) || norm(p.discipline).includes(q) || norm(p.coordenadorNome).includes(q)
+    );
+  }, [people, search]);
+
+  const optionLabel = (p: PersonOption) =>
+    `${p.nome}${p.discipline ? ` — ${p.discipline}` : ""} (Coordenador: ${p.coordenadorNome})`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn("w-full justify-between font-normal", !selected && "text-muted-foreground")}
+        >
+          <span className="truncate flex-1 text-left">
+            {selected ? optionLabel(selected) : "Selecionar projetista..."}
+          </span>
+          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="min-w-[320px] max-w-[520px] w-max p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput placeholder="Buscar pessoa..." value={search} onValueChange={setSearch} />
+          <CommandList className="max-h-[340px]">
+            <CommandEmpty>Nenhuma pessoa encontrada.</CommandEmpty>
+            <CommandGroup>
+              {filtered.map((p) => (
+                <CommandItem
+                  key={p.key}
+                  value={p.key}
+                  onSelect={() => {
+                    onSelect(p);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4 shrink-0", value === p.key ? "opacity-100" : "opacity-0")} />
+                  <div className="flex flex-col min-w-0">
+                    <span className="whitespace-normal break-words leading-snug">{p.nome}</span>
+                    <span className="text-xs text-muted-foreground whitespace-normal break-words">
+                      {p.discipline || "Sem disciplina"} · Coordenador: {p.coordenadorNome}
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
