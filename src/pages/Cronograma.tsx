@@ -800,3 +800,76 @@ function AllocationDialog({
     </Dialog>
   );
 }
+
+function PersonCombobox({
+  people, value, onSelect,
+}: {
+  people: PersonOption[];
+  value: string;
+  onSelect: (p: PersonOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const norm = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  const selected = people.find((p) => p.key === value);
+  const filtered = useMemo(() => {
+    if (!search) return people;
+    const q = norm(search);
+    return people.filter(
+      (p) => norm(p.nome).includes(q) || norm(p.discipline).includes(q) || norm(p.coordenadorNome).includes(q)
+    );
+  }, [people, search]);
+
+  const optionLabel = (p: PersonOption) =>
+    `${p.nome}${p.discipline ? ` — ${p.discipline}` : ""} (Coordenador: ${p.coordenadorNome})`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn("w-full justify-between font-normal", !selected && "text-muted-foreground")}
+        >
+          <span className="truncate flex-1 text-left">
+            {selected ? optionLabel(selected) : "Selecionar projetista..."}
+          </span>
+          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="min-w-[320px] max-w-[520px] w-max p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput placeholder="Buscar pessoa..." value={search} onValueChange={setSearch} />
+          <CommandList className="max-h-[340px]">
+            <CommandEmpty>Nenhuma pessoa encontrada.</CommandEmpty>
+            <CommandGroup>
+              {filtered.map((p) => (
+                <CommandItem
+                  key={p.key}
+                  value={p.key}
+                  onSelect={() => {
+                    onSelect(p);
+                    setOpen(false);
+                    setSearch("");
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4 shrink-0", value === p.key ? "opacity-100" : "opacity-0")} />
+                  <div className="flex flex-col min-w-0">
+                    <span className="whitespace-normal break-words leading-snug">{p.nome}</span>
+                    <span className="text-xs text-muted-foreground whitespace-normal break-words">
+                      {p.discipline || "Sem disciplina"} · Coordenador: {p.coordenadorNome}
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
