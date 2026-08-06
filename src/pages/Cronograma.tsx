@@ -103,6 +103,12 @@ export default function Cronograma() {
     allocation?: Allocation;
   } | null>(null);
 
+  const [monthOpen, setMonthOpen] = useState(false);
+  const [selectedPerson, setSelectedPerson] = useState<PersonOption | null>(null);
+  const [monthRef, setMonthRef] = useState(new Date());
+
+
+
   const weekStart = useMemo(() => mondayOf(refDate), [refDate]);
   const weekDays = useMemo(() => [0, 1, 2, 3, 4].map((i) => addDays(weekStart, i)), [weekStart]);
   const weekStartISO = toISO(weekDays[0]);
