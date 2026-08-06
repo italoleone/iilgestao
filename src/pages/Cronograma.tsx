@@ -16,7 +16,10 @@ import {
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
-import { ChevronLeft, ChevronRight, CalendarRange, Plus, Loader2 } from "lucide-react";
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
+import { ChevronLeft, ChevronRight, CalendarRange, CalendarDays, Plus, Loader2, Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
