@@ -480,6 +480,111 @@ export default function Cronograma() {
         )}
       </div>
 
+      <Dialog open={monthOpen} onOpenChange={setMonthOpen}>
+        <DialogContent className="max-w-[1200px] w-[95vw] max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              Visão mensal do projetista
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2 max-w-[520px]">
+              <Label>Projetista</Label>
+              <PersonCombobox
+                people={allPeople}
+                value={selectedPerson?.key ?? ""}
+                onSelect={(p) => setSelectedPerson(p)}
+              />
+            </div>
+
+            {!selectedPerson ? (
+              <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
+                Selecione um projetista para visualizar o mês.
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="outline" size="icon" onClick={() => setMonthRef(new Date(monthYear, monthIndex - 1, 1))}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" onClick={() => setMonthRef(new Date())}>Hoje</Button>
+                  <Button variant="outline" size="icon" onClick={() => setMonthRef(new Date(monthYear, monthIndex + 1, 1))}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm font-medium ml-2">
+                    {MONTHS[monthIndex]} de {monthYear}
+                  </span>
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {selectedPerson.nome}
+                    {selectedPerson.discipline ? ` — ${selectedPerson.discipline}` : ""} (Coordenador: {selectedPerson.coordenadorNome})
+                  </span>
+                </div>
+
+                {loadingMonth ? (
+                  <div className="flex items-center justify-center py-20 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando...
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border">
+                    <table className="w-full text-sm table-fixed">
+                      <thead>
+                        <tr className="bg-muted/50">
+                          {WEEKDAYS.map((w) => (
+                            <th key={w} className="text-left p-3 font-medium min-w-[160px]">{w}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthWeeks.map((week, wi) => (
+                          <tr key={wi} className="border-t align-top">
+                            {week.map((d, di) => {
+                              const inMonth = d.getMonth() === monthIndex && d.getFullYear() === monthYear;
+                              if (!inMonth) {
+                                return <td key={di} className="p-2 bg-muted/20" />;
+                              }
+                              const iso = toISO(d);
+                              const alloc = monthAllocMap.get(iso);
+                              const editable =
+                                editAll || (role === "coordenador" && profile?.id === selectedPerson.coordenadorId);
+                              return (
+                                <td key={di} className="p-2 group">
+                                  <p className="text-[11px] text-muted-foreground mb-1">{dd(d)}/{mm(d)}</p>
+                                  <Cell
+                                    allocation={alloc}
+                                    discipline={selectedPerson.discipline}
+                                    editable={editable}
+                                    onOpen={() =>
+                                      setEditing({
+                                        coordenadorId: selectedPerson.coordenadorId,
+                                        projetista: selectedPerson.nome,
+                                        date: iso,
+                                        allocation: alloc,
+                                      })
+                                    }
+                                  />
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMonthOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
+
       {editing && (
         <AllocationDialog
           key={`${editing.coordenadorId}-${editing.projetista}-${editing.date}`}
