@@ -382,6 +382,13 @@ export default function Cronograma() {
               </SelectContent>
             </Select>
 
+            <Button variant="outline" onClick={() => setMonthOpen(true)}>
+              <CalendarDays className="h-4 w-4 mr-2" />
+              Ver mês do projetista
+            </Button>
+
+
+
             <div className="flex items-center gap-1">
               <Button variant="outline" size="icon" onClick={() => setRefDate(addDays(weekStart, -7))}>
                 <ChevronLeft className="h-4 w-4" />
