@@ -66,6 +66,15 @@ interface Allocation {
   notes: string | null;
 }
 
+interface PersonOption {
+  key: string;
+  nome: string;
+  coordenadorId: string;
+  coordenadorNome: string;
+  discipline: string;
+}
+
+
 // --- date helpers (pure YYYY-MM-DD, no timezone) ---
 function toISO(d: Date) {
   const y = d.getFullYear();
