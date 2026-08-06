@@ -1,307 +1,591 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/AppLayout";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { ProjectCombobox } from "@/components/ProjectCombobox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, CalendarRange } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import { ChevronLeft, ChevronRight, CalendarRange, Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { canEditAllCronograma } from "@/utils/permissions";
 
 const MONTHS = [
-  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
+const WEEKDAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
 
-const DISCIPLINES = ["Estrutural", "Hidráulica", "Elétrica", "Fundações"];
+type EntryType = "trabalho" | "feriado" | "ferias" | "casual";
 
-const disciplineColor = (d: string) => {
-  const k = (d || "").toLowerCase();
-  if (k.includes("estrut")) return "bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30";
-  if (k.includes("hidr"))   return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
-  if (k.includes("elétr") || k.includes("eletr")) return "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30";
-  if (k.includes("funda"))  return "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30";
-  return "bg-muted text-muted-foreground border-border";
+const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
+  trabalho: "Trabalho",
+  feriado: "Feriado",
+  ferias: "Férias",
+  casual: "Casual",
 };
 
-interface Entry {
+const disciplineBorder = (d: string) => {
+  const k = (d || "").toLowerCase();
+  if (k.includes("estrut")) return "border-l-blue-500";
+  if (k.includes("hidr")) return "border-l-emerald-500";
+  if (k.includes("elétr") || k.includes("eletr")) return "border-l-amber-500";
+  if (k.includes("funda")) return "border-l-purple-500";
+  return "border-l-border";
+};
+
+interface Coordenador {
   id: string;
-  source: "proposal" | "project";
-  project_id: string;
-  project_name: string;
-  stage_label: string;
-  discipline: string; // best-effort
-  execution_month: number;
-  execution_year: number;
-  status: string;
-  amount: number;
+  name: string;
+  discipline: string | null;
 }
+
+interface Allocation {
+  id: string;
+  coordenador_id: string;
+  projetista_nome: string;
+  date: string;
+  entry_type: EntryType;
+  label: string | null;
+  project_id: string | null;
+  notes: string | null;
+}
+
+// --- date helpers (pure YYYY-MM-DD, no timezone) ---
+function toISO(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function mondayOf(ref: Date) {
+  const d = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+  const dow = d.getDay(); // 0=Sun
+  const diff = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+function addDays(d: Date, n: number) {
+  const c = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  c.setDate(c.getDate() + n);
+  return c;
+}
+const dd = (d: Date) => String(d.getDate()).padStart(2, "0");
+const mm = (d: Date) => String(d.getMonth() + 1).padStart(2, "0");
 
 export default function Cronograma() {
   const qc = useQueryClient();
-  const navigate = useNavigate();
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
+  const { profile } = useAuth();
+  const role = profile?.role ?? "projetista";
+  const editAll = canEditAllCronograma(role);
+
+  const [refDate, setRefDate] = useState(new Date());
   const [discipline, setDiscipline] = useState<string>("todas");
-  const [statusFilter, setStatusFilter] = useState<string>("todos");
+  const [editing, setEditing] = useState<{
+    coordenadorId: string;
+    projetista: string;
+    date: string;
+    allocation?: Allocation;
+  } | null>(null);
 
-  const { data: entries = [], isLoading } = useQuery({
-    queryKey: ["cronograma-entries"],
-    queryFn: async (): Promise<Entry[]> => {
-      // 1) Load all projects (id, name)
-      const { data: projects, error: pErr } = await supabase
-        .from("projects")
-        .select("id, name");
-      if (pErr) throw pErr;
+  const weekStart = useMemo(() => mondayOf(refDate), [refDate]);
+  const weekDays = useMemo(() => [0, 1, 2, 3, 4].map((i) => addDays(weekStart, i)), [weekStart]);
+  const weekStartISO = toISO(weekDays[0]);
+  const weekEndISO = toISO(weekDays[4]);
 
-      // 2) Load proposals linked to projects to map project_id -> proposal_id
-      const { data: proposals, error: prErr } = await supabase
-        .from("commercial_proposals")
-        .select("id, linked_project_id")
-        .not("linked_project_id", "is", null);
-      if (prErr) throw prErr;
+  const weekLabel = useMemo(() => {
+    const a = weekDays[0];
+    const b = weekDays[4];
+    if (a.getMonth() === b.getMonth()) {
+      return `${dd(a)} a ${dd(b)} de ${MONTHS[a.getMonth()]} de ${a.getFullYear()}`;
+    }
+    return `${dd(a)} de ${MONTHS[a.getMonth()]} a ${dd(b)} de ${MONTHS[b.getMonth()]} de ${b.getFullYear()}`;
+  }, [weekDays]);
 
-      const proposalByProject = new Map<string, string>();
-      const projectByProposal = new Map<string, string>();
-      for (const pr of proposals ?? []) {
-        if (pr.linked_project_id) {
-          proposalByProject.set(pr.linked_project_id as string, pr.id);
-          projectByProposal.set(pr.id, pr.linked_project_id as string);
-        }
-      }
-
-      const projectName = new Map<string, string>();
-      for (const p of projects ?? []) projectName.set(p.id as string, p.name as string);
-
-      // 3) Fetch proposal_billing_schedule for linked proposals
-      const proposalIds = Array.from(projectByProposal.keys());
-      const { data: pbs, error: pbsErr } = proposalIds.length
-        ? await supabase
-            .from("proposal_billing_schedule")
-            .select("*")
-            .in("proposal_id", proposalIds)
-        : { data: [], error: null as any };
-      if (pbsErr) throw pbsErr;
-
-      // 4) Fetch project_billing_schedule for projects without a linked proposal
-      const projectsWithProposal = new Set(proposalByProject.keys());
-      const projectsWithoutProposal = (projects ?? [])
-        .map((p) => p.id as string)
-        .filter((id) => !projectsWithProposal.has(id));
-      const { data: prjbs, error: prjbsErr } = projectsWithoutProposal.length
-        ? await supabase
-            .from("project_billing_schedule")
-            .select("*")
-            .in("project_id", projectsWithoutProposal)
-        : { data: [], error: null as any };
-      if (prjbsErr) throw prjbsErr;
-
-      const out: Entry[] = [];
-      for (const r of (pbs ?? []) as any[]) {
-        if (!r.execution_month || !r.execution_year) continue;
-        const projId = projectByProposal.get(r.proposal_id) ?? "";
-        out.push({
-          id: r.id,
-          source: "proposal",
-          project_id: projId,
-          project_name: projectName.get(projId) ?? "Projeto",
-          stage_label: r.stage_label,
-          discipline: r.discipline_label || "",
-          execution_month: r.execution_month,
-          execution_year: r.execution_year,
-          status: r.status,
-          amount: Number(r.amount || 0),
-        });
-      }
-      for (const r of (prjbs ?? []) as any[]) {
-        if (!r.execution_month || !r.execution_year) continue;
-        out.push({
-          id: r.id,
-          source: "project",
-          project_id: r.project_id,
-          project_name: projectName.get(r.project_id) ?? "Projeto",
-          stage_label: r.stage_label,
-          discipline: "",
-          execution_month: r.execution_month,
-          execution_year: r.execution_year,
-          status: r.status,
-          amount: Number(r.amount || 0),
-        });
-      }
-      return out;
+  // --- Coordenadores ---
+  const { data: coordenadores = [], isLoading: loadingCoords } = useQuery({
+    queryKey: ["cronograma-coordenadores"],
+    queryFn: async (): Promise<Coordenador[]> => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, name, discipline")
+        .eq("is_coordenador", true)
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as Coordenador[];
     },
   });
 
-  const toggleStatus = useMutation({
-    mutationFn: async (e: Entry) => {
-      const isDone = e.status === "executado";
-      const next = isDone ? "pendente" : "executado";
-      const table = e.source === "proposal" ? "proposal_billing_schedule" : "project_billing_schedule";
-      const { error } = await supabase.from(table).update({ status: next }).eq("id", e.id);
+  const disciplineOptions = useMemo(() => {
+    const set = new Set<string>();
+    coordenadores.forEach((c) => { if (c.discipline) set.add(c.discipline); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [coordenadores]);
+
+  const filteredCoords = useMemo(
+    () => (discipline === "todas" ? coordenadores : coordenadores.filter((c) => c.discipline === discipline)),
+    [coordenadores, discipline]
+  );
+  const coordIds = useMemo(() => filteredCoords.map((c) => c.id), [filteredCoords]);
+
+  // --- Roster ---
+  const { data: roster = [], isLoading: loadingRoster } = useQuery({
+    queryKey: ["cronograma-roster", coordIds],
+    enabled: coordIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("coordenador_projetistas")
+        .select("coordenador_id, projetista_nome")
+        .in("coordenador_id", coordIds);
+      if (error) throw error;
+      return (data ?? []) as { coordenador_id: string; projetista_nome: string }[];
+    },
+  });
+
+  // --- Allocations ---
+  const { data: allocations = [], isLoading: loadingAlloc } = useQuery({
+    queryKey: ["cronograma-allocations", coordIds, weekStartISO],
+    enabled: coordIds.length > 0,
+    queryFn: async (): Promise<Allocation[]> => {
+      const { data, error } = await supabase
+        .from("schedule_allocations")
+        .select("id, coordenador_id, projetista_nome, date, entry_type, label, project_id, notes")
+        .in("coordenador_id", coordIds)
+        .gte("date", weekStartISO)
+        .lte("date", weekEndISO);
+      if (error) throw error;
+      return (data ?? []) as Allocation[];
+    },
+  });
+
+  // --- Projects ---
+  const { data: projects = [] } = useQuery({
+    queryKey: ["cronograma-projects"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("projects").select("id, name, client").order("name");
+      if (error) throw error;
+      return (data ?? []) as { id: string; name: string; client: string }[];
+    },
+  });
+
+  const allocMap = useMemo(() => {
+    const m = new Map<string, Allocation>();
+    allocations.forEach((a) => m.set(`${a.coordenador_id}|${a.projetista_nome}|${a.date}`, a));
+    return m;
+  }, [allocations]);
+
+  const rosterByCoord = useMemo(() => {
+    const m = new Map<string, string[]>();
+    filteredCoords.forEach((c) => {
+      const names = roster.filter((r) => r.coordenador_id === c.id).map((r) => r.projetista_nome);
+      const all = Array.from(new Set([c.name, ...names])).sort((a, b) => a.localeCompare(b));
+      m.set(c.id, all);
+    });
+    return m;
+  }, [filteredCoords, roster]);
+
+  const canEditCoord = (coordenadorId: string) =>
+    editAll || (role === "coordenador" && profile?.id === coordenadorId);
+
+  const saveMutation = useMutation({
+    mutationFn: async (payload: {
+      id?: string;
+      coordenador_id: string;
+      projetista_nome: string;
+      date: string;
+      entry_type: EntryType;
+      label: string | null;
+      project_id: string | null;
+      notes: string | null;
+    }) => {
+      if (payload.id) {
+        const { error } = await supabase
+          .from("schedule_allocations")
+          .update({
+            entry_type: payload.entry_type,
+            label: payload.label,
+            project_id: payload.project_id,
+            notes: payload.notes,
+          })
+          .eq("id", payload.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("schedule_allocations").insert({
+          coordenador_id: payload.coordenador_id,
+          projetista_nome: payload.projetista_nome,
+          date: payload.date,
+          entry_type: payload.entry_type,
+          label: payload.label,
+          project_id: payload.project_id,
+          notes: payload.notes,
+          created_by: profile!.id,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cronograma-allocations"] });
+      setEditing(null);
+      toast.success("Alocação salva");
+    },
+    onError: (e: any) => toast.error(e?.message || "Erro ao salvar alocação"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("schedule_allocations").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["cronograma-entries"] }),
-    onError: (e: any) => toast.error(e.message),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cronograma-allocations"] });
+      setEditing(null);
+      toast.success("Alocação removida");
+    },
+    onError: (e: any) => toast.error(e?.message || "Erro ao remover alocação"),
   });
 
-  const filtered = useMemo(() => {
-    return entries.filter((e) => {
-      if (e.execution_year !== year) return false;
-      if (discipline !== "todas") {
-        const k = (e.discipline || "").toLowerCase();
-        if (!k.includes(discipline.toLowerCase().slice(0, 5))) return false;
-      }
-      if (statusFilter !== "todos") {
-        const isDone = e.status === "executado";
-        if (statusFilter === "executado" && !isDone) return false;
-        if (statusFilter === "pendente" && isDone) return false;
-      }
-      return true;
-    });
-  }, [entries, year, discipline, statusFilter]);
-
-  const byMonth = useMemo(() => {
-    const map: Record<number, Entry[]> = {};
-    for (let i = 1; i <= 12; i++) map[i] = [];
-    for (const e of filtered) map[e.execution_month]?.push(e);
-    return map;
-  }, [filtered]);
-
-  const today = new Date();
-  const curM = today.getMonth() + 1;
-  const curY = today.getFullYear();
-  const cardBorder = (e: Entry) => {
-    const isDone = e.status === "executado";
-    if (isDone) return "border-l-emerald-500";
-    const rank = e.execution_year * 12 + e.execution_month;
-    const cur = curY * 12 + curM;
-    if (rank < cur) return "border-l-red-500";
-    if (rank === cur) return "border-l-amber-500";
-    return "border-l-muted-foreground/30";
-  };
+  const loading = loadingCoords || loadingRoster || loadingAlloc;
 
   return (
     <AppLayout>
-      <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
-        <div className="flex items-center gap-3">
-          <CalendarRange className="h-6 w-6 text-accent" />
-          <h1 className="text-2xl font-bold">Cronograma de Execução</h1>
-        </div>
+      <div className="max-w-[1600px] mx-auto space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <CalendarRange className="h-6 w-6 text-primary" />
+            <div>
+              <h1 className="text-2xl font-bold">Cronograma de Execução</h1>
+              <p className="text-sm text-muted-foreground">Alocação semanal da equipe</p>
+            </div>
+          </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3">
-          <Select value={discipline} onValueChange={setDiscipline}>
-            <SelectTrigger className="w-[200px]"><SelectValue placeholder="Disciplina" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todas">Todas as disciplinas</SelectItem>
-              {DISCIPLINES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos os status</SelectItem>
-              <SelectItem value="pendente">Pendente</SelectItem>
-              <SelectItem value="executado">Executado</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={discipline} onValueChange={setDiscipline}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Disciplina" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas as disciplinas</SelectItem>
+                {disciplineOptions.map((d) => (
+                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <div className="ml-auto flex items-center gap-2">
-            <Button size="icon" variant="outline" onClick={() => setYear((y) => y - 1)}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="text-lg font-semibold tabular-nums w-16 text-center">{year}</div>
-            <Button size="icon" variant="outline" onClick={() => setYear((y) => y + 1)}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="icon" onClick={() => setRefDate(addDays(weekStart, -7))}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" onClick={() => setRefDate(new Date())}>Hoje</Button>
+              <Button variant="outline" size="icon" onClick={() => setRefDate(addDays(weekStart, 7))}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <span className="text-sm font-medium">{weekLabel}</span>
           </div>
         </div>
 
-        {/* Months horizontal */}
-        <div className="overflow-x-auto pb-4">
-          <div className="flex gap-4 min-w-max">
-            {MONTHS.map((m, idx) => {
-              const month = idx + 1;
-              const list = byMonth[month] ?? [];
-              const isCurrent = month === curM && year === curY;
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando...
+          </div>
+        ) : filteredCoords.length === 0 ? (
+          <div className="rounded-lg border border-dashed p-12 text-center text-muted-foreground">
+            Nenhum coordenador encontrado para a disciplina selecionada.
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {filteredCoords.map((coord) => {
+              const names = rosterByCoord.get(coord.id) ?? [];
+              const editable = canEditCoord(coord.id);
               return (
-                <div key={m} className="w-[260px] shrink-0">
-                  <div className={cn(
-                    "px-3 py-2 rounded-t-lg text-sm font-semibold border-b-2",
-                    isCurrent ? "bg-accent/10 border-accent text-accent-foreground" : "bg-muted border-border",
-                  )}>
-                    {m}
-                    <span className="ml-2 text-xs text-muted-foreground font-normal">({list.length})</span>
-                  </div>
-                  <div className="space-y-2 p-2 min-h-[200px] bg-card/30 rounded-b-lg">
-                    {list.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic text-center py-6">
-                        Nenhuma entrega prevista
-                      </p>
-                    ) : (
-                      list.map((e) => {
-                        const isDone = e.status === "executado";
-                        return (
-                          <div
-                            key={`${e.source}-${e.id}`}
-                            className={cn(
-                              "rounded-md border border-l-4 bg-card px-2 py-1.5 shadow-sm transition-all hover:shadow-md",
-                              cardBorder(e),
-                            )}
-                          >
-                            <div className="flex items-center gap-2 min-w-0">
-                              <button
-                                type="button"
-                                onClick={() => navigate(`/projetos/${e.project_id}`)}
-                                className="text-xs font-bold hover:underline text-left truncate"
-                                title={e.project_name}
-                              >
-                                {e.project_name}
-                              </button>
-                              {e.discipline && (
-                                <Badge variant="outline" className={cn("text-[9px] px-1 py-0 shrink-0", disciplineColor(e.discipline))}>
-                                  {e.discipline}
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 mt-1 min-w-0">
-                              <div className="text-[11px] text-muted-foreground truncate flex-1" title={e.stage_label}>
-                                {e.stage_label}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => toggleStatus.mutate(e)}
-                                className="shrink-0"
-                              >
-                                <Badge
-                                  className={cn(
-                                    "text-[9px] px-1.5 py-0 cursor-pointer transition-colors",
-                                    isDone
-                                      ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                                      : "bg-muted text-muted-foreground hover:bg-muted/80",
-                                  )}
-                                >
-                                  {isDone ? "Executado" : "Pendente"}
-                                </Badge>
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })
+                <section key={coord.id} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-semibold">{coord.name}</h2>
+                    {coord.discipline && (
+                      <span className="text-xs text-muted-foreground">{coord.discipline}</span>
                     )}
                   </div>
-                </div>
+
+                  {names.length === 0 ? (
+                    <div className="rounded-lg border border-dashed p-6 text-sm text-center text-muted-foreground">
+                      Nenhum projetista na equipe deste coordenador.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-muted/50">
+                            <th className="text-left p-3 w-[220px] font-medium">Projetista</th>
+                            {weekDays.map((d, i) => (
+                              <th key={i} className="text-left p-3 font-medium min-w-[180px]">
+                                {WEEKDAYS[i]}{" "}
+                                <span className="text-muted-foreground font-normal">{dd(d)}/{mm(d)}</span>
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {names.map((nome) => (
+                            <tr key={nome} className="border-t align-top">
+                              <td className="p-3 font-medium">{nome}</td>
+                              {weekDays.map((d, i) => {
+                                const iso = toISO(d);
+                                const alloc = allocMap.get(`${coord.id}|${nome}|${iso}`);
+                                return (
+                                  <td key={i} className="p-2 group">
+                                    <Cell
+                                      allocation={alloc}
+                                      discipline={coord.discipline || ""}
+                                      editable={editable}
+                                      onOpen={() =>
+                                        setEditing({
+                                          coordenadorId: coord.id,
+                                          projetista: nome,
+                                          date: iso,
+                                          allocation: alloc,
+                                        })
+                                      }
+                                    />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
               );
             })}
           </div>
+        )}
+      </div>
+
+      {editing && (
+        <AllocationDialog
+          key={`${editing.coordenadorId}-${editing.projetista}-${editing.date}`}
+          open
+          onOpenChange={(o) => { if (!o) setEditing(null); }}
+          projetista={editing.projetista}
+          date={editing.date}
+          allocation={editing.allocation}
+          projects={projects}
+          saving={saveMutation.isPending || deleteMutation.isPending}
+          onSave={(values) =>
+            saveMutation.mutate({
+              id: editing.allocation?.id,
+              coordenador_id: editing.coordenadorId,
+              projetista_nome: editing.projetista,
+              date: editing.date,
+              ...values,
+            })
+          }
+          onDelete={editing.allocation ? () => deleteMutation.mutate(editing.allocation!.id) : undefined}
+        />
+      )}
+    </AppLayout>
+  );
+}
+
+function cellClasses(alloc: Allocation | undefined, discipline: string) {
+  if (!alloc) return "";
+  switch (alloc.entry_type) {
+    case "feriado":
+      return "bg-red-500/10 text-red-700 dark:text-red-300 border-l-red-500";
+    case "ferias":
+      return "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-l-purple-500";
+    case "casual":
+      return "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-l-blue-500";
+    default:
+      return cn("bg-card", disciplineBorder(discipline));
+  }
+}
+
+function displayLabel(alloc: Allocation) {
+  if (alloc.label && alloc.label.trim()) return alloc.label;
+  if (alloc.entry_type === "feriado") return "Feriado";
+  if (alloc.entry_type === "ferias") return "Férias";
+  if (alloc.entry_type === "casual") return "Casual";
+  return "Trabalho";
+}
+
+function Cell({
+  allocation, discipline, editable, onOpen,
+}: {
+  allocation?: Allocation;
+  discipline: string;
+  editable: boolean;
+  onOpen: () => void;
+}) {
+  if (!allocation) {
+    if (!editable) return <div className="h-12" />;
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="h-12 w-full rounded-md border border-dashed text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 hover:bg-muted/50"
+      >
+        <Plus className="h-3 w-3" /> adicionar
+      </button>
+    );
+  }
+
+  const content = (
+    <div
+      className={cn(
+        "min-h-12 w-full rounded-md border border-l-4 p-2 text-left text-xs",
+        cellClasses(allocation, discipline)
+      )}
+    >
+      <p className="font-medium leading-snug break-words">{displayLabel(allocation)}</p>
+      {allocation.notes && (
+        <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{allocation.notes}</p>
+      )}
+    </div>
+  );
+
+  if (editable) {
+    return (
+      <button type="button" onClick={onOpen} className="w-full">
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="w-full cursor-default">{content}</button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 text-sm space-y-1">
+        <p className="font-medium">{displayLabel(allocation)}</p>
+        <p className="text-xs text-muted-foreground">
+          {ENTRY_TYPE_LABELS[allocation.entry_type]}
+        </p>
+        {allocation.notes && <p className="text-xs">{allocation.notes}</p>}
+        <p className="text-[11px] text-muted-foreground pt-1">Somente leitura</p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function AllocationDialog({
+  open, onOpenChange, projetista, date, allocation, projects, saving, onSave, onDelete,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  projetista: string;
+  date: string;
+  allocation?: Allocation;
+  projects: { id: string; name: string; client: string }[];
+  saving: boolean;
+  onSave: (v: {
+    entry_type: EntryType;
+    label: string | null;
+    project_id: string | null;
+    notes: string | null;
+  }) => void;
+  onDelete?: () => void;
+}) {
+  const [entryType, setEntryType] = useState<EntryType>(allocation?.entry_type ?? "trabalho");
+  const [projectId, setProjectId] = useState<string>(allocation?.project_id ?? "");
+  const [label, setLabel] = useState<string>(allocation?.label ?? "");
+  const [notes, setNotes] = useState<string>(allocation?.notes ?? "");
+
+  const [y, m, d] = date.split("-");
+  const showProject = entryType === "trabalho" || entryType === "casual";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>
+            {projetista} — {d}/{m}/{y}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Tipo</Label>
+            <Select value={entryType} onValueChange={(v) => setEntryType(v as EntryType)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {(Object.keys(ENTRY_TYPE_LABELS) as EntryType[]).map((t) => (
+                  <SelectItem key={t} value={t}>{ENTRY_TYPE_LABELS[t]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {showProject && (
+            <div className="space-y-2">
+              <Label>Projeto (opcional)</Label>
+              <ProjectCombobox
+                projects={projects}
+                value={projectId}
+                onValueChange={(v) => {
+                  setProjectId(v);
+                  const p = projects.find((pr) => pr.id === v);
+                  if (p && !label.trim()) setLabel(p.name);
+                }}
+                placeholder="Vincular projeto"
+              />
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label>Rótulo</Label>
+            <Input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Texto exibido na célula"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Observação</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+          </div>
         </div>
 
-        {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-      </div>
-    </AppLayout>
+        <DialogFooter className="gap-2 sm:justify-between">
+          <div>
+            {onDelete && (
+              <Button variant="destructive" onClick={onDelete} disabled={saving}>Excluir</Button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
+            <Button
+              onClick={() =>
+                onSave({
+                  entry_type: entryType,
+                  label: label.trim() ? label.trim() : null,
+                  project_id: showProject && projectId ? projectId : null,
+                  notes: notes.trim() ? notes.trim() : null,
+                })
+              }
+              disabled={saving}
+            >
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Salvar
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
