@@ -845,6 +845,70 @@ export type Database = {
           },
         ]
       }
+      schedule_allocations: {
+        Row: {
+          coordenador_id: string
+          created_at: string
+          created_by: string
+          date: string
+          entry_type: string
+          id: string
+          label: string | null
+          notes: string | null
+          project_id: string | null
+          projetista_nome: string
+          updated_at: string
+        }
+        Insert: {
+          coordenador_id: string
+          created_at?: string
+          created_by: string
+          date: string
+          entry_type?: string
+          id?: string
+          label?: string | null
+          notes?: string | null
+          project_id?: string | null
+          projetista_nome: string
+          updated_at?: string
+        }
+        Update: {
+          coordenador_id?: string
+          created_at?: string
+          created_by?: string
+          date?: string
+          entry_type?: string
+          id?: string
+          label?: string | null
+          notes?: string | null
+          project_id?: string | null
+          projetista_nome?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_allocations_coordenador_id_fkey"
+            columns: ["coordenador_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_allocations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_allocations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_attachments: {
         Row: {
           created_at: string
