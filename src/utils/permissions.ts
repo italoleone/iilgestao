@@ -62,3 +62,11 @@ export function getTaskFilter(role: AppRole, userId: string): TaskFilter {
 export function canAccessBonificacao(role: AppRole): boolean {
   return role === "admin_geral" || role === "admin" || role === "planejamento";
 }
+
+export function canAccessCronograma(role: AppRole): boolean {
+  return role === "admin_geral" || role === "admin" || role === "planejamento" || role === "coordenador";
+}
+
+export function canEditAllCronograma(role: AppRole): boolean {
+  return role === "admin_geral" || role === "admin" || role === "planejamento";
+}
