@@ -198,6 +198,85 @@ export default function Cronograma() {
     },
   });
 
+  // --- Todas as pessoas (para a visão mensal) ---
+  const { data: allPeople = [] } = useQuery({
+    queryKey: ["cronograma-all-people"],
+    enabled: monthOpen,
+    queryFn: async (): Promise<PersonOption[]> => {
+      const [{ data: coords, error: e1 }, { data: rows, error: e2 }] = await Promise.all([
+        supabase.from("profiles").select("id, name, discipline").eq("is_coordenador", true).order("name"),
+        supabase.from("coordenador_projetistas").select("coordenador_id, projetista_nome"),
+      ]);
+      if (e1) throw e1;
+      if (e2) throw e2;
+      const coordList = (coords ?? []) as Coordenador[];
+      const coordById = new Map(coordList.map((c) => [c.id, c]));
+      const out: PersonOption[] = [];
+      const seen = new Set<string>();
+      const push = (nome: string, coordenadorId: string) => {
+        const c = coordById.get(coordenadorId);
+        if (!c) return;
+        const key = `${coordenadorId}|${nome}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({
+          key,
+          nome,
+          coordenadorId,
+          coordenadorNome: c.name,
+          discipline: c.discipline || "",
+        });
+      };
+      coordList.forEach((c) => push(c.name, c.id));
+      ((rows ?? []) as { coordenador_id: string; projetista_nome: string }[]).forEach((r) =>
+        push(r.projetista_nome, r.coordenador_id)
+      );
+      return out.sort((a, b) => a.nome.localeCompare(b.nome));
+    },
+  });
+
+  // --- Semanas do mês (Seg-Sex) ---
+  const monthYear = monthRef.getFullYear();
+  const monthIndex = monthRef.getMonth();
+  const monthWeeks = useMemo(() => {
+    const first = new Date(monthYear, monthIndex, 1);
+    const last = new Date(monthYear, monthIndex + 1, 0);
+    const weeks: Date[][] = [];
+    let cursor = mondayOf(first);
+    while (cursor <= last) {
+      weeks.push([0, 1, 2, 3, 4].map((i) => addDays(cursor, i)));
+      cursor = addDays(cursor, 7);
+    }
+    return weeks;
+  }, [monthYear, monthIndex]);
+
+  const monthStartISO = toISO(new Date(monthYear, monthIndex, 1));
+  const monthEndISO = toISO(new Date(monthYear, monthIndex + 1, 0));
+
+  const { data: monthAllocations = [], isLoading: loadingMonth } = useQuery({
+    queryKey: ["cronograma-allocations-mensal", selectedPerson?.coordenadorId, selectedPerson?.nome, monthYear, monthIndex],
+    enabled: monthOpen && !!selectedPerson,
+    queryFn: async (): Promise<Allocation[]> => {
+      const { data, error } = await supabase
+        .from("schedule_allocations")
+        .select("id, coordenador_id, projetista_nome, date, entry_type, label, project_id, notes")
+        .eq("coordenador_id", selectedPerson!.coordenadorId)
+        .eq("projetista_nome", selectedPerson!.nome)
+        .gte("date", monthStartISO)
+        .lte("date", monthEndISO);
+      if (error) throw error;
+      return (data ?? []) as Allocation[];
+    },
+  });
+
+  const monthAllocMap = useMemo(() => {
+    const m = new Map<string, Allocation>();
+    monthAllocations.forEach((a) => m.set(a.date, a));
+    return m;
+  }, [monthAllocations]);
+
+
+
   const allocMap = useMemo(() => {
     const m = new Map<string, Allocation>();
     allocations.forEach((a) => m.set(`${a.coordenador_id}|${a.projetista_nome}|${a.date}`, a));
