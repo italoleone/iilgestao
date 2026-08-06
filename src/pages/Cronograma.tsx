@@ -348,6 +348,7 @@ export default function Cronograma() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cronograma-allocations"] });
+      qc.invalidateQueries({ queryKey: ["cronograma-allocations-mensal"] });
       setEditing(null);
       toast.success("Alocação removida");
     },
