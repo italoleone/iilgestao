@@ -460,19 +460,19 @@ export default function Cronograma() {
                               <td className="p-3 font-medium">{nome}</td>
                               {weekDays.map((d, i) => {
                                 const iso = toISO(d);
-                                const alloc = allocMap.get(`${coord.id}|${nome}|${iso}`);
+                                const allocs = allocMap.get(`${coord.id}|${nome}|${iso}`) ?? [];
                                 return (
                                   <td key={i} className="p-2 group">
                                     <Cell
-                                      allocation={alloc}
+                                      allocations={allocs}
                                       discipline={coord.discipline || ""}
                                       editable={editable}
-                                      onOpen={() =>
+                                      onOpen={(a) =>
                                         setEditing({
                                           coordenadorId: coord.id,
                                           projetista: nome,
                                           date: iso,
-                                          allocation: alloc,
+                                          allocation: a,
                                         })
                                       }
                                     />
@@ -557,22 +557,22 @@ export default function Cronograma() {
                                 return <td key={di} className="p-2 bg-muted/20" />;
                               }
                               const iso = toISO(d);
-                              const alloc = monthAllocMap.get(iso);
+                              const allocs = monthAllocMap.get(iso) ?? [];
                               const editable =
                                 editAll || (role === "coordenador" && profile?.id === selectedPerson.coordenadorId);
                               return (
                                 <td key={di} className="p-2 group">
                                   <p className="text-[11px] text-muted-foreground mb-1">{dd(d)}/{mm(d)}</p>
                                   <Cell
-                                    allocation={alloc}
+                                    allocations={allocs}
                                     discipline={selectedPerson.discipline}
                                     editable={editable}
-                                    onOpen={() =>
+                                    onOpen={(a) =>
                                       setEditing({
                                         coordenadorId: selectedPerson.coordenadorId,
                                         projetista: selectedPerson.nome,
                                         date: iso,
-                                        allocation: alloc,
+                                        allocation: a,
                                       })
                                     }
                                   />
