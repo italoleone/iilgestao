@@ -1,0 +1,2 @@
+ALTER TABLE public.schedule_allocations
+  DROP CONSTRAINT IF EXISTS schedule_allocations_coordenador_id_projetista_nome_date_key;

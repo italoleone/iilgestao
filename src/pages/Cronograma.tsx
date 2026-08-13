@@ -64,6 +64,7 @@ interface Allocation {
   label: string | null;
   project_id: string | null;
   notes: string | null;
+  created_at?: string;
 }
 
 interface PersonOption {
@@ -179,10 +180,11 @@ export default function Cronograma() {
     queryFn: async (): Promise<Allocation[]> => {
       const { data, error } = await supabase
         .from("schedule_allocations")
-        .select("id, coordenador_id, projetista_nome, date, entry_type, label, project_id, notes")
+        .select("id, coordenador_id, projetista_nome, date, entry_type, label, project_id, notes, created_at")
         .in("coordenador_id", coordIds)
         .gte("date", weekStartISO)
-        .lte("date", weekEndISO);
+        .lte("date", weekEndISO)
+        .order("created_at", { ascending: true });
       if (error) throw error;
       return (data ?? []) as Allocation[];
     },
@@ -259,27 +261,37 @@ export default function Cronograma() {
     queryFn: async (): Promise<Allocation[]> => {
       const { data, error } = await supabase
         .from("schedule_allocations")
-        .select("id, coordenador_id, projetista_nome, date, entry_type, label, project_id, notes")
+        .select("id, coordenador_id, projetista_nome, date, entry_type, label, project_id, notes, created_at")
         .eq("coordenador_id", selectedPerson!.coordenadorId)
         .eq("projetista_nome", selectedPerson!.nome)
         .gte("date", monthStartISO)
-        .lte("date", monthEndISO);
+        .lte("date", monthEndISO)
+        .order("created_at", { ascending: true });
       if (error) throw error;
       return (data ?? []) as Allocation[];
     },
   });
 
   const monthAllocMap = useMemo(() => {
-    const m = new Map<string, Allocation>();
-    monthAllocations.forEach((a) => m.set(a.date, a));
+    const m = new Map<string, Allocation[]>();
+    monthAllocations.forEach((a) => {
+      const arr = m.get(a.date);
+      if (arr) arr.push(a);
+      else m.set(a.date, [a]);
+    });
     return m;
   }, [monthAllocations]);
 
 
 
   const allocMap = useMemo(() => {
-    const m = new Map<string, Allocation>();
-    allocations.forEach((a) => m.set(`${a.coordenador_id}|${a.projetista_nome}|${a.date}`, a));
+    const m = new Map<string, Allocation[]>();
+    allocations.forEach((a) => {
+      const k = `${a.coordenador_id}|${a.projetista_nome}|${a.date}`;
+      const arr = m.get(k);
+      if (arr) arr.push(a);
+      else m.set(k, [a]);
+    });
     return m;
   }, [allocations]);
 
@@ -448,19 +460,19 @@ export default function Cronograma() {
                               <td className="p-3 font-medium">{nome}</td>
                               {weekDays.map((d, i) => {
                                 const iso = toISO(d);
-                                const alloc = allocMap.get(`${coord.id}|${nome}|${iso}`);
+                                const allocs = allocMap.get(`${coord.id}|${nome}|${iso}`) ?? [];
                                 return (
                                   <td key={i} className="p-2 group">
                                     <Cell
-                                      allocation={alloc}
+                                      allocations={allocs}
                                       discipline={coord.discipline || ""}
                                       editable={editable}
-                                      onOpen={() =>
+                                      onOpen={(a) =>
                                         setEditing({
                                           coordenadorId: coord.id,
                                           projetista: nome,
                                           date: iso,
-                                          allocation: alloc,
+                                          allocation: a,
                                         })
                                       }
                                     />
@@ -545,22 +557,22 @@ export default function Cronograma() {
                                 return <td key={di} className="p-2 bg-muted/20" />;
                               }
                               const iso = toISO(d);
-                              const alloc = monthAllocMap.get(iso);
+                              const allocs = monthAllocMap.get(iso) ?? [];
                               const editable =
                                 editAll || (role === "coordenador" && profile?.id === selectedPerson.coordenadorId);
                               return (
                                 <td key={di} className="p-2 group">
                                   <p className="text-[11px] text-muted-foreground mb-1">{dd(d)}/{mm(d)}</p>
                                   <Cell
-                                    allocation={alloc}
+                                    allocations={allocs}
                                     discipline={selectedPerson.discipline}
                                     editable={editable}
-                                    onOpen={() =>
+                                    onOpen={(a) =>
                                       setEditing({
                                         coordenadorId: selectedPerson.coordenadorId,
                                         projetista: selectedPerson.nome,
                                         date: iso,
-                                        allocation: alloc,
+                                        allocation: a,
                                       })
                                     }
                                   />
@@ -587,7 +599,7 @@ export default function Cronograma() {
 
       {editing && (
         <AllocationDialog
-          key={`${editing.coordenadorId}-${editing.projetista}-${editing.date}`}
+          key={editing.allocation?.id ?? `new-${editing.coordenadorId}-${editing.projetista}-${editing.date}`}
           open
           onOpenChange={(o) => { if (!o) setEditing(null); }}
           projetista={editing.projetista}
@@ -634,26 +646,55 @@ function displayLabel(alloc: Allocation) {
 }
 
 function Cell({
+  allocations, discipline, editable, onOpen,
+}: {
+  allocations: Allocation[];
+  discipline: string;
+  editable: boolean;
+  onOpen: (allocation?: Allocation) => void;
+}) {
+  const addButton = editable ? (
+    <button
+      type="button"
+      onClick={() => onOpen(undefined)}
+      className={cn(
+        "h-8 w-full rounded-md border border-dashed text-xs text-muted-foreground flex items-center justify-center gap-1 hover:bg-muted/50 transition-opacity",
+        allocations.length === 0 && "h-12 opacity-0 group-hover:opacity-100"
+      )}
+    >
+      <Plus className="h-3 w-3" /> adicionar
+    </button>
+  ) : null;
+
+  if (allocations.length === 0) {
+    if (!editable) return <div className="h-12" />;
+    return addButton;
+  }
+
+  return (
+    <div className="space-y-1">
+      {allocations.map((allocation) => (
+        <AllocationCard
+          key={allocation.id}
+          allocation={allocation}
+          discipline={discipline}
+          editable={editable}
+          onOpen={() => onOpen(allocation)}
+        />
+      ))}
+      {addButton}
+    </div>
+  );
+}
+
+function AllocationCard({
   allocation, discipline, editable, onOpen,
 }: {
-  allocation?: Allocation;
+  allocation: Allocation;
   discipline: string;
   editable: boolean;
   onOpen: () => void;
 }) {
-  if (!allocation) {
-    if (!editable) return <div className="h-12" />;
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        className="h-12 w-full rounded-md border border-dashed text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 hover:bg-muted/50"
-      >
-        <Plus className="h-3 w-3" /> adicionar
-      </button>
-    );
-  }
-
   const content = (
     <div
       className={cn(
