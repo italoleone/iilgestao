@@ -64,6 +64,7 @@ interface Allocation {
   label: string | null;
   project_id: string | null;
   notes: string | null;
+  created_at?: string;
 }
 
 interface PersonOption {
@@ -179,10 +180,11 @@ export default function Cronograma() {
     queryFn: async (): Promise<Allocation[]> => {
       const { data, error } = await supabase
         .from("schedule_allocations")
-        .select("id, coordenador_id, projetista_nome, date, entry_type, label, project_id, notes")
+        .select("id, coordenador_id, projetista_nome, date, entry_type, label, project_id, notes, created_at")
         .in("coordenador_id", coordIds)
         .gte("date", weekStartISO)
-        .lte("date", weekEndISO);
+        .lte("date", weekEndISO)
+        .order("created_at", { ascending: true });
       if (error) throw error;
       return (data ?? []) as Allocation[];
     },
@@ -259,27 +261,37 @@ export default function Cronograma() {
     queryFn: async (): Promise<Allocation[]> => {
       const { data, error } = await supabase
         .from("schedule_allocations")
-        .select("id, coordenador_id, projetista_nome, date, entry_type, label, project_id, notes")
+        .select("id, coordenador_id, projetista_nome, date, entry_type, label, project_id, notes, created_at")
         .eq("coordenador_id", selectedPerson!.coordenadorId)
         .eq("projetista_nome", selectedPerson!.nome)
         .gte("date", monthStartISO)
-        .lte("date", monthEndISO);
+        .lte("date", monthEndISO)
+        .order("created_at", { ascending: true });
       if (error) throw error;
       return (data ?? []) as Allocation[];
     },
   });
 
   const monthAllocMap = useMemo(() => {
-    const m = new Map<string, Allocation>();
-    monthAllocations.forEach((a) => m.set(a.date, a));
+    const m = new Map<string, Allocation[]>();
+    monthAllocations.forEach((a) => {
+      const arr = m.get(a.date);
+      if (arr) arr.push(a);
+      else m.set(a.date, [a]);
+    });
     return m;
   }, [monthAllocations]);
 
 
 
   const allocMap = useMemo(() => {
-    const m = new Map<string, Allocation>();
-    allocations.forEach((a) => m.set(`${a.coordenador_id}|${a.projetista_nome}|${a.date}`, a));
+    const m = new Map<string, Allocation[]>();
+    allocations.forEach((a) => {
+      const k = `${a.coordenador_id}|${a.projetista_nome}|${a.date}`;
+      const arr = m.get(k);
+      if (arr) arr.push(a);
+      else m.set(k, [a]);
+    });
     return m;
   }, [allocations]);
 
