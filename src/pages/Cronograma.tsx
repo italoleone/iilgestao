@@ -599,7 +599,7 @@ export default function Cronograma() {
 
       {editing && (
         <AllocationDialog
-          key={`${editing.coordenadorId}-${editing.projetista}-${editing.date}`}
+          key={editing.allocation?.id ?? `new-${editing.coordenadorId}-${editing.projetista}-${editing.date}`}
           open
           onOpenChange={(o) => { if (!o) setEditing(null); }}
           projetista={editing.projetista}
@@ -646,26 +646,55 @@ function displayLabel(alloc: Allocation) {
 }
 
 function Cell({
+  allocations, discipline, editable, onOpen,
+}: {
+  allocations: Allocation[];
+  discipline: string;
+  editable: boolean;
+  onOpen: (allocation?: Allocation) => void;
+}) {
+  const addButton = editable ? (
+    <button
+      type="button"
+      onClick={() => onOpen(undefined)}
+      className={cn(
+        "h-8 w-full rounded-md border border-dashed text-xs text-muted-foreground flex items-center justify-center gap-1 hover:bg-muted/50 transition-opacity",
+        allocations.length === 0 && "h-12 opacity-0 group-hover:opacity-100"
+      )}
+    >
+      <Plus className="h-3 w-3" /> adicionar
+    </button>
+  ) : null;
+
+  if (allocations.length === 0) {
+    if (!editable) return <div className="h-12" />;
+    return addButton;
+  }
+
+  return (
+    <div className="space-y-1">
+      {allocations.map((allocation) => (
+        <AllocationCard
+          key={allocation.id}
+          allocation={allocation}
+          discipline={discipline}
+          editable={editable}
+          onOpen={() => onOpen(allocation)}
+        />
+      ))}
+      {addButton}
+    </div>
+  );
+}
+
+function AllocationCard({
   allocation, discipline, editable, onOpen,
 }: {
-  allocation?: Allocation;
+  allocation: Allocation;
   discipline: string;
   editable: boolean;
   onOpen: () => void;
 }) {
-  if (!allocation) {
-    if (!editable) return <div className="h-12" />;
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        className="h-12 w-full rounded-md border border-dashed text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1 hover:bg-muted/50"
-      >
-        <Plus className="h-3 w-3" /> adicionar
-      </button>
-    );
-  }
-
   const content = (
     <div
       className={cn(
