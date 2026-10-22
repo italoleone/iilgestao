@@ -5,6 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 import JSZip from "npm:jszip@3";
+import { requireActiveUser, forbidden } from "../_shared/auth.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -79,6 +80,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  const auth = await requireActiveUser(req, corsHeaders);
+  if (!auth.ok) return auth.response;
+  if (auth.role !== "admin_geral" && auth.role !== "admin") return forbidden(corsHeaders);
 
   try {
     const { proposal_id } = await req.json();
