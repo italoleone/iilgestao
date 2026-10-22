@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Check, X, UserCog, Shield, DollarSign } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Check, X, UserCog, Shield, DollarSign, UserX } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, type AppRole } from "@/contexts/AuthContext";
 
@@ -39,6 +40,9 @@ export default function Usuarios() {
   const { canAccessFinanceiro } = useAuth();
   const [pendingUsers, setPendingUsers] = useState<UserRow[]>([]);
   const [activeUsers, setActiveUsers] = useState<UserRow[]>([]);
+  const [inactiveUsers, setInactiveUsers] = useState<UserRow[]>([]);
+  const [confirmAction, setConfirmAction] = useState<{ user: UserRow; action: "deactivate" | "reactivate" } | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [approveDialog, setApproveDialog] = useState<UserRow | null>(null);
   const [selectedRole, setSelectedRole] = useState<AppRole | "">("");
@@ -68,6 +72,15 @@ export default function Usuarios() {
           cost_per_hour: p.cost_per_hour,
         } as UserRow));
 
+      const inactive = profiles
+        .filter((p) => (p as any).status === "inactive")
+        .map((p) => ({
+          ...p,
+          status: "inactive",
+          role: roleMap.get(p.id) || undefined,
+        } as UserRow));
+
+      setInactiveUsers(inactive);
       setPendingUsers(pending);
       setActiveUsers(active);
     }
@@ -122,14 +135,26 @@ export default function Usuarios() {
     await fetchUsers();
   };
 
-  const handleReject = async (user: UserRow) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ status: "rejected" } as any)
-      .eq("id", user.id);
-
+  const callSetStatus = async (userId: string, action: "deactivate" | "reactivate" | "reject") => {
+    const { data, error } = await supabase.functions.invoke("admin-set-user-status", {
+      body: { user_id: userId, action },
+    });
     if (error) {
-      toast.error("Erro ao rejeitar: " + error.message);
+      let msg = error.message;
+      try {
+        const ctx = await (error as any).context?.json?.();
+        if (ctx?.error) msg = ctx.error;
+      } catch { /* ignore */ }
+      return msg;
+    }
+    if ((data as any)?.error) return (data as any).error as string;
+    return null;
+  };
+
+  const handleReject = async (user: UserRow) => {
+    const err = await callSetStatus(user.id, "reject");
+    if (err) {
+      toast.error("Erro ao rejeitar: " + err);
       return;
     }
 
@@ -156,18 +181,18 @@ export default function Usuarios() {
     fetchUsers();
   };
 
-  const handleDeactivate = async (user: UserRow) => {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ status: "inactive" } as any)
-      .eq("id", user.id);
-
-    if (error) {
-      toast.error("Erro ao desativar: " + error.message);
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+    const { user, action } = confirmAction;
+    setActionBusy(true);
+    const err = await callSetStatus(user.id, action);
+    setActionBusy(false);
+    if (err) {
+      toast.error((action === "deactivate" ? "Erro ao desativar: " : "Erro ao reativar: ") + err);
       return;
     }
-
-    toast.success(`${user.name} desativado.`);
+    toast.success(action === "deactivate" ? `${user.name} desativado.` : `${user.name} reativado.`);
+    setConfirmAction(null);
     fetchUsers();
   };
 
@@ -328,7 +353,7 @@ export default function Usuarios() {
                       <Button size="sm" variant="outline" className="gap-1" onClick={() => { setEditRoleDialog(user); setEditRole((user.role as AppRole) || ""); }}>
                         <UserCog className="h-3.5 w-3.5" /> Alterar função
                       </Button>
-                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => handleDeactivate(user)}>
+                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setConfirmAction({ user, action: "deactivate" })}>
                         Desativar
                       </Button>
                     </div>
@@ -338,7 +363,70 @@ export default function Usuarios() {
             )}
           </CardContent>
         </Card>
+
+        {/* Inactive Users */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <UserX className="h-5 w-5 text-muted-foreground" />
+              Usuários Inativos ({inactiveUsers.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Carregando...</p>
+            ) : inactiveUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum usuário inativo.</p>
+            ) : (
+              <div className="space-y-3">
+                {inactiveUsers.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                    <div>
+                      <p className="font-medium">{user.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className="text-sm text-muted-foreground">{user.email}</span>
+                        {user.role && (
+                          <Badge variant="outline" className="text-xs">
+                            {ROLE_DISPLAY[user.role] || user.role}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => setConfirmAction({ user, action: "reactivate" })}>
+                      Reativar
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && !actionBusy && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction?.action === "deactivate" ? `Desativar ${confirmAction?.user.name}?` : `Reativar ${confirmAction?.user.name}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction?.action === "deactivate"
+                ? "A pessoa perde o acesso imediatamente e o timer ativo é encerrado."
+                : "A pessoa volta a ter acesso ao sistema com a função atual."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionBusy}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={actionBusy}
+              onClick={(e) => { e.preventDefault(); handleConfirmAction(); }}
+              className={confirmAction?.action === "deactivate" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+            >
+              {actionBusy ? "Aguarde..." : confirmAction?.action === "deactivate" ? "Desativar" : "Reativar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Approve Dialog */}
       <Dialog open={!!approveDialog} onOpenChange={(open) => !open && setApproveDialog(null)}>
