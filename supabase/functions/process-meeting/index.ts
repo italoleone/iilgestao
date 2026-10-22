@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireActiveUser, forbidden } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,7 +43,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const auth = await requireActiveUser(req, corsHeaders);
+  if (!auth.ok) return auth.response;
+
   let meetingId: string | undefined;
+  let authorized = false;
 
   try {
     const body = await req.json();
@@ -59,12 +64,6 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Update status to processing
-    await supabase
-      .from("meetings")
-      .update({ processing_status: "processando" })
-      .eq("id", meetingId);
-
     // Fetch meeting record
     const { data: meeting, error: meetingError } = await supabase
       .from("meetings")
@@ -73,6 +72,19 @@ serve(async (req) => {
       .single();
 
     if (meetingError || !meeting) throw new Error("Meeting not found");
+
+    // Authorization: creator or admin_geral/admin/planejamento
+    const privileged = ["admin_geral", "admin", "planejamento"].includes(auth.role ?? "");
+    if (meeting.created_by !== auth.userId && !privileged) {
+      return forbidden(corsHeaders);
+    }
+    authorized = true;
+
+    // Update status to processing
+    await supabase
+      .from("meetings")
+      .update({ processing_status: "processando" })
+      .eq("id", meetingId);
 
     // ──────────────────────────────────────────────────
     // STEP 1: Obtain transcription
@@ -238,7 +250,7 @@ REGRAS:
   } catch (error) {
     console.error("process-meeting error:", error);
 
-    if (meetingId) {
+    if (meetingId && authorized) {
       try {
         const supabase = createClient(
           Deno.env.get("SUPABASE_URL")!,
