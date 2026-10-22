@@ -1180,6 +1180,7 @@ export type Database = {
         Returns: undefined
       }
       fn_stop_timer: { Args: never; Returns: Json }
+      fn_stop_timer_for_user: { Args: { _user_id: string }; Returns: undefined }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -1191,6 +1192,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_active_user: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role:
