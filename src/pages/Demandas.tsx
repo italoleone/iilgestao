@@ -21,6 +21,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProjectCombobox } from "@/components/ProjectCombobox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,6 +70,7 @@ interface Demand {
   priority: number | null;
   assigned_to: string | null;
   kanban_assignee_nome: string | null;
+  kanban_assignee_id: string | null;
   assigned_profile?: { name: string } | null;
   coordenador_id: string | null;
   coordenador_profile?: { name: string } | null;
@@ -344,9 +348,11 @@ export default function Demandas() {
   const canToggleDemand = (d: Demand) =>
     !!profile && (canManageDemand(d) || d.assigned_to === profile.id);
   const NO_PERM = "Sem permissão para alterar esta demanda";
-  const [myTeam, setMyTeam] = useState<string[]>([]);
+  const [myTeam, setMyTeam] = useState<UserOption[]>([]);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
-  const [newMemberName, setNewMemberName] = useState<string>("");
+  const [newMemberId, setNewMemberId] = useState<string>("");
+  const [memberPickerOpen, setMemberPickerOpen] = useState(false);
+  const [activeUsers, setActiveUsers] = useState<UserOption[]>([]);
 
   const seesAll = true;
 
@@ -379,14 +385,21 @@ export default function Demandas() {
     if (!profile) return;
     const { data } = await supabase
       .from("coordenador_projetistas")
-      .select("projetista_nome")
+      .select("projetista_id, projetista:profiles!projetista_id(name)")
       .eq("coordenador_id", profile.id);
-    const mapped = (data ?? [])
-      .map((r: any) => r.projetista_nome as string)
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b));
+    const mapped = ((data ?? []) as any[])
+      .filter((r) => r.projetista_id)
+      .map((r) => ({ id: r.projetista_id as string, name: (r.projetista?.name ?? "") as string }))
+      .sort((a, b) => a.name.localeCompare(b.name));
     setMyTeam(mapped);
   };
+
+  useEffect(() => {
+    if (!addMemberOpen) return;
+    supabase.from("profiles").select("id, name").eq("status", "active").order("name").then(({ data }) => {
+      setActiveUsers((data ?? []) as UserOption[]);
+    });
+  }, [addMemberOpen]);
 
   useEffect(() => {
     fetchAll();
@@ -483,11 +496,11 @@ export default function Demandas() {
   }, [demands, filter, projectFilter, profile?.id]);
 
   const handleAddMember = async () => {
-    const nome = newMemberName.trim();
-    if (!profile || !nome) return;
+    const pid = newMemberId;
+    if (!profile || !pid) return;
     const { error } = await supabase
       .from("coordenador_projetistas")
-      .insert({ coordenador_id: profile.id, projetista_nome: nome });
+      .insert({ coordenador_id: profile.id, projetista_id: pid } as any);
     if (error) {
       toast({
         title: "Não foi possível adicionar o projetista",
@@ -497,17 +510,17 @@ export default function Demandas() {
       return;
     }
     setAddMemberOpen(false);
-    setNewMemberName("");
+    setNewMemberId("");
     await fetchMyTeam();
   };
 
-  const handleRemoveMember = async (nome: string) => {
+  const handleRemoveMember = async (pid: string) => {
     if (!profile) return;
     const { error } = await supabase
       .from("coordenador_projetistas")
       .delete()
       .eq("coordenador_id", profile.id)
-      .eq("projetista_nome", nome);
+      .eq("projetista_id", pid);
     if (error) {
       toast({
         title: "Não foi possível remover o projetista",
@@ -518,8 +531,8 @@ export default function Demandas() {
     }
     await supabase
       .from("demands")
-      .update({ kanban_assignee_nome: null })
-      .eq("kanban_assignee_nome", nome)
+      .update({ kanban_assignee_id: null, kanban_assignee_nome: null })
+      .eq("kanban_assignee_id", pid)
       .eq("coordenador_id", profile.id);
     await Promise.all([fetchMyTeam(), fetchAll()]);
   };
@@ -528,19 +541,19 @@ export default function Demandas() {
     if (!demandId) return;
     const previous = demands;
     const target = demands.find((d) => d.id === demandId);
-    if (!target || (target.kanban_assignee_nome ?? null) === assignedTo) return;
+    if (!target || (target.kanban_assignee_id ?? null) === assignedTo) return;
     if (!canManageDemand(target)) {
       toast({ title: NO_PERM, variant: "destructive" });
       return;
     }
     setDemands(
       demands.map((d) =>
-        d.id === demandId ? { ...d, kanban_assignee_nome: assignedTo } : d,
+        d.id === demandId ? { ...d, kanban_assignee_id: assignedTo } : d,
       ),
     );
     const { error } = await supabase
       .from("demands")
-      .update({ kanban_assignee_nome: assignedTo })
+      .update(assignedTo ? { kanban_assignee_id: assignedTo } : { kanban_assignee_id: null, kanban_assignee_nome: null })
       .eq("id", demandId)
       .select("id")
       .then((res) => (!res.error && (!res.data || res.data.length === 0) ? { ...res, error: { message: NO_PERM } as any } : res));
@@ -593,7 +606,7 @@ export default function Demandas() {
 
   const kanbanColumns: { id: string | null; name: string }[] = [
     { id: null, name: "Sem atribuição" },
-    ...myTeam.map((nome) => ({ id: nome as string | null, name: nome })),
+    ...myTeam.map((m) => ({ id: m.id as string | null, name: m.name })),
   ];
 
 
@@ -706,7 +719,7 @@ export default function Demandas() {
             </div>
             <div className="flex gap-4 overflow-x-auto pb-4">
               {kanbanColumns.map((col) => {
-                const items = kanbanDemands.filter((d) => (d.kanban_assignee_nome ?? null) === col.id);
+                const items = kanbanDemands.filter((d) => (d.kanban_assignee_id ?? null) === col.id);
                 return (
                   <div
                     key={col.id ?? "unassigned"}
@@ -855,14 +868,39 @@ export default function Demandas() {
             </DialogHeader>
             <div className="py-2 space-y-2">
               <Label>Projetista</Label>
-              <Input
-                value={newMemberName}
-                onChange={(e) => setNewMemberName(e.target.value)}
-                placeholder="Nome do projetista"
-              />
+              <Popover open={memberPickerOpen} onOpenChange={setMemberPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
+                    {activeUsers.find((u) => u.id === newMemberId)?.name ?? "Selecionar usuário..."}
+                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-[--radix-popover-trigger-width]" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar usuário..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {activeUsers
+                          .filter((u) => !myTeam.some((m) => m.id === u.id))
+                          .map((u) => (
+                            <CommandItem
+                              key={u.id}
+                              value={`${u.name} ${u.id}`}
+                              onSelect={() => { setNewMemberId(u.id); setMemberPickerOpen(false); }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", newMemberId === u.id ? "opacity-100" : "opacity-0")} />
+                              {u.name}
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <DialogFooter>
-              <Button onClick={handleAddMember} disabled={!newMemberName.trim()}>
+              <Button onClick={handleAddMember} disabled={!newMemberId}>
                 Adicionar
               </Button>
             </DialogFooter>

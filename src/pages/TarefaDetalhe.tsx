@@ -18,6 +18,7 @@ import { TaskReviewFile } from "@/components/TaskReviewFile";
 import { useTimeEntries } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { STAGE_NAMES } from "@/types";
+import { HistoryTimeline } from "@/components/HistoryTimeline";
 import {
   ArrowLeft, Play, Square, Clock, User, CalendarDays,
   Loader2, Trash2, Pencil, Send, ThumbsUp, ThumbsDown,
@@ -712,6 +713,15 @@ export default function TarefaDetalhe() {
           isResponsible={isTaskResponsible}
           isCoordinator={isProjectCoordinator}
         />
+
+        {(profile?.role === "admin_geral" || profile?.role === "admin") && (
+          <Card>
+            <CardHeader><CardTitle className="text-base">Histórico de alterações</CardTitle></CardHeader>
+            <CardContent>
+              <HistoryTimeline sources={[{ tableName: "tasks", recordIds: [task.id] }]} />
+            </CardContent>
+          </Card>
+        )}
 
       </div>
 

@@ -23,6 +23,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { useTimeEntries } from "@/hooks/useSupabaseData";
 import { ProjectBillingScheduleCard } from "@/components/ProjectBillingScheduleCard";
+import { HistoryTimeline } from "@/components/HistoryTimeline";
 
 interface EditableEntry {
   id: string;
@@ -452,6 +453,21 @@ export default function ProjetoDetalhe() {
             )}
           </CardContent>
         </Card>
+
+        {(authProfile?.role === "admin_geral" || authProfile?.role === "admin") && (
+          <Card className="shadow-sm">
+            <CardHeader><CardTitle className="text-base">Histórico de alterações</CardTitle></CardHeader>
+            <CardContent>
+              <HistoryTimeline
+                showRecordLabel
+                sources={[
+                  { tableName: "projects", recordIds: [project.id] },
+                  { tableName: "tasks", recordIds: projectTasks.map((t) => t.id) },
+                ]}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         <div className="space-y-2">
           <div className="flex gap-2">

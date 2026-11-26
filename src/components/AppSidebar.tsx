@@ -19,6 +19,7 @@ import {
   CalendarRange,
   Award,
   ClipboardCheck,
+  History,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -103,6 +104,12 @@ const modules: NavModule[] = [
     icon: Users,
     url: "/usuarios",
     visible: (role) => role === "admin_geral",
+  },
+  {
+    title: "Histórico",
+    icon: History,
+    url: "/historico",
+    visible: (role) => role === "admin_geral" || role === "admin",
   },
   {
     title: "Alertas",

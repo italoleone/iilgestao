@@ -59,6 +59,7 @@ interface Allocation {
   id: string;
   coordenador_id: string;
   projetista_nome: string;
+  projetista_id: string | null;
   date: string;
   entry_type: EntryType;
   label: string | null;
@@ -69,6 +70,7 @@ interface Allocation {
 
 interface PersonOption {
   key: string;
+  id: string;
   nome: string;
   coordenadorId: string;
   coordenadorNome: string;
@@ -109,6 +111,7 @@ export default function Cronograma() {
   const [editing, setEditing] = useState<{
     coordenadorId: string;
     projetista: string;
+    projetistaId: string;
     date: string;
     allocation?: Allocation;
   } | null>(null);
@@ -166,10 +169,12 @@ export default function Cronograma() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("coordenador_projetistas")
-        .select("coordenador_id, projetista_nome")
+        .select("coordenador_id, projetista_id, projetista:profiles!projetista_id(name)")
         .in("coordenador_id", coordIds);
       if (error) throw error;
-      return (data ?? []) as { coordenador_id: string; projetista_nome: string }[];
+      return ((data ?? []) as any[])
+        .filter((r) => r.projetista_id)
+        .map((r) => ({ coordenador_id: r.coordenador_id as string, projetista_id: r.projetista_id as string, name: (r.projetista?.name ?? "") as string }));
     },
   });
 
@@ -180,7 +185,7 @@ export default function Cronograma() {
     queryFn: async (): Promise<Allocation[]> => {
       const { data, error } = await supabase
         .from("schedule_allocations")
-        .select("id, coordenador_id, projetista_nome, date, entry_type, label, project_id, notes, created_at")
+        .select("id, coordenador_id, projetista_nome, projetista_id, date, entry_type, label, project_id, notes, created_at")
         .in("coordenador_id", coordIds)
         .gte("date", weekStartISO)
         .lte("date", weekEndISO)
@@ -207,7 +212,7 @@ export default function Cronograma() {
     queryFn: async (): Promise<PersonOption[]> => {
       const [{ data: coords, error: e1 }, { data: rows, error: e2 }] = await Promise.all([
         supabase.from("profiles").select("id, name, discipline").eq("is_coordenador", true).order("name"),
-        supabase.from("coordenador_projetistas").select("coordenador_id, projetista_nome"),
+        supabase.from("coordenador_projetistas").select("coordenador_id, projetista_id, projetista:profiles!projetista_id(name)"),
       ]);
       if (e1) throw e1;
       if (e2) throw e2;
@@ -215,23 +220,24 @@ export default function Cronograma() {
       const coordById = new Map(coordList.map((c) => [c.id, c]));
       const out: PersonOption[] = [];
       const seen = new Set<string>();
-      const push = (nome: string, coordenadorId: string) => {
+      const push = (id: string, nome: string, coordenadorId: string) => {
         const c = coordById.get(coordenadorId);
-        if (!c) return;
-        const key = `${coordenadorId}|${nome}`;
+        if (!c || !id) return;
+        const key = `${coordenadorId}|${id}`;
         if (seen.has(key)) return;
         seen.add(key);
         out.push({
           key,
+          id,
           nome,
           coordenadorId,
           coordenadorNome: c.name,
           discipline: c.discipline || "",
         });
       };
-      coordList.forEach((c) => push(c.name, c.id));
-      ((rows ?? []) as { coordenador_id: string; projetista_nome: string }[]).forEach((r) =>
-        push(r.projetista_nome, r.coordenador_id)
+      coordList.forEach((c) => push(c.id, c.name, c.id));
+      ((rows ?? []) as any[]).forEach((r) =>
+        push(r.projetista_id, r.projetista?.name ?? "", r.coordenador_id)
       );
       return out.sort((a, b) => a.nome.localeCompare(b.nome));
     },
@@ -256,14 +262,14 @@ export default function Cronograma() {
   const monthEndISO = toISO(new Date(monthYear, monthIndex + 1, 0));
 
   const { data: monthAllocations = [], isLoading: loadingMonth } = useQuery({
-    queryKey: ["cronograma-allocations-mensal", selectedPerson?.coordenadorId, selectedPerson?.nome, monthYear, monthIndex],
+    queryKey: ["cronograma-allocations-mensal", selectedPerson?.coordenadorId, selectedPerson?.id, monthYear, monthIndex],
     enabled: monthOpen && !!selectedPerson,
     queryFn: async (): Promise<Allocation[]> => {
       const { data, error } = await supabase
         .from("schedule_allocations")
-        .select("id, coordenador_id, projetista_nome, date, entry_type, label, project_id, notes, created_at")
+        .select("id, coordenador_id, projetista_nome, projetista_id, date, entry_type, label, project_id, notes, created_at")
         .eq("coordenador_id", selectedPerson!.coordenadorId)
-        .eq("projetista_nome", selectedPerson!.nome)
+        .eq("projetista_id", selectedPerson!.id)
         .gte("date", monthStartISO)
         .lte("date", monthEndISO)
         .order("created_at", { ascending: true });
@@ -287,7 +293,7 @@ export default function Cronograma() {
   const allocMap = useMemo(() => {
     const m = new Map<string, Allocation[]>();
     allocations.forEach((a) => {
-      const k = `${a.coordenador_id}|${a.projetista_nome}|${a.date}`;
+      const k = `${a.coordenador_id}|${a.projetista_id}|${a.date}`;
       const arr = m.get(k);
       if (arr) arr.push(a);
       else m.set(k, [a]);
@@ -296,10 +302,11 @@ export default function Cronograma() {
   }, [allocations]);
 
   const rosterByCoord = useMemo(() => {
-    const m = new Map<string, string[]>();
+    const m = new Map<string, { id: string; name: string }[]>();
     filteredCoords.forEach((c) => {
-      const names = roster.filter((r) => r.coordenador_id === c.id).map((r) => r.projetista_nome);
-      const all = Array.from(new Set([c.name, ...names])).sort((a, b) => a.localeCompare(b));
+      const byId = new Map<string, string>([[c.id, c.name]]);
+      roster.filter((r) => r.coordenador_id === c.id).forEach((r) => { if (!byId.has(r.projetista_id)) byId.set(r.projetista_id, r.name); });
+      const all = Array.from(byId, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
       m.set(c.id, all);
     });
     return m;
@@ -313,6 +320,7 @@ export default function Cronograma() {
       id?: string;
       coordenador_id: string;
       projetista_nome: string;
+      projetista_id: string;
       date: string;
       entry_type: EntryType;
       label: string | null;
@@ -334,6 +342,7 @@ export default function Cronograma() {
         const { error } = await supabase.from("schedule_allocations").insert({
           coordenador_id: payload.coordenador_id,
           projetista_nome: payload.projetista_nome,
+          projetista_id: payload.projetista_id,
           date: payload.date,
           entry_type: payload.entry_type,
           label: payload.label,
@@ -455,12 +464,12 @@ export default function Cronograma() {
                           </tr>
                         </thead>
                         <tbody>
-                          {names.map((nome) => (
-                            <tr key={nome} className="border-t align-top">
+                          {names.map(({ id: pid, name: nome }) => (
+                            <tr key={pid} className="border-t align-top">
                               <td className="p-3 font-medium">{nome}</td>
                               {weekDays.map((d, i) => {
                                 const iso = toISO(d);
-                                const allocs = allocMap.get(`${coord.id}|${nome}|${iso}`) ?? [];
+                                const allocs = allocMap.get(`${coord.id}|${pid}|${iso}`) ?? [];
                                 return (
                                   <td key={i} className="p-2 group">
                                     <Cell
@@ -471,6 +480,7 @@ export default function Cronograma() {
                                         setEditing({
                                           coordenadorId: coord.id,
                                           projetista: nome,
+                                          projetistaId: pid,
                                           date: iso,
                                           allocation: a,
                                         })
@@ -571,6 +581,7 @@ export default function Cronograma() {
                                       setEditing({
                                         coordenadorId: selectedPerson.coordenadorId,
                                         projetista: selectedPerson.nome,
+                                        projetistaId: selectedPerson.id,
                                         date: iso,
                                         allocation: a,
                                       })
@@ -599,7 +610,7 @@ export default function Cronograma() {
 
       {editing && (
         <AllocationDialog
-          key={editing.allocation?.id ?? `new-${editing.coordenadorId}-${editing.projetista}-${editing.date}`}
+          key={editing.allocation?.id ?? `new-${editing.coordenadorId}-${editing.projetistaId}-${editing.date}`}
           open
           onOpenChange={(o) => { if (!o) setEditing(null); }}
           projetista={editing.projetista}
@@ -612,6 +623,7 @@ export default function Cronograma() {
               id: editing.allocation?.id,
               coordenador_id: editing.coordenadorId,
               projetista_nome: editing.projetista,
+              projetista_id: editing.projetistaId,
               date: editing.date,
               ...values,
             })

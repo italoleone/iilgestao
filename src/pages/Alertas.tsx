@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,6 +65,13 @@ export default function Alertas() {
   const { activeTimers } = useActiveTimers();
   const { profiles } = useActiveProfiles();
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [validationSince, setValidationSince] = useState<Map<string, string>>(new Map());
+  const pendingKey = tasks.filter(t => t.status === "aguardando_validacao").map(t => t.id).join(",");
+  useEffect(() => {
+    if (!pendingKey) { setValidationSince(new Map()); return; }
+    supabase.from("tasks").select("id, status_changed_at").eq("status", "aguardando_validacao").not("status_changed_at", "is", null)
+      .then(({ data }) => setValidationSince(new Map((data ?? []).map((r: any) => [r.id, r.status_changed_at]))));
+  }, [pendingKey]);
 
   const alerts = useMemo<AlertItem[]>(() => {
     const today = todayLocal();
@@ -98,8 +106,10 @@ export default function Alertas() {
           message: `Tarefa ${t.name} (${projName(t.projectId)}) deveria ter começado em ${start.split("-").reverse().join("/")} e não foi iniciada — Responsável ${respName(t.responsible)}` });
       }
       if (status === "aguardando_validacao") {
-        out.push({ id: `val-${t.id}`, type: "aguardando_validacao", severity: "medium", link: `/tarefas/${t.id}`,
-          message: `Tarefa ${t.name} (${projName(t.projectId)}) aguardando validação — Responsável ${respName(t.responsible)}` });
+        const since = validationSince.get(t.id);
+        const days = since ? Math.floor((Date.now() - new Date(since).getTime()) / 86400000) : null;
+        out.push({ id: `val-${t.id}`, type: "aguardando_validacao", severity: days !== null && days > 3 ? "high" : "medium", link: `/tarefas/${t.id}`,
+          message: `Tarefa ${t.name} (${projName(t.projectId)}) aguardando validação${days !== null ? ` há ${days} ${days === 1 ? "dia" : "dias"}` : ""} — Responsável ${respName(t.responsible)}` });
       }
     }
 
@@ -134,7 +144,7 @@ export default function Alertas() {
 
     const order = { high: 0, medium: 1, low: 2 };
     return out.sort((a, b) => order[a.severity] - order[b.severity]);
-  }, [projects, tasks, activeTimers, profiles, profile]);
+  }, [projects, tasks, activeTimers, profiles, profile, validationSince]);
 
   const filtered = typeFilter === "all" ? alerts : alerts.filter(a => a.type === typeFilter);
   const countBy = (s: Severity) => alerts.filter(a => a.severity === s).length;
