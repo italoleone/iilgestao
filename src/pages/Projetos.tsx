@@ -6,7 +6,11 @@ import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { NewProjectDialog } from "@/components/NewProjectDialog";
-import { useProjects, useActiveProfiles, getProfileById } from "@/hooks/useSupabaseData";
+import { useProjects, useTasks, useActiveProfiles, getProfileById } from "@/hooks/useSupabaseData";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { canCreateProject } from "@/utils/permissions";
 import { DISCIPLINE_SHORT, STATUS_LABELS, type Discipline, type ProjectStatus, type Project } from "@/types";
@@ -26,6 +30,19 @@ const disciplineColors: Record<Discipline, string> = {
   eletrica: "hsl(64, 88%, 44%)",
 };
 
+type StatusFilter = "ativos" | "concluidos" | "pausados" | "todos";
+const STATUS_FILTERS: { key: StatusFilter; label: string; match: (s: string) => boolean }[] = [
+  { key: "ativos", label: "Ativos", match: (s) => s !== "concluido" },
+  { key: "concluidos", label: "Concluídos", match: (s) => s === "concluido" },
+  { key: "pausados", label: "Pausados", match: (s) => s === "pausado" },
+  { key: "todos", label: "Todos", match: () => true },
+];
+const BULK_OPTIONS: { value: ProjectStatus; label: string }[] = [
+  { value: "em_andamento", label: "Em andamento" },
+  { value: "pausado", label: "Pausado" },
+  { value: "concluido", label: "Concluído" },
+];
+
 type SortField = "name" | "client" | "discipline" | "deadline" | "status" | "progress";
 
 export default function Projetos() {
@@ -36,7 +53,54 @@ export default function Projetos() {
   const { profiles } = useActiveProfiles();
   const [search, setSearch] = useState("");
   const [filterDiscipline, setFilterDiscipline] = useState<Discipline | "all">("all");
-  const [filterStatus, setFilterStatus] = useState<ProjectStatus | "all">("all");
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>("ativos");
+  const { tasks } = useTasks();
+  const canBulk = profile?.role === "admin_geral" || profile?.role === "admin" || profile?.role === "planejamento";
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<ProjectStatus | null>(null);
+  const [bulkSaving, setBulkSaving] = useState(false);
+
+  // Projetos cujas tarefas estão todas entregues (concluida/enviado_cliente) e ainda não concluídos
+  const suggestedIds = useMemo(() => {
+    const byProject = new Map<string, { total: number; done: number }>();
+    for (const t of tasks) {
+      const cur = byProject.get(t.projectId) || { total: 0, done: 0 };
+      cur.total++;
+      if (t.status === "concluida" || t.status === "enviado_cliente") cur.done++;
+      byProject.set(t.projectId, cur);
+    }
+    const set = new Set<string>();
+    for (const p of projects) {
+      const c = byProject.get(p.id);
+      if (c && c.total > 0 && c.done === c.total && p.status !== "concluido") set.add(p.id);
+    }
+    return set;
+  }, [tasks, projects]);
+
+  const statusCounts = useMemo(() => {
+    const m = {} as Record<StatusFilter, number>;
+    STATUS_FILTERS.forEach(f => { m[f.key] = projects.filter(p => f.match(p.status)).length; });
+    return m;
+  }, [projects]);
+
+  const toggleSelected = (id: string) => setSelected(prev => {
+    const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n;
+  });
+
+  const applyBulk = async () => {
+    if (!bulkStatus) return;
+    const ids = Array.from(selected);
+    setBulkSaving(true);
+    const { data, error } = await supabase.from("projects").update({ status: bulkStatus }).in("id", ids).select("id");
+    setBulkSaving(false);
+    setBulkStatus(null);
+    if (error) { toast.error("Erro ao alterar status: " + error.message); return; }
+    const n = data?.length || 0;
+    if (n < ids.length) toast.warning(`${n} de ${ids.length} projetos alterados. Os demais não puderam ser alterados.`);
+    else toast.success(`${n} projeto${n === 1 ? "" : "s"} alterado${n === 1 ? "" : "s"}.`);
+    setSelected(new Set());
+    refetch();
+  };
   const [dialogOpen, setDialogOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortAsc, setSortAsc] = useState(true);
@@ -50,7 +114,7 @@ export default function Projetos() {
     let result = projects.filter((p) => {
       const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || p.client.toLowerCase().includes(search.toLowerCase());
       const matchDiscipline = filterDiscipline === "all" || p.discipline === filterDiscipline;
-      const matchStatus = filterStatus === "all" || p.status === filterStatus;
+      const matchStatus = STATUS_FILTERS.find(f => f.key === filterStatus)!.match(p.status);
       return matchSearch && matchDiscipline && matchStatus;
     });
     result.sort((a, b) => {
@@ -111,14 +175,39 @@ export default function Projetos() {
             <option value="hidraulica">Hidráulica</option>
             <option value="eletrica">Elétrica</option>
           </select>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as ProjectStatus | "all")} className="h-10 rounded-md border bg-card px-3 text-sm">
-            <option value="all">Todos status</option>
-            <option value="em_andamento">Em andamento</option>
-            <option value="atrasado">Atrasado</option>
-            <option value="concluido">Concluído</option>
-            <option value="pausado">Pausado</option>
-          </select>
+          <div className="flex rounded-md border bg-card p-0.5">
+            {STATUS_FILTERS.map(f => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setFilterStatus(f.key)}
+                className={`px-3 h-9 rounded text-sm transition-colors ${filterStatus === f.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                {f.label} <span className="tabular-nums opacity-70">({statusCounts[f.key]})</span>
+              </button>
+            ))}
+          </div>
         </div>
+
+        {canBulk && (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card px-3 py-2 text-sm">
+            <span className="text-muted-foreground">{selected.size} selecionado{selected.size === 1 ? "" : "s"}</span>
+            <Button variant="outline" size="sm" onClick={() => setSelected(new Set(suggestedIds))} disabled={suggestedIds.size === 0}>
+              Selecionar sugeridos ({suggestedIds.size})
+            </Button>
+            {selected.size > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Limpar seleção</Button>
+            )}
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-muted-foreground">Alterar status dos selecionados:</span>
+              {BULK_OPTIONS.map(o => (
+                <Button key={o.value} size="sm" variant="secondary" disabled={selected.size === 0 || bulkSaving} onClick={() => setBulkStatus(o.value)}>
+                  {o.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="overflow-x-auto animate-reveal-up delay-2 rounded-lg border bg-card" style={{ animationFillMode: "backwards" }}>
           {loading ? (
@@ -129,6 +218,18 @@ export default function Projetos() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
+                  {canBulk && (
+                    <th className="py-3 px-3 w-8">
+                      <Checkbox
+                        checked={filtered.length > 0 && filtered.every(p => selected.has(p.id))}
+                        onCheckedChange={(v) => setSelected(prev => {
+                          const n = new Set(prev);
+                          filtered.forEach(p => { if (v) n.add(p.id); else n.delete(p.id); });
+                          return n;
+                        })}
+                      />
+                    </th>
+                  )}
                   <SortHeader field="name">Projeto</SortHeader>
                   <SortHeader field="client">Cliente</SortHeader>
                   <SortHeader field="discipline">Disciplina</SortHeader>
@@ -145,6 +246,11 @@ export default function Projetos() {
                   const responsible = getProfileById(profiles, p.responsible);
                   return (
                     <tr key={p.id} className="border-b last:border-0 hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => navigate(`/projetos/${p.id}`)}>
+                      {canBulk && (
+                        <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleSelected(p.id)} />
+                        </td>
+                      )}
                       <td className="py-3 px-3 font-medium">{p.name}</td>
                       <td className="py-3 px-3 text-muted-foreground">{p.client}</td>
                       <td className="py-3 px-3">
@@ -162,7 +268,12 @@ export default function Projetos() {
                         </div>
                       </td>
                       <td className="py-3 px-3">
-                        <Badge variant="secondary" className={statusColors[p.status]}>{STATUS_LABELS[p.status]}</Badge>
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge variant="secondary" className={statusColors[p.status]}>{STATUS_LABELS[p.status]}</Badge>
+                          {suggestedIds.has(p.id) && (
+                            <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground whitespace-nowrap">Tarefas entregues — pode concluir</Badge>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -175,6 +286,20 @@ export default function Projetos() {
           )}
         </div>
       </div>
+      <AlertDialog open={!!bulkStatus} onOpenChange={(o) => { if (!o) setBulkStatus(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Alterar status?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selected.size} projeto{selected.size === 1 ? "" : "s"} {selected.size === 1 ? "será alterado" : "serão alterados"} para "{bulkStatus ? STATUS_LABELS[bulkStatus] : ""}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkSaving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={bulkSaving} onClick={(e) => { e.preventDefault(); applyBulk(); }}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <NewProjectDialog open={dialogOpen} onOpenChange={setDialogOpen} onProjectsCreated={handleProjectsCreated} />
     </AppLayout>
   );
