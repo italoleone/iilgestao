@@ -420,7 +420,7 @@ export function useRentabilidadePorProjeto(filters?: RentabilidadeFilters) {
       });
 
       // Fetch project financials (sale_value, hours_sold) — restricted to financial roles
-      const financialsData = await fetchAllRows<any>(() => supabase.from("project_financials").select("id, project_id, sale_value, hours_sold")).catch(() => null);
+      const financialsData = await fetchAllRows<any>(() => supabase.from("project_financials").select("project_id, sale_value, hours_sold"), 1000, "project_id").catch(() => null);
       const financialsMap = new Map<string, { sale_value: number; hours_sold: number }>();
       (financialsData || []).forEach((f: any) => financialsMap.set(f.project_id, { sale_value: Number(f.sale_value) || 0, hours_sold: Number(f.hours_sold) || 0 }));
 

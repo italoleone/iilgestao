@@ -73,7 +73,7 @@ export default function FinanceiroSaldosProjeto() {
           .from("projects")
           .select("id, name, client, status")
           .order("name")).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
-        fetchAllRows<any>(() => supabase.from("project_financials").select("id, project_id, sale_value")).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
+        fetchAllRows<any>(() => supabase.from("project_financials").select("project_id, sale_value"), 1000, "project_id").then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
         fetchAllRows<any>(() => supabase.from("receivables").select("*").order("due_date")).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
       ]);
       if (projRes.data) {
