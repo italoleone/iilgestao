@@ -56,6 +56,160 @@ export type Database = {
           },
         ]
       }
+      agent_followups: {
+        Row: {
+          asked_at: string
+          coordenador_id: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision: string | null
+          id: string
+          is_test: boolean
+          last_reminder_at: string | null
+          old_end_date: string | null
+          projetista_id: string
+          proposed_end_date: string | null
+          reason_category: string | null
+          reason_summary: string | null
+          reminders: number
+          replied_at: string | null
+          reply_text: string | null
+          status: string
+          task_id: string
+          updated_at: string
+        }
+        Insert: {
+          asked_at?: string
+          coordenador_id?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          id?: string
+          is_test?: boolean
+          last_reminder_at?: string | null
+          old_end_date?: string | null
+          projetista_id: string
+          proposed_end_date?: string | null
+          reason_category?: string | null
+          reason_summary?: string | null
+          reminders?: number
+          replied_at?: string | null
+          reply_text?: string | null
+          status?: string
+          task_id: string
+          updated_at?: string
+        }
+        Update: {
+          asked_at?: string
+          coordenador_id?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string | null
+          id?: string
+          is_test?: boolean
+          last_reminder_at?: string | null
+          old_end_date?: string | null
+          projetista_id?: string
+          proposed_end_date?: string | null
+          reason_category?: string | null
+          reason_summary?: string | null
+          reminders?: number
+          replied_at?: string | null
+          reply_text?: string | null
+          status?: string
+          task_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_followups_coordenador_id_fkey"
+            columns: ["coordenador_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_followups_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_followups_projetista_id_fkey"
+            columns: ["projetista_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_followups_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_secrets: {
+        Row: {
+          cron_token: string
+          id: number
+        }
+        Insert: {
+          cron_token: string
+          id?: number
+        }
+        Update: {
+          cron_token?: string
+          id?: number
+        }
+        Relationships: []
+      }
+      agent_settings: {
+        Row: {
+          auto_limit_business_days: number
+          id: number
+          max_reminders: number
+          mode: string
+          run_hour: number
+          run_weekdays: number[]
+          test_recipient_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          auto_limit_business_days?: number
+          id?: number
+          max_reminders?: number
+          mode?: string
+          run_hour?: number
+          run_weekdays?: number[]
+          test_recipient_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auto_limit_business_days?: number
+          id?: number
+          max_reminders?: number
+          mode?: string
+          run_hour?: number
+          run_weekdays?: number[]
+          test_recipient_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_settings_test_recipient_id_fkey"
+            columns: ["test_recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -157,6 +311,73 @@ export type Database = {
           year?: number
         }
         Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          action_taken: string | null
+          actions: Json | null
+          body: string
+          created_at: string
+          followup_id: string | null
+          id: string
+          kind: string
+          processed_at: string | null
+          read_at: string | null
+          sender: string
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action_taken?: string | null
+          actions?: Json | null
+          body: string
+          created_at?: string
+          followup_id?: string | null
+          id?: string
+          kind?: string
+          processed_at?: string | null
+          read_at?: string | null
+          sender: string
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          action_taken?: string | null
+          actions?: Json | null
+          body?: string
+          created_at?: string
+          followup_id?: string | null
+          id?: string
+          kind?: string
+          processed_at?: string | null
+          read_at?: string | null
+          sender?: string
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_followup_id_fkey"
+            columns: ["followup_id"]
+            isOneToOne: false
+            referencedRelation: "agent_followups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       clients: {
         Row: {
