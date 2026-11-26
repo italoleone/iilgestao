@@ -30,6 +30,7 @@ import NotFound from "./pages/NotFound";
 import Bonificacao from "./pages/Bonificacao";
 import Demandas from "./pages/Demandas";
 import Historico from "./pages/Historico";
+import Agentes from "./pages/Agentes";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +97,7 @@ function AppRoutes() {
       <Route path="/comercial/pipeline" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialPipeline /></ProtectedRoute>} />
       <Route path="/comercial/relatorios" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><ComercialRelatorios /></ProtectedRoute>} />
       <Route path="/historico" element={<ProtectedRoute allowedRoles={["admin_geral", "admin"]}><Historico /></ProtectedRoute>} />
+      <Route path="/agentes" element={<ProtectedRoute allowedRoles={["admin_geral"]}><Agentes /></ProtectedRoute>} />
       <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>

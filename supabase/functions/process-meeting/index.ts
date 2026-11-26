@@ -18,7 +18,7 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-async function callAI(apiKey: string, messages: any[], model = "google/gemini-2.5-flash") {
+async function callAI(apiKey: string, messages: any[], model = "google/gemini-3.8-flash") {
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -143,7 +143,7 @@ serve(async (req) => {
             ],
           },
         ],
-        "google/gemini-2.5-pro"
+        "google/gemini-3.1-pro-preview"
       );
 
       if (!transcription) {
@@ -215,7 +215,7 @@ REGRAS:
           content: `Reunião: ${meeting.name}\nData: ${meeting.date}\nHorário: ${meeting.start_time}${meeting.end_time ? " - " + meeting.end_time : ""}\n\nTranscrição da reunião:\n\n${transcription}`,
         },
       ],
-      "google/gemini-2.5-pro"
+      "google/gemini-3.1-pro-preview"
     );
 
     if (!minutesResponse) {

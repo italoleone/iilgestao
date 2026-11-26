@@ -20,12 +20,14 @@ import {
   Award,
   ClipboardCheck,
   History,
+  Bot,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth, type AppRole } from "@/contexts/AuthContext";
 import { LeoneLogo } from "@/components/LeoneLogo";
 import { cn } from "@/lib/utils";
+import { canAccessAgents } from "@/lib/assistant";
 import { useState } from "react";
 import {
   canAccessPlanejamento,
@@ -116,6 +118,12 @@ const modules: NavModule[] = [
     icon: Bell,
     url: "/alertas",
     visible: (role) => role !== "projetista",
+  },
+  {
+    title: "Agentes",
+    icon: Bot,
+    url: "/agentes",
+    visible: canAccessAgents,
   },
 ];
 

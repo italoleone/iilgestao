@@ -19,6 +19,8 @@ import { useTimeEntries } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
 import { STAGE_NAMES } from "@/types";
 import { HistoryTimeline } from "@/components/HistoryTimeline";
+import { TaskDelayReasons } from "@/components/assistant/TaskDelayReasons";
+import { canSeeDelayReasons } from "@/lib/assistant";
 import {
   ArrowLeft, Play, Square, Clock, User, CalendarDays,
   Loader2, Trash2, Pencil, Send, ThumbsUp, ThumbsDown,
@@ -706,6 +708,8 @@ export default function TarefaDetalhe() {
             )}
           </CardContent>
         </Card>
+
+        {profile && canSeeDelayReasons(role, profile.id, task.responsible, project?.responsible ?? null) && <TaskDelayReasons taskId={task.id} />}
 
         {/* Arquivo para Revisão */}
         <TaskReviewFile

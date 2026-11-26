@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/AppSidebar";
+import { AssistantChat } from "@/components/assistant/AssistantChat";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -7,6 +8,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 overflow-auto p-6 bg-background">
         {children}
       </main>
+      <AssistantChat />
     </div>
   );
 }
