@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { ProjectCombobox } from "@/components/ProjectCombobox";
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, ClipboardCheck, Pencil, User, UserCheck, Hash, Trash2 } from "lucide-react";
@@ -341,14 +342,17 @@ export default function Demandas() {
 
   const fetchAll = async () => {
     if (!profile) return;
-    const demandsQuery = supabase
-      .from("demands")
-      .select("*, assigned_profile:profiles!assigned_to(name), coordenador_profile:profiles!coordenador_id(name)")
-      .order("created_at", { ascending: false });
+    const demandsQuery = () => {
+      const q = supabase
+        .from("demands")
+        .select("*, assigned_profile:profiles!assigned_to(name), coordenador_profile:profiles!coordenador_id(name)")
+        .order("created_at", { ascending: false });
+      return seesAll ? q : q.eq("created_by", profile.id);
+    };
     const [projectsRes, usersRes, demandsRes, rolesRes] = await Promise.all([
-      supabase.from("projects").select("id, name, status").order("name"),
+      fetchAllRows<any>(() => supabase.from("projects").select("id, name, status").order("name")).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
       supabase.from("profiles").select("id, name").order("name"),
-      seesAll ? demandsQuery : demandsQuery.eq("created_by", profile.id),
+      fetchAllRows<any>(demandsQuery).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
       supabase.from("profiles").select("id, name").eq("is_coordenador", true).order("name"),
     ]);
     if (projectsRes.data) setProjects(projectsRes.data as ProjectOption[]);

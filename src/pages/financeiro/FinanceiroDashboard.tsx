@@ -15,6 +15,7 @@ import {
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useReceivables, usePayables, useMarkReceived, useMarkPaid, useProjetoCusto } from "@/hooks/useFinanceiroData";
 import { useAllBillingSchedules, useAllInstallmentProposals, MONTH_LABELS } from "@/hooks/useCommercialData";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -401,7 +402,7 @@ export default function FinanceiroDashboard() {
   const { data: projetos = [] } = useQuery({
     queryKey: ["projects-list"],
     queryFn: async () => {
-      const { data } = await supabase.from("projects").select("id, name, client, discipline").order("name");
+      const data = await fetchAllRows<any>(() => supabase.from("projects").select("id, name, client, discipline").order("name")).catch(() => null);
       return data || [];
     },
   });

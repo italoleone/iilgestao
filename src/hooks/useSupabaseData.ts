@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
 import type { Discipline, ProjectStatus, TaskStatus, Project, Task, Stage } from "@/types";
 import { STAGE_NAMES } from "@/types";
@@ -115,10 +116,14 @@ export function useProjects() {
 
   const fetchProjects = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .order("created_at", { ascending: false });
+    let data: any[] | null = null;
+    let error: any = null;
+    try {
+      data = await fetchAllRows<any>(() => supabase
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false }));
+    } catch (e) { error = e; }
     if (error) {
       setTimeout(() => fetchProjects(false), 5000);
     } else if (data) {
@@ -183,11 +188,14 @@ export function useTasks() {
 
   const fetchTasks = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
-    const { data, error } = await supabase
-      .from("tasks")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(2000);
+    let data: any[] | null = null;
+    let error: any = null;
+    try {
+      data = await fetchAllRows<any>(() => supabase
+        .from("tasks")
+        .select("*")
+        .order("created_at", { ascending: false }));
+    } catch (e) { error = e; }
     if (error) {
       setTimeout(() => fetchTasks(false), 5000);
     } else if (data) {
@@ -252,10 +260,15 @@ export function useTimeEntries(taskId?: string, projectId?: string) {
 
   const fetchEntries = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
-    let query = supabase.from("time_entries").select("*").order("created_at", { ascending: false });
-    if (taskId) query = query.eq("task_id", taskId);
-    if (projectId) query = query.eq("project_id", projectId);
-    const { data, error } = await query;
+    const buildQuery = () => {
+      let query = supabase.from("time_entries").select("*").order("created_at", { ascending: false });
+      if (taskId) query = query.eq("task_id", taskId);
+      if (projectId) query = query.eq("project_id", projectId);
+      return query;
+    };
+    let data: any[] | null = null;
+    let error: any = null;
+    try { data = await fetchAllRows<any>(buildQuery); } catch (e) { error = e; }
     if (!error && data) {
       setEntries(data as unknown as DbTimeEntry[]);
     }

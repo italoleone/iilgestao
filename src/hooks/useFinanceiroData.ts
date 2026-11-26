@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -84,6 +85,7 @@ export function useReceivables(filters?: ReceivableFilters) {
   return useQuery({
     queryKey: ["receivables", filters],
     queryFn: async () => {
+      const build = () => {
       let q = supabase.from("receivables").select("*").order("due_date", { ascending: true });
       if (filters?.status && filters.status !== "todos") q = q.eq("status", filters.status);
       if (filters?.search) q = q.ilike("client_name", `%${filters.search}%`);
@@ -93,8 +95,9 @@ export function useReceivables(filters?: ReceivableFilters) {
         const end = `${filters.year}-${String(filters.month + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
         q = q.gte("due_date", start).lte("due_date", end);
       }
-      const { data, error } = await q;
-      if (error) throw error;
+      return q;
+      };
+      const data = await fetchAllRows<Receivable>(build);
       return (data || []) as Receivable[];
     },
   });
@@ -181,6 +184,7 @@ export function usePayables(filters?: PayableFilters) {
   return useQuery({
     queryKey: ["payables", filters],
     queryFn: async () => {
+      const build = () => {
       let q = supabase.from("payables").select("*").order("due_date", { ascending: true });
       if (filters?.status && filters.status !== "todos") q = q.eq("status", filters.status);
       if (filters?.category && filters.category !== "todos") q = q.eq("category", filters.category);
@@ -191,8 +195,9 @@ export function usePayables(filters?: PayableFilters) {
         const end = `${filters.year}-${String(filters.month + 1).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
         q = q.gte("due_date", start).lte("due_date", end);
       }
-      const { data, error } = await q;
-      if (error) throw error;
+      return q;
+      };
+      const data = await fetchAllRows<Payable>(build);
       return (data || []) as Payable[];
     },
   });
@@ -310,18 +315,18 @@ export function useProjetoCusto(projectId: string | null) {
         .from("projects").select("*").eq("id", projectId!).single();
       const { data: financial } = await supabase
         .from("project_financials").select("sale_value, hours_sold").eq("project_id", projectId!).maybeSingle();
-      const { data: entries } = await supabase
-        .from("time_entries").select("*").eq("project_id", projectId!);
-      const { data: tasks } = await supabase
-        .from("tasks").select("id, name, stage_name, responsible").eq("project_id", projectId!);
+      const entries = await fetchAllRows<any>(() => supabase
+        .from("time_entries").select("*").eq("project_id", projectId!)).catch(() => null);
+      const tasks = await fetchAllRows<any>(() => supabase
+        .from("tasks").select("id, name, stage_name, responsible").eq("project_id", projectId!)).catch(() => null);
       const { data: profiles } = await supabase
         .from("profiles").select("id, name, cost_per_hour");
 
-      const { data: projectReceivables } = await supabase
+      const projectReceivables = await fetchAllRows<any>(() => supabase
         .from("receivables")
-        .select("amount, tax_percentage")
+        .select("id, amount, tax_percentage")
         .eq("project_id", projectId!)
-        .eq("status", "recebido");
+        .eq("status", "recebido")).catch(() => null);
 
       const costMap = new Map<string, { name: string; cost: number }>();
       (profiles || []).forEach((p: any) =>
@@ -407,30 +412,30 @@ export function useRentabilidadePorProjeto(filters?: RentabilidadeFilters) {
     queryKey: ["rentabilidade", filters],
     queryFn: async () => {
       // Fetch projects
-      let pq = supabase.from("projects").select("*");
-      if (filters?.projectId) pq = pq.eq("id", filters.projectId);
-      if (filters?.discipline) pq = pq.eq("discipline", filters.discipline);
-      const { data: projects, error: pe } = await pq;
-      if (pe) throw pe;
+      const projects = await fetchAllRows<any>(() => {
+        let pq = supabase.from("projects").select("*");
+        if (filters?.projectId) pq = pq.eq("id", filters.projectId);
+        if (filters?.discipline) pq = pq.eq("discipline", filters.discipline);
+        return pq;
+      });
 
       // Fetch project financials (sale_value, hours_sold) — restricted to financial roles
-      const { data: financialsData } = await supabase.from("project_financials").select("project_id, sale_value, hours_sold");
+      const financialsData = await fetchAllRows<any>(() => supabase.from("project_financials").select("id, project_id, sale_value, hours_sold")).catch(() => null);
       const financialsMap = new Map<string, { sale_value: number; hours_sold: number }>();
       (financialsData || []).forEach((f: any) => financialsMap.set(f.project_id, { sale_value: Number(f.sale_value) || 0, hours_sold: Number(f.hours_sold) || 0 }));
 
       // Fetch time entries
-      const { data: timeEntries, error: te } = await supabase.from("time_entries").select("*");
-      if (te) throw te;
+      const timeEntries = await fetchAllRows<any>(() => supabase.from("time_entries").select("*"));
 
       // Fetch profiles for cost_per_hour
       const { data: profiles, error: pre } = await supabase.from("profiles").select("id, cost_per_hour");
       if (pre) throw pre;
 
       // Fetch receivables with status "recebido" for tax cost
-      const { data: receivablesData } = await supabase
+      const receivablesData = await fetchAllRows<any>(() => supabase
         .from("receivables")
-        .select("project_id, amount, tax_percentage")
-        .eq("status", "recebido");
+        .select("id, project_id, amount, tax_percentage")
+        .eq("status", "recebido")).catch(() => null);
 
       // Aggregate tax cost per project
       const taxCostByProject = new Map<string, number>();

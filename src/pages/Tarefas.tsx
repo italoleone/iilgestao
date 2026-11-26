@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActiveTimers, startActiveTimer, stopActiveTimer, getTimerForTask } from "@/hooks/useActiveTimers";
@@ -150,8 +151,8 @@ export default function Tarefas() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const [tasksRes, projectsRes, profilesRes] = await Promise.all([
-      supabase.from("tasks").select("*").order("created_at", { ascending: false }).limit(2000),
-      supabase.from("projects").select("id, name, discipline, responsible, status").order("name"),
+      fetchAllRows<any>(() => supabase.from("tasks").select("*").order("created_at", { ascending: false })).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
+      fetchAllRows<any>(() => supabase.from("projects").select("id, name, discipline, responsible, status").order("name")).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
       supabase.from("profiles").select("id, name, status").eq("status", "active").order("name"),
     ]);
     if (tasksRes.data) setTasks(tasksRes.data as Task[]);

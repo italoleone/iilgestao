@@ -13,6 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Switch } from "@/components/ui/switch";
 import { Plus, CheckCircle, Pencil, Trash2, Search } from "lucide-react";
 import { useReceivables, useCreateReceivable, useUpdateReceivable, useDeleteReceivable, useMarkReceived, Receivable } from "@/hooks/useFinanceiroData";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
@@ -45,7 +46,7 @@ export default function FinanceiroReceber() {
   const { data: projects = [] } = useQuery({
     queryKey: ["projects-list-active"],
     queryFn: async () => {
-      const { data } = await supabase.from("projects").select("id, name, client").neq("status", "concluido");
+      const data = await fetchAllRows<any>(() => supabase.from("projects").select("id, name, client").neq("status", "concluido")).catch(() => null);
       return data || [];
     },
   });
@@ -54,7 +55,7 @@ export default function FinanceiroReceber() {
   const { data: allProjects = [] } = useQuery({
     queryKey: ["projects-list-all"],
     queryFn: async () => {
-      const { data } = await supabase.from("projects").select("id, name");
+      const data = await fetchAllRows<any>(() => supabase.from("projects").select("id, name")).catch(() => null);
       return data || [];
     },
   });

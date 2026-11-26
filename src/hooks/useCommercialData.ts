@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -227,11 +228,10 @@ export function useCommercialProposals() {
   return useQuery({
     queryKey: ["commercial-proposals"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const data = await fetchAllRows<any>(() => supabase
         .from("commercial_proposals")
         .select("*, commercial_clients(*)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
+        .order("created_at", { ascending: false }));
       return (data || []).map((p: any) => ({
         ...p,
         disciplines: p.disciplines as ProposalDisciplines,
@@ -446,12 +446,11 @@ export function useAllBillingSchedules() {
   return useQuery({
     queryKey: ["billing-schedule-all"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const data = await fetchAllRows<any>(() => supabase
         .from("proposal_billing_schedule")
         .select("*, commercial_proposals(project_name, client_id, billing_mode, installment_count, installment_start_month, installment_start_year, commercial_clients(name))")
         .order("billing_year")
-        .order("billing_month");
-      if (error) throw error;
+        .order("billing_month"));
       return (data || []) as (BillingScheduleEntry & {
         commercial_proposals: {
           project_name: string;
@@ -472,11 +471,10 @@ export function useAllInstallmentProposals() {
   return useQuery({
     queryKey: ["installment-proposals-all"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const data = await fetchAllRows<any>(() => supabase
         .from("commercial_proposals")
         .select("id, project_name, client_id, final_total_value, total_value, billing_mode, installment_count, installment_start_month, installment_start_year, commercial_clients(name)")
-        .eq("billing_mode", "parcelado" as any);
-      if (error) throw error;
+        .eq("billing_mode", "parcelado" as any));
       return (data || []) as Array<{
         id: string;
         project_name: string;

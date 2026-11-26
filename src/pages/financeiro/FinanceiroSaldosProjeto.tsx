@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ChevronRight, ChevronDown, Wallet, Loader2 } from "lucide-react";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ProjectRow {
@@ -68,12 +69,12 @@ export default function FinanceiroSaldosProjeto() {
     const fetchAll = async () => {
       setLoading(true);
       const [projRes, finRes, recRes] = await Promise.all([
-        supabase
+        fetchAllRows<any>(() => supabase
           .from("projects")
           .select("id, name, client, status")
-          .order("name"),
-        supabase.from("project_financials").select("project_id, sale_value"),
-        supabase.from("receivables").select("*").order("due_date"),
+          .order("name")).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
+        fetchAllRows<any>(() => supabase.from("project_financials").select("id, project_id, sale_value")).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
+        fetchAllRows<any>(() => supabase.from("receivables").select("*").order("due_date")).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
       ]);
       if (projRes.data) {
         const finMap = new Map<string, number>();

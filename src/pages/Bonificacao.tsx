@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Award, ChevronRight, TrendingUp, TrendingDown, Minus, Settings, Search } from "lucide-react";
@@ -165,8 +166,8 @@ export default function Bonificacao() {
         supabase.from("profiles").select("id, name, discipline, status").eq("status", "active"),
         supabase.from("user_roles").select("user_id, role"),
         supabase.from("bonus_salary").select("*").eq("year", currentYear),
-        supabase.from("tasks").select("id, name, project_id, estimated_hours, hours_worked, status, stage_name, responsible").in("status", [...STATUS_FINAL, ...STATUS_PENDING]),
-        supabase.from("projects").select("id, name"),
+        fetchAllRows<any>(() => supabase.from("tasks").select("id, name, project_id, estimated_hours, hours_worked, status, stage_name, responsible").in("status", [...STATUS_FINAL, ...STATUS_PENDING])).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
+        fetchAllRows<any>(() => supabase.from("projects").select("id, name")).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
       ]);
 
       if (configRes.data) setConfig(configRes.data as unknown as BonusConfig);
