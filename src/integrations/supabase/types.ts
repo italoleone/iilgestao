@@ -1531,6 +1531,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      fn_agent_cobranca_tick: { Args: never; Returns: undefined }
       fn_norm_nome: { Args: { t: string }; Returns: string }
       fn_resolve_profile: { Args: { nome: string }; Returns: string }
       fn_start_timer: {
