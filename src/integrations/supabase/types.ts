@@ -56,6 +56,45 @@ export type Database = {
           },
         ]
       }
+      audit_log: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          changed_by_name: string | null
+          changed_fields: string[] | null
+          id: number
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          changed_fields?: string[] | null
+          id?: number
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          changed_fields?: string[] | null
+          id?: number
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       bonus_config: {
         Row: {
           created_at: string
@@ -277,24 +316,34 @@ export type Database = {
           coordenador_id: string
           created_at: string
           id: string
+          projetista_id: string | null
           projetista_nome: string
         }
         Insert: {
           coordenador_id: string
           created_at?: string
           id?: string
+          projetista_id?: string | null
           projetista_nome: string
         }
         Update: {
           coordenador_id?: string
           created_at?: string
           id?: string
+          projetista_id?: string | null
           projetista_nome?: string
         }
         Relationships: [
           {
             foreignKeyName: "coordenador_projetistas_coordenador_id_fkey"
             columns: ["coordenador_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coordenador_projetistas_projetista_id_fkey"
+            columns: ["projetista_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -312,6 +361,7 @@ export type Database = {
           done_at: string | null
           id: string
           is_done: boolean
+          kanban_assignee_id: string | null
           kanban_assignee_nome: string | null
           priority: number | null
           project_id: string
@@ -327,6 +377,7 @@ export type Database = {
           done_at?: string | null
           id?: string
           is_done?: boolean
+          kanban_assignee_id?: string | null
           kanban_assignee_nome?: string | null
           priority?: number | null
           project_id: string
@@ -342,6 +393,7 @@ export type Database = {
           done_at?: string | null
           id?: string
           is_done?: boolean
+          kanban_assignee_id?: string | null
           kanban_assignee_nome?: string | null
           priority?: number | null
           project_id?: string
@@ -365,6 +417,13 @@ export type Database = {
           {
             foreignKeyName: "demands_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demands_kanban_assignee_id_fkey"
+            columns: ["kanban_assignee_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -546,6 +605,29 @@ export type Database = {
             foreignKeyName: "profile_costs_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_name_aliases: {
+        Row: {
+          alias_norm: string
+          user_id: string
+        }
+        Insert: {
+          alias_norm: string
+          user_id: string
+        }
+        Update: {
+          alias_norm?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_name_aliases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -893,6 +975,7 @@ export type Database = {
           label: string | null
           notes: string | null
           project_id: string | null
+          projetista_id: string | null
           projetista_nome: string
           updated_at: string
         }
@@ -906,6 +989,7 @@ export type Database = {
           label?: string | null
           notes?: string | null
           project_id?: string | null
+          projetista_id?: string | null
           projetista_nome: string
           updated_at?: string
         }
@@ -919,6 +1003,7 @@ export type Database = {
           label?: string | null
           notes?: string | null
           project_id?: string | null
+          projetista_id?: string | null
           projetista_nome?: string
           updated_at?: string
         }
@@ -942,6 +1027,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_allocations_projetista_id_fkey"
+            columns: ["projetista_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1085,6 +1177,7 @@ export type Database = {
           stage_name: string
           start_date: string | null
           status: string
+          status_changed_at: string | null
         }
         Insert: {
           created_at?: string
@@ -1101,6 +1194,7 @@ export type Database = {
           stage_name: string
           start_date?: string | null
           status?: string
+          status_changed_at?: string | null
         }
         Update: {
           created_at?: string
@@ -1117,6 +1211,7 @@ export type Database = {
           stage_name?: string
           start_date?: string | null
           status?: string
+          status_changed_at?: string | null
         }
         Relationships: [
           {
@@ -1212,6 +1307,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      fn_norm_nome: { Args: { t: string }; Returns: string }
+      fn_resolve_profile: { Args: { nome: string }; Returns: string }
       fn_start_timer: {
         Args: { _project_id: string; _task_id: string }
         Returns: undefined
