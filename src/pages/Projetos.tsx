@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { NewProjectDialog } from "@/components/NewProjectDialog";
 import { useProjects, useActiveProfiles, getProfileById } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
+import { canCreateProject } from "@/utils/permissions";
 import { DISCIPLINE_SHORT, STATUS_LABELS, type Discipline, type ProjectStatus, type Project } from "@/types";
 import { Search, Plus, ArrowUpDown, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -29,7 +30,8 @@ type SortField = "name" | "client" | "discipline" | "deadline" | "status" | "pro
 
 export default function Projetos() {
   const navigate = useNavigate();
-  const { isProjetista } = useAuth();
+  const { isProjetista, profile } = useAuth();
+  const canCreateProj = !!profile && canCreateProject(profile.role);
   const { projects, loading, refetch } = useProjects();
   const { profiles } = useActiveProfiles();
   const [search, setSearch] = useState("");
@@ -91,7 +93,7 @@ export default function Projetos() {
             <h1 className="text-2xl font-bold">Projetos</h1>
             <p className="text-muted-foreground mt-1">{projects.length} projetos cadastrados</p>
           </div>
-          {!isProjetista && (
+          {canCreateProj && (
             <Button onClick={() => setDialogOpen(true)} className="gap-2">
               <Plus className="h-4 w-4" /> Novo Projeto
             </Button>

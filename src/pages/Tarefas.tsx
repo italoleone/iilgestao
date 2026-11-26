@@ -606,7 +606,7 @@ export default function Tarefas() {
             <div className="space-y-2">
               <Label>Projeto *</Label>
               <ProjectCombobox
-                projects={projects.filter(p => p.status !== "concluido")}
+                projects={projects.filter(p => p.status !== "concluido" && (role !== "coordenador" || p.responsible === profile?.id))}
                 value={form.project_id}
                 onValueChange={v => setForm({ ...form, project_id: v, responsible: "" })}
                 placeholder="Selecione o projeto..."

@@ -223,6 +223,8 @@ export default function TarefaDetalhe() {
   // Planejamento NÃO valida tarefas — apenas acompanha.
   // Admin e Diretor (admin_geral) podem validar qualquer tarefa como exceção.
   const isProjectCoordinator = !!project?.responsible && project?.responsible === profile?.id;
+  const canEditTask = role === "admin_geral" || role === "admin" || role === "planejamento" || (role === "coordenador" && isProjectCoordinator);
+  const canDeleteTask = role === "admin_geral" || role === "admin" || role === "planejamento";
   const canValidate = isProjectCoordinator || role === "admin_geral" || role === "admin";
 
   // O que cada status permite
@@ -337,9 +339,10 @@ export default function TarefaDetalhe() {
   const handleDeleteTask = async () => {
     if (!task) return;
     setDeleting(true);
-    const { error } = await supabase.from("tasks").delete().eq("id", task.id);
+    const { data: delRows, error } = await supabase.from("tasks").delete().eq("id", task.id).select("id");
     setDeleting(false);
     if (error) { toast.error("Erro ao excluir: " + error.message); return; }
+    if (!delRows || delRows.length === 0) { toast.error("Sem permissão para excluir esta tarefa."); return; }
     toast.success("Tarefa excluída.");
     navigate("/tarefas");
   };
@@ -370,7 +373,7 @@ export default function TarefaDetalhe() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from("tasks").update({
+    const { data: updRows, error } = await supabase.from("tasks").update({
       name: editData.name,
       project_id: editData.project_id,
       stage_name: editData.stage_name,
@@ -378,9 +381,10 @@ export default function TarefaDetalhe() {
       start_date: editData.start_date,
       end_date: editData.end_date,
       estimated_hours: editData.estimated_hours,
-    }).eq("id", task.id);
+    }).eq("id", task.id).select("id");
     setSaving(false);
     if (error) { toast.error("Erro ao salvar: " + error.message); return; }
+    if (!updRows || updRows.length === 0) { toast.error("Sem permissão para alterar esta tarefa."); return; }
     setTask(prev => prev ? { ...prev, ...editData } as Task : prev);
     if (editData.project_id && editData.project_id !== task.project_id) {
       const { data: proj } = await supabase.from("projects")
@@ -442,12 +446,12 @@ export default function TarefaDetalhe() {
               <ArrowLeft className="h-4 w-4" /> Voltar
             </Button>
             <div className="flex items-center gap-2">
-              {canManage && (
+              {canEditTask && (
                 <Button variant="outline" size="sm" className="gap-1.5" onClick={openEdit}>
                   <Pencil className="h-4 w-4" /> Editar
                 </Button>
               )}
-              {canManage && (
+              {canDeleteTask && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" size="sm" className="gap-1.5" disabled={deleting}>
@@ -759,7 +763,7 @@ export default function TarefaDetalhe() {
             <div className="space-y-2">
               <Label>Projeto *</Label>
               <ProjectCombobox
-                projects={allProjects}
+                projects={role === "coordenador" ? allProjects.filter((p: any) => p.responsible === profile?.id) : allProjects}
                 value={editData.project_id || ""}
                 onValueChange={v => setEditData(prev => ({ ...prev, project_id: v }))}
                 placeholder="Selecionar projeto..."

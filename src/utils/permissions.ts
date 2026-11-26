@@ -17,7 +17,7 @@ export function canAccessDashboard(role: AppRole): boolean {
 }
 
 export function canCreateProject(role: AppRole): boolean {
-  return role === "admin_geral" || role === "admin" || role === "planejamento" || role === "coordenador";
+  return role === "admin_geral" || role === "admin" || role === "planejamento";
 }
 
 export function canCreateTask(role: AppRole): boolean {

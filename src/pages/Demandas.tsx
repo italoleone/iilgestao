@@ -128,7 +128,11 @@ function DemandFormDialog({ open, onOpenChange, projects, users, coordenadores, 
           assigned_to: assignedValue,
           coordenador_id: coordenadorValue,
         })
-        .eq("id", demand.id));
+        .eq("id", demand.id)
+        .select("id")
+        .then((res) => (!res.error && (!res.data || res.data.length === 0)
+          ? { ...res, error: { message: "Sem permissão para alterar esta demanda" } as any }
+          : res)));
     } else {
       ({ error } = await supabase.from("demands").insert({
         demand_type: demandType,
@@ -334,6 +338,12 @@ export default function Demandas() {
   const [deleteTarget, setDeleteTarget] = useState<Demand | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
   const canUseKanban = isCoordenador || isDiretorOrGerente || isPlanejamento;
+
+  const canManageDemand = (d: Demand) =>
+    !!profile && (isDiretorOrGerente || isPlanejamento || d.created_by === profile.id || d.coordenador_id === profile.id);
+  const canToggleDemand = (d: Demand) =>
+    !!profile && (canManageDemand(d) || d.assigned_to === profile.id);
+  const NO_PERM = "Sem permissão para alterar esta demanda";
   const [myTeam, setMyTeam] = useState<string[]>([]);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [newMemberName, setNewMemberName] = useState<string>("");
@@ -418,12 +428,14 @@ export default function Demandas() {
     const { error } = await supabase
       .from("demands")
       .update({ is_done: checked, done_at: checked ? new Date().toISOString() : null })
-      .eq("id", demand.id);
+      .eq("id", demand.id)
+      .select("id")
+      .then((res) => (!res.error && (!res.data || res.data.length === 0) ? { ...res, error: { message: NO_PERM } as any } : res));
     if (error) {
       setDemands(previous);
       toast({
-        title: "Não foi possível atualizar",
-        description: error.message,
+        title: NO_PERM,
+        description: error.message === NO_PERM ? undefined : error.message,
         variant: "destructive",
       });
     }
@@ -432,12 +444,13 @@ export default function Demandas() {
   const handleUpdatePriority = async (id: string, priority: number | null) => {
     const previous = demands;
     setDemands(demands.map((d) => (d.id === id ? { ...d, priority } : d)));
-    const { error } = await supabase.from("demands").update({ priority }).eq("id", id);
+    const { error } = await supabase.from("demands").update({ priority }).eq("id", id).select("id")
+      .then((res) => (!res.error && (!res.data || res.data.length === 0) ? { ...res, error: { message: NO_PERM } as any } : res));
     if (error) {
       setDemands(previous);
       toast({
-        title: "Não foi possível atualizar a prioridade",
-        description: error.message,
+        title: NO_PERM,
+        description: error.message === NO_PERM ? undefined : error.message,
         variant: "destructive",
       });
     }
@@ -446,12 +459,13 @@ export default function Demandas() {
   const handleDelete = async (demand: Demand) => {
     const previous = demands;
     setDemands(demands.filter((d) => d.id !== demand.id));
-    const { error } = await supabase.from("demands").delete().eq("id", demand.id);
+    const { error } = await supabase.from("demands").delete().eq("id", demand.id).select("id")
+      .then((res) => (!res.error && (!res.data || res.data.length === 0) ? { ...res, error: { message: NO_PERM } as any } : res));
     if (error) {
       setDemands(previous);
       toast({
-        title: "Não foi possível excluir a demanda",
-        description: error.message,
+        title: NO_PERM,
+        description: error.message === NO_PERM ? undefined : error.message,
         variant: "destructive",
       });
       return;
@@ -515,6 +529,10 @@ export default function Demandas() {
     const previous = demands;
     const target = demands.find((d) => d.id === demandId);
     if (!target || (target.kanban_assignee_nome ?? null) === assignedTo) return;
+    if (!canManageDemand(target)) {
+      toast({ title: NO_PERM, variant: "destructive" });
+      return;
+    }
     setDemands(
       demands.map((d) =>
         d.id === demandId ? { ...d, kanban_assignee_nome: assignedTo } : d,
@@ -523,12 +541,14 @@ export default function Demandas() {
     const { error } = await supabase
       .from("demands")
       .update({ kanban_assignee_nome: assignedTo })
-      .eq("id", demandId);
+      .eq("id", demandId)
+      .select("id")
+      .then((res) => (!res.error && (!res.data || res.data.length === 0) ? { ...res, error: { message: NO_PERM } as any } : res));
     if (error) {
       setDemands(previous);
       toast({
-        title: "Não foi possível mover a demanda",
-        description: error.message,
+        title: NO_PERM,
+        description: error.message === NO_PERM ? undefined : error.message,
         variant: "destructive",
       });
     }
@@ -539,9 +559,9 @@ export default function Demandas() {
     return (
       <div
         key={demand.id}
-        draggable
-        onDragStart={(e) => e.dataTransfer.setData("demandId", demand.id)}
-        className="rounded-lg border bg-card p-3 shadow-sm cursor-grab active:cursor-grabbing"
+        draggable={canManageDemand(demand)}
+        onDragStart={(e) => { if (canManageDemand(demand)) e.dataTransfer.setData("demandId", demand.id); else e.preventDefault(); }}
+        className={cn("rounded-lg border bg-card p-3 shadow-sm", canManageDemand(demand) && "cursor-grab active:cursor-grabbing")}
       >
         <div className="flex items-center justify-between gap-2">
           <span
@@ -735,7 +755,8 @@ export default function Demandas() {
             </Card>
           ) : (
             filteredDemands.map((demand, i) => {
-              const canEdit = true;
+              const canEdit = canManageDemand(demand);
+              const canToggle = canToggleDemand(demand);
               const c = DEMAND_TYPE_COLORS[demand.demand_type];
               const assignedName = demand.assigned_profile?.name;
               return (
@@ -748,7 +769,7 @@ export default function Demandas() {
                     <div className="pt-1">
                       <Checkbox
                         checked={demand.is_done}
-                        disabled={!canEdit}
+                        disabled={!canToggle}
                         onCheckedChange={(v) => handleToggle(demand, Boolean(v))}
                       />
                     </div>
@@ -798,15 +819,17 @@ export default function Demandas() {
                       <span className="text-xs text-muted-foreground">
                         {formatDate(demand.created_at)}
                       </span>
+                      {canEdit && (
                       <Button
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7"
-                        disabled={!canEdit}
                         onClick={() => setEditDemand(demand)}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
+                      )}
+                      {canEdit && (
                       <Button
                         size="icon"
                         variant="ghost"
@@ -815,6 +838,7 @@ export default function Demandas() {
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
