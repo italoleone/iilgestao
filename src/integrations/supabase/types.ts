@@ -173,6 +173,7 @@ export type Database = {
         Row: {
           auto_limit_business_days: number
           id: number
+          last_run_date: string | null
           max_reminders: number
           mode: string
           run_hour: number
@@ -183,6 +184,7 @@ export type Database = {
         Insert: {
           auto_limit_business_days?: number
           id?: number
+          last_run_date?: string | null
           max_reminders?: number
           mode?: string
           run_hour?: number
@@ -193,6 +195,7 @@ export type Database = {
         Update: {
           auto_limit_business_days?: number
           id?: number
+          last_run_date?: string | null
           max_reminders?: number
           mode?: string
           run_hour?: number
