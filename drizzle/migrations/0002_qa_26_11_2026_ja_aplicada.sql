@@ -1,0 +1,7 @@
+-- JÁ APLICADA MANUALMENTE EM 26/11/2026 — NÃO EXECUTAR DE NOVO. Backup em schema backup_20261126.
+--
+-- 1) demands: removidas as policies UPDATE/DELETE "true"; novas "Demandas: editar conforme papel" (admin_geral/admin/planejamento/created_by/coordenador_id/assigned_to) e "Demandas: excluir conforme papel" (admin_geral/admin/planejamento/created_by/coordenador_id); trigger trg_demands_guard (fn_demands_guard): responsável só altera is_done/done_at.
+-- 2) tasks: policy INSERT "Coordenador cria tarefa no proprio projeto" (coordenador + projects.responsible = auth.uid()).
+-- 3) profile_costs: nova tabela (user_id PK→profiles, cost_per_hour, updated_at), RLS só admin_geral/admin; valores copiados de profiles.cost_per_hour.
+-- 4) bonus_salary: removida leitura do planejamento. project_financials e project_billing_schedule: só admin_geral/admin. proposal_billing_schedule: removida leitura do planejamento.
+-- 5) commercial_clients virou cadastro único: importados os clientes de public.clients (duplicados unidos), nomes com trim; projects.client_id uuid FK→commercial_clients preenchido; projects.client padronizado; planejamento pode SELECT/INSERT em commercial_clients. public.clients mantida só como histórico.
