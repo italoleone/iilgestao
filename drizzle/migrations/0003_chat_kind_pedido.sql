@@ -1,0 +1,2 @@
+ALTER TABLE public.chat_messages DROP CONSTRAINT chat_messages_kind_check;
+ALTER TABLE public.chat_messages ADD CONSTRAINT chat_messages_kind_check CHECK (kind = ANY (ARRAY['texto','cobranca','lembrete','confirmacao','aviso_coordenador','aprovacao','teste','pedido','pedido_concluido']));

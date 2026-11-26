@@ -321,6 +321,7 @@ export type Database = {
           actions: Json | null
           body: string
           created_at: string
+          demand_id: string | null
           followup_id: string | null
           id: string
           kind: string
@@ -335,6 +336,7 @@ export type Database = {
           actions?: Json | null
           body: string
           created_at?: string
+          demand_id?: string | null
           followup_id?: string | null
           id?: string
           kind?: string
@@ -349,6 +351,7 @@ export type Database = {
           actions?: Json | null
           body?: string
           created_at?: string
+          demand_id?: string | null
           followup_id?: string | null
           id?: string
           kind?: string
@@ -359,6 +362,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "chat_messages_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "chat_messages_followup_id_fkey"
             columns: ["followup_id"]
@@ -589,6 +599,8 @@ export type Database = {
           kanban_assignee_nome: string | null
           priority: number | null
           project_id: string
+          source: string
+          source_message_id: string | null
           updated_at: string
         }
         Insert: {
@@ -605,6 +617,8 @@ export type Database = {
           kanban_assignee_nome?: string | null
           priority?: number | null
           project_id: string
+          source?: string
+          source_message_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -621,6 +635,8 @@ export type Database = {
           kanban_assignee_nome?: string | null
           priority?: number | null
           project_id?: string
+          source?: string
+          source_message_id?: string | null
           updated_at?: string
         }
         Relationships: [

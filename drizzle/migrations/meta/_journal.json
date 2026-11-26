@@ -15,6 +15,20 @@
       "when": 1792686319346,
       "tag": "0001_tasks_and_time_entries_guard_1b",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795720587788,
+      "tag": "0002_chat_pedidos",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795720771175,
+      "tag": "0003_chat_kind_pedido",
+      "breakpoints": true
     }
   ]
 }

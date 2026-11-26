@@ -74,6 +74,7 @@ interface Demand {
   assigned_profile?: { name: string } | null;
   coordenador_id: string | null;
   coordenador_profile?: { name: string } | null;
+  source?: string;
 }
 
 function formatDate(iso: string) {
@@ -585,6 +586,7 @@ export default function Demandas() {
           >
             {DEMAND_TYPE_LABELS[demand.demand_type]}
           </span>
+          {demand.source === "chat" && <span className="ml-1 inline-flex items-center rounded-full border border-accent/40 bg-accent/20 px-2 py-0.5 text-[10px] font-semibold">via chat</span>}
           {demand.priority != null ? (
             <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold border bg-primary/10 text-primary border-primary/20">
               <Hash size={10} /> {demand.priority}
@@ -795,6 +797,7 @@ export default function Demandas() {
                       >
                         {DEMAND_TYPE_LABELS[demand.demand_type]}
                       </span>
+                      {demand.source === "chat" && <span className="ml-1 inline-flex items-center rounded-full border border-accent/40 bg-accent/20 px-2 py-0.5 text-[10px] font-semibold">via chat</span>}
                       <p
                         className={cn(
                           "mt-1.5 text-sm",
