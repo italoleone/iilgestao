@@ -13,6 +13,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { callAssistant, messageActions, timestampBR } from "@/lib/assistant";
 import { cn } from "@/lib/utils";
 
+export async function callChatAssistant(body: { action: "reply" } | { action: "decide"; message_id: string; choice: "aprovar" | "recusar" }) {
+  const delays = [4000, 8000, 12000];
+  for (let attempt = 0; ; attempt++) {
+    try { return await callAssistant(body); }
+    catch (e) {
+      const isExecutionLock = e instanceof Error && "status" in e && e.status === 409
+        && /execução do assistente já começou|aguarde a conclusão/i.test(e.message);
+      const delay = delays[attempt];
+      if (!isExecutionLock || delay === undefined) throw e;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 function MessageBody({ body }: { body: string }) {
   return <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed">{body.split(/(\*\*[^*]+\*\*)/g).map((part, i) => part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : part)}</p>;
 }
@@ -67,7 +81,7 @@ export function AssistantChat() {
   }, [open, profile?.id, unread.data]);
   const processReply = async () => {
     setSending(true); setError(null);
-    try { await callAssistant({ action: "reply" }); setRetryReply(false); }
+    try { await callChatAssistant({ action: "reply" }); setRetryReply(false); }
     catch (e) { setError(e instanceof Error ? e.message : "Não foi possível tratar a resposta."); setRetryReply(true); }
     finally {
       await Promise.all([messages.refetch(), unread.refetch(), queryClient.invalidateQueries({ queryKey: ["agent-followups"] }), queryClient.invalidateQueries({ queryKey: ["task-delay-reasons"] })]);
@@ -87,7 +101,7 @@ export function AssistantChat() {
   const decide = async (messageId: string, choice: "aprovar" | "recusar") => {
     if (deciding) return;
     setDeciding(messageId); setError(null);
-    try { await callAssistant({ action: "decide", message_id: messageId, choice }); }
+    try { await callChatAssistant({ action: "decide", message_id: messageId, choice }); }
     catch (e) { setError(e instanceof Error ? e.message : "Não foi possível registrar a decisão."); }
     finally {
       await Promise.all([messages.refetch(), queryClient.invalidateQueries({ queryKey: ["agent-followups"] }), queryClient.invalidateQueries({ queryKey: ["task-delay-reasons"] })]);

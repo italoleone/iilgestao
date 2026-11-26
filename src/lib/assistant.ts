@@ -48,7 +48,7 @@ export async function callAssistant(body: { action: "reply" } | { action: "run";
       const payload = await response.json().catch(() => null);
       message = payload?.error ?? payload?.message ?? message;
     }
-    throw new Error(message);
+    throw Object.assign(new Error(message), { status: response instanceof Response ? response.status : undefined });
   }
   if (data?.error) throw new Error(data.error);
   return data;
