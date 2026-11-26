@@ -6,12 +6,20 @@ export type Followup = Database["public"]["Tables"]["agent_followups"]["Row"];
 export type AgentSettings = Database["public"]["Tables"]["agent_settings"]["Row"];
 export const FOLLOWUP_LABELS: Record<string, string> = {
   aguardando_resposta: "Aguardando resposta", resposta_recebida: "Resposta recebida",
-  aguardando_aprovacao: "Aguardando aprovação", resolvido: "Resolvida",
+  aguardando_aprovacao: "Aguardando coordenador", aguardando_coordenador: "Aguardando coordenador", aguardando_planejamento: "Aguardando planejamento", resolvido: "Resolvida",
   sem_resposta: "Sem resposta", cancelado: "Cancelada",
 };
 export const DECISION_LABELS: Record<string, string> = {
-  auto: "Automática", aprovado: "Aprovada pelo coordenador", recusado: "Recusada", simulado: "Simulada",
+  auto: "Automática", aprovado: "Aprovada", recusado: "Recusada", simulado: "Simulada",
 };
+export function followupStage(f: Pick<Followup, "status" | "decision">) {
+  if (["aguardando_resposta", "resposta_recebida"].includes(f.status)) return "Aguardando projetista";
+  if (f.status === "aguardando_aprovacao" || f.status === "aguardando_coordenador") return "Aguardando coordenador";
+  if (f.status === "aguardando_planejamento") return "Aguardando planejamento";
+  if (f.decision === "recusado") return "Recusado";
+  if (f.decision && ["aprovado", "simulado", "auto"].includes(f.decision)) return "Aprovado";
+  return FOLLOWUP_LABELS[f.status] ?? f.status;
+}
 export function dateBR(value: string | null) { return value ? value.split("-").reverse().join("/") : "—"; }
 export function timestampBR(value: string) {
   const parts = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(value));
@@ -34,6 +42,7 @@ export function needsActivationConfirmation(previous: string, next: string) { re
 export function validateAgentSettings(settings: AgentSettings): string | null {
   if (!["teste", "ativo", "desligado"].includes(settings.mode)) return "Selecione um modo válido.";
   if (settings.mode === "teste" && !settings.test_recipient_id) return "Selecione o destinatário do teste.";
+  if (!settings.planning_approver_id) return "Selecione o responsável pelo planejamento.";
   if (!settings.run_weekdays.length || settings.run_weekdays.some(d => !Number.isInteger(d) || d < 0 || d > 6)) return "Selecione pelo menos um dia da semana.";
   if (!Number.isInteger(settings.run_hour) || settings.run_hour < 0 || settings.run_hour > 23) return "A hora deve estar entre 0 e 23.";
   if (!Number.isInteger(settings.auto_limit_business_days) || settings.auto_limit_business_days < 0) return "Informe um limite válido de dias úteis.";

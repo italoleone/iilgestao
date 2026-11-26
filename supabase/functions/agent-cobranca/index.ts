@@ -3,7 +3,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { z } from "npm:zod@3";
 import { requireActiveUser } from "../_shared/auth.ts";
 import { mentionToken, mentionsToPlain } from "../_shared/mentions.ts";
-import { OPEN_STATUSES, OVERDUE_STATUSES, REASON_CATEGORIES, WEEKDAYS, localClock, isDate, formatDate, daysBetween, businessDays, nextRunDay, shouldRun, shouldSimulate, mayDecide, selectOldestPerPerson } from "./rules.ts";
+import { OPEN_STATUSES, OVERDUE_STATUSES, REASON_CATEGORIES, WEEKDAYS, localClock, isDate, formatDate, daysBetween, businessDays, nextRunDay, shouldRun, shouldSimulate, mayDecide, selectOldestPerPerson, APPROVAL_STATUSES, STAGE_STATUS, stageOf, firstStage, planDecision, needsApprovalReminder, type Stage } from "./rules.ts";
 
 const RequestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("run"), token: z.string().min(1).max(2048).optional(), force: z.boolean().optional() }).strict(),
@@ -26,8 +26,8 @@ const interpretationTool = {
   },
 };
 
-type Settings = { id: number; mode: string; test_recipient_id: string | null; auto_limit_business_days: number; run_weekdays: number[]; run_hour: number; max_reminders: number; updated_at: string; last_run_date?: string | null };
-type Followup = { id: string; task_id: string; projetista_id: string; coordenador_id: string | null; is_test: boolean; status: string; old_end_date: string | null; asked_at: string; last_reminder_at: string | null; reminders: number; reply_text: string | null; proposed_end_date: string | null; reason_summary: string | null; decision: string | null; decided_by: string | null };
+type Settings = { id: number; mode: string; test_recipient_id: string | null; auto_limit_business_days: number; run_weekdays: number[]; run_hour: number; max_reminders: number; updated_at: string; last_run_date?: string | null; planning_approver_id?: string | null };
+type Followup = { id: string; task_id: string; projetista_id: string; coordenador_id: string | null; is_test: boolean; status: string; old_end_date: string | null; asked_at: string; last_reminder_at: string | null; reminders: number; reply_text: string | null; proposed_end_date: string | null; reason_summary: string | null; decision: string | null; decided_by: string | null; replied_at?: string | null; coordinator_decision?: string | null; coordinator_decided_by?: string | null; coordinator_decided_at?: string | null; planning_decision?: string | null; planning_decided_by?: string | null; approval_reminders?: number; approval_last_reminder_at?: string | null };
 type Message = { id: string; user_id: string; body: string; followup_id: string | null; task_id: string | null; created_at: string; actions: { id: string; label: string }[] | null; action_taken: string | null };
 type Task = { id: string; name: string; project_id: string; responsible: string | null; end_date: string | null; status: string };
 type Profile = { id: string; name: string; status: string };
@@ -94,6 +94,15 @@ class Agent {
       kind, followup_id: f?.id ?? null, task_id: f?.task_id ?? null, actions: actions ?? null,
     }, { onConflict: "id", ignoreDuplicates: true }));
     if (kind === "aviso_coordenador" || kind === "aprovacao") this.summary.avisos++;
+  }
+  approver(stage: Stage, f: Followup) { return stage === "coordenador" ? f.coordenador_id : this.settings.planning_approver_id ?? null; }
+  async askApproval(f: Followup, stage: Stage, task: Task, project: Project, person: Profile | null, key: string, reminder = false) {
+    const detail = `Projetista: ${person?.name ?? "—"}\nTarefa **${task.name}**, projeto ${mentionToken("p", project.id, project.name)}.\nMotivo: ${f.reason_summary ?? "—"}\nEntrega: ${formatDate(f.old_end_date)} → ${formatDate(f.proposed_end_date)}.`;
+    const coordinator = stage === "planejamento" && f.coordinator_decided_by ? await this.profile(f.coordenador_id) : null;
+    const head = reminder ? "Lembrete: esta nova data ainda aguarda sua aprovação."
+      : stage === "coordenador" ? `${person?.name ?? "O projetista"} propôs uma nova data (etapa 1: coordenador).` : "Nova data aguardando a aprovação final do planejamento.";
+    await this.send(this.approver(stage, f), `${head}\n${detail}${coordinator ? `\nAprovado por ${coordinator.name}.` : ""}`, "aprovacao", key, f,
+      [{ id: "aprovar", label: "Aprovar nova data", stage }, { id: "recusar", label: "Recusar", stage }] as { id: string; label: string }[]);
   }
   async interpret(context: string) {
     const key = Deno.env.get("LOVABLE_API_KEY");
@@ -164,11 +173,11 @@ class Agent {
       await this.send(userId, "No momento não há pendências para tratar com o Assistente Leone.", "texto", key);
       await this.markProcessed(messages); return;
     }
-    if (f.status === "aguardando_aprovacao") {
-      await this.send(f.projetista_id, "A nova data já está aguardando a decisão do coordenador.", "texto", key, f);
+    if (APPROVAL_STATUSES.includes(f.status)) {
+      await this.send(f.projetista_id, "Sua nova data foi enviada para aprovação do coordenador e do planejamento.", "texto", key, f);
       await this.markProcessed(messages, f); return;
     }
-    const { task, project, person, coordinator } = await this.context(f);
+    const { task, project, person } = await this.context(f);
     if (!OVERDUE_STATUSES.includes(task.status)) {
       await updateOne(this.db, "agent_followups", f.id, { status: "cancelado" });
       await this.send(f.projetista_id, "Esta tarefa já não precisa de cobrança. No momento não há pendências nesta cobrança.", "texto", key, f);
@@ -196,19 +205,13 @@ class Agent {
       await this.send(f.projetista_id, question, "texto", key, f);
       await updateOne(this.db, "agent_followups", f.id, { status: "aguardando_resposta", reply_text: replyText, last_reminder_at: now });
     } else {
-      const simulated = shouldSimulate(this.settings.mode, f.is_test);
-      const automatic = businessDays(this.clock.today, date) <= this.settings.auto_limit_business_days;
-      const detail = `Tarefa **${task.name}**, projeto ${mentionToken("p", project.id, project.name)}.\nMotivo: ${interpreted.motivo_resumo}\nEntrega: ${formatDate(f.old_end_date)} → ${formatDate(date)}.`;
-      if (automatic) {
-        if (!simulated) await this.changeTaskDate(f, date);
-        await this.send(f.projetista_id, `Combinado! ${simulated ? "Simulei a atualização da entrega" : "Atualizei a entrega"} para ${formatDate(date)} e avisei o ${coordinator?.name ?? "coordenador"}.${simulated ? " (teste: a data NÃO foi alterada)" : ""}`, "confirmacao", key, f);
-        await this.send(f.coordenador_id, `${person?.name ?? "O projetista"}: ${detail}${simulated ? "\n(teste: a data NÃO foi alterada)" : "\nNova data registrada automaticamente."}`, "aviso_coordenador", `${key}:coord`, f);
-      } else {
-        await this.send(f.projetista_id, `A entrega em ${formatDate(date)} precisa da aprovação do coordenador. Já enviei a proposta para avaliação.`, "confirmacao", key, f);
-        await this.send(f.coordenador_id, `${person?.name ?? "O projetista"} propôs uma nova data.\n${detail}`, "aprovacao", `${key}:coord`, f, [{ id: "aprovar", label: "Aprovar nova data" }, { id: "recusar", label: "Recusar" }]);
-      }
-      await updateOne(this.db, "agent_followups", f.id, { reply_text: replyText, reason_category: interpreted.motivo_categoria, reason_summary: interpreted.motivo_resumo, proposed_end_date: date, replied_at: now,
-        status: automatic ? "resolvido" : "aguardando_aprovacao", decision: automatic ? simulated ? "simulado" : "auto" : null, decided_at: automatic ? now : null });
+      // Every new date needs approval: coordinator first (when the project has one), then planning.
+      const stage = firstStage(f.coordenador_id);
+      const values = { reply_text: replyText, reason_category: interpreted.motivo_categoria, reason_summary: interpreted.motivo_resumo, proposed_end_date: date, replied_at: now,
+        status: STAGE_STATUS[stage], approval_reminders: 0, approval_last_reminder_at: null };
+      await this.send(f.projetista_id, "Sua nova data foi enviada para aprovação do coordenador e do planejamento.", "confirmacao", key, f);
+      await this.askApproval({ ...f, ...values }, stage, task, project, person, `${key}:coord`);
+      await updateOne(this.db, "agent_followups", f.id, values);
     }
     await this.markProcessed(messages, f);
   }
@@ -242,6 +245,16 @@ class Agent {
         await this.send(f.coordenador_id, `${person.name} não respondeu sobre a tarefa **${task.name}** do projeto ${mentionToken("p", project.id, project.name)} após ${f.reminders} lembretes.`, "aviso_coordenador", `${f.id}:sem-resposta`, f);
         await updateOne(this.db, "agent_followups", f.id, { status: "sem_resposta" });
       }
+    });
+    const approvals = await allRows<Followup>(() => this.db.from("agent_followups").select("*").in("status", APPROVAL_STATUSES).eq("is_test", this.settings.mode === "teste"));
+    for (const f of approvals.slice(0, 200)) await this.isolate(async () => {
+      const stage = stageOf(f.status)!;
+      const since = f.approval_last_reminder_at ?? (stage === "planejamento" ? f.coordinator_decided_at : null) ?? f.replied_at ?? f.asked_at;
+      if (!needsApprovalReminder(since, f.approval_reminders ?? 0)) return;
+      const { task, project, person } = await this.context(f);
+      await this.askApproval(f, stage, task, project, person, `${f.id}:lembrete-aprovacao:${stage}:${this.clock.today}`, true);
+      await updateOne(this.db, "agent_followups", f.id, { approval_reminders: (f.approval_reminders ?? 0) + 1, approval_last_reminder_at: new Date().toISOString() });
+      this.summary.lembretes++;
     });
     const open = await allRows<Followup>(() => this.db.from("agent_followups").select("*").in("status", OPEN_STATUSES));
     const busy = new Set(open.map(f => f.projetista_id));
@@ -280,27 +293,45 @@ class Agent {
     if (pending?.length && !received?.length) await this.send(userId, `Recebido! Vou registrar sua resposta na próxima ${next}.`, "texto", `recebido:${userId}:${this.clock.today}`);
     return this.summary;
   }
-  async decide(userId: string, role: string | null, messageId: string, choice: "aprovar" | "recusar") {
+  async decide(userId: string, _role: string | null, messageId: string, choice: "aprovar" | "recusar") {
     const message = checked<Message | null>(await this.db.from("chat_messages").select("*").eq("id", messageId).eq("user_id", userId).eq("sender", "agente").maybeSingle());
     if (!message || !message.followup_id || message.action_taken || !Array.isArray(message.actions) || !message.actions.some(a => a.id === choice)) throw new HttpError(400, "Esta decisão não está disponível nesta conversa.");
     const f = checked<Followup>(await this.db.from("agent_followups").select("*").eq("id", message.followup_id).single());
-    if (!mayDecide(userId, role, f.coordenador_id, f.is_test, this.settings.test_recipient_id)) throw new HttpError(403, "Sem permissão para decidir esta cobrança.");
-    if (f.status !== "aguardando_aprovacao") {
-      const completed = f.decided_by === userId && (choice === "aprovar" ? f.status === "resolvido" && ["aprovado", "simulado"].includes(f.decision ?? "") : f.status === "aguardando_resposta" && f.decision === "recusado");
-      if (!completed) throw new HttpError(409, "Esta cobrança não está mais aguardando aprovação.");
+    if (this.settings.mode === "teste" && !f.is_test) throw new HttpError(409, "Uma cobrança real não pode ser decidida enquanto o assistente está em teste.");
+    const simulated = shouldSimulate(this.settings.mode, f.is_test);
+    // Messages without a stage predate the two-stage flow and belong to the coordinator stage.
+    const stage: Stage = ((message.actions as { id: string; stage?: Stage }[]).find(a => a.id === choice)?.stage) ?? "coordenador";
+    const planner = this.settings.planning_approver_id ?? null;
+    if (!mayDecide(userId, stage, f.coordenador_id, planner, simulated, this.settings.test_recipient_id)) throw new HttpError(403, stage === "coordenador" ? "Somente o coordenador do projeto pode decidir esta etapa." : "Somente o responsável pelo planejamento pode decidir esta etapa.");
+    const prefix = stage === "coordenador" ? "coordinator" : "planning";
+    if (stageOf(f.status) !== stage) {
+      const prev = (f as Record<string, unknown>)[`${prefix}_decision`] as string | null;
+      const completed = (f as Record<string, unknown>)[`${prefix}_decided_by`] === userId && (choice === "aprovar" ? ["aprovado", "simulado"].includes(prev ?? "") : prev === "recusado");
+      if (!completed) throw new HttpError(409, "Esta etapa de aprovação já foi decidida.");
       await updateOne(this.db, "chat_messages", message.id, { action_taken: choice });
       return { success: true, decision: choice };
     }
-    if (this.settings.mode === "teste" && !f.is_test) throw new HttpError(409, "Uma cobrança real não pode ser decidida enquanto o assistente está em teste.");
-    const { task, project } = await this.context(f); const key = `${message.id}:decisao`; const simulated = shouldSimulate(this.settings.mode, f.is_test);
-    if (choice === "aprovar") {
-      if (!f.proposed_end_date || !isDate(f.proposed_end_date) || f.proposed_end_date < this.clock.today) throw new HttpError(400, "A data proposta não é válida ou já passou. Recuse e solicite outra data.");
-      if (!simulated) await this.changeTaskDate(f, f.proposed_end_date);
-      await this.send(f.projetista_id, `A nova data de entrega da tarefa **${task.name}** do projeto ${mentionToken("p", project.id, project.name)} foi aprovada: ${formatDate(f.proposed_end_date)}.${simulated ? " (teste: a data NÃO foi alterada)" : ""}`, "confirmacao", key, f);
+    if (!planner && stage === "coordenador" && choice === "aprovar") throw new HttpError(400, "Configure o responsável pelo planejamento antes de aprovar.");
+    const { task, project, person } = await this.context(f);
+    const plan = planDecision(stage, choice, f.coordenador_id, planner, simulated);
+    if (choice === "aprovar" && (!f.proposed_end_date || !isDate(f.proposed_end_date) || f.proposed_end_date < this.clock.today)) throw new HttpError(400, "A data proposta não é válida ou já passou. Recuse e solicite outra data.");
+    if (plan.changeTask) await this.changeTaskDate(f, f.proposed_end_date!);
+    const now = new Date().toISOString();
+    const values = { status: plan.status, [`${prefix}_decision`]: plan.stageDecision, [`${prefix}_decided_by`]: userId, [`${prefix}_decided_at`]: now, approval_reminders: 0, approval_last_reminder_at: null,
+      ...(plan.final ? { decision: plan.decision, decided_by: userId, decided_at: now } : {}) };
+    await updateOne(this.db, "agent_followups", f.id, values);
+    const key = `${message.id}:decisao`; const token = mentionToken("p", project.id, project.name);
+    const note = simulated ? " (teste: a data NÃO foi alterada)" : "";
+    const notifyCoordinator = stage === "planejamento" && !!f.coordenador_id && f.coordenador_id !== planner;
+    if (plan.next) await this.askApproval({ ...f, ...values } as Followup, plan.next, task, project, person, `${key}:planejamento`);
+    else if (plan.approved) {
+      await this.send(f.projetista_id, `A nova data de entrega da tarefa **${task.name}** do projeto ${token} foi aprovada: ${formatDate(f.proposed_end_date)}.${note}`, "confirmacao", key, f);
+      if (notifyCoordinator) await this.send(f.coordenador_id, `O planejamento aprovou a nova data da tarefa **${task.name}** do projeto ${token} (${person?.name ?? "projetista"}): ${formatDate(f.proposed_end_date)}.${note}`, "aviso_coordenador", `${key}:coord`, f);
     } else {
-      await this.send(f.projetista_id, `A nova data proposta para a tarefa **${task.name}** não foi aprovada. Pode informar uma data de entrega mais próxima?`, "texto", key, f);
+      const who = stage === "coordenador" ? "coordenador" : "planejamento";
+      await this.send(f.projetista_id, `A nova data proposta para a tarefa **${task.name}** do projeto ${token} foi recusada pelo ${who}. A entrega continua em ${formatDate(f.old_end_date)}.`, "texto", key, f);
+      if (notifyCoordinator) await this.send(f.coordenador_id, `O planejamento recusou a nova data da tarefa **${task.name}** do projeto ${token} (${person?.name ?? "projetista"}). A entrega continua em ${formatDate(f.old_end_date)}.`, "aviso_coordenador", `${key}:coord`, f);
     }
-    await updateOne(this.db, "agent_followups", f.id, { status: choice === "aprovar" ? "resolvido" : "aguardando_resposta", decision: choice === "aprovar" ? simulated ? "simulado" : "aprovado" : "recusado", decided_by: userId, decided_at: new Date().toISOString(), ...(choice === "recusar" ? { reply_text: null, reminders: 0, last_reminder_at: new Date().toISOString() } : {}) });
     await updateOne(this.db, "chat_messages", message.id, { action_taken: choice });
     return { success: true, decision: choice };
   }
@@ -336,6 +367,7 @@ Deno.serve(async (req: Request) => {
       const recipient = checked<{ status: string } | null>(await db.from("profiles").select("status").eq("id", settings.test_recipient_id).maybeSingle());
       if (recipient?.status !== "active") throw new HttpError(400, "O destinatário de teste precisa ser um usuário ativo.");
     }
+    if (!settings.planning_approver_id) throw new HttpError(400, "Configure o responsável pelo planejamento (aprovação final) na página Agentes.");
     const clock = localClock();
     if (body.action === "run" && !shouldRun({ ...settings, last_run_date: settings.last_run_date ?? null }, clock, body.force === true)) return json({ skipped: "fora_do_horario_ou_ja_executado" });
     // A future updated_at is a lease, not an in-memory lock. All three actions share it.

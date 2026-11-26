@@ -36,13 +36,6 @@ describe("Assistente Leone — regras de cobrança", () => {
     expect(shouldSimulate("ativo", true)).toBe(true);
     expect(shouldSimulate("ativo", false)).toBe(false);
   });
-  it("somente coordenador, Diretor ou destinatário de teste decidem", () => {
-    expect(mayDecide("coordenador", "projetista", "coordenador", false, "teste")).toBe(true);
-    expect(mayDecide("diretor", "admin_geral", "coordenador", false, "teste")).toBe(true);
-    expect(mayDecide("gerente", "admin", "coordenador", false, "teste")).toBe(false);
-    expect(mayDecide("teste", "projetista", "coordenador", true, "teste")).toBe(true);
-    expect(mayDecide("teste", "projetista", "coordenador", false, "teste")).toBe(false);
-  });
   it("seleciona só a tarefa mais atrasada por pessoa sem cobrança aberta", () => {
     const task = (id: string, responsible: string, end_date: string, status = "em_andamento") => ({ id, responsible, end_date, status });
     expect(selectOldestPerPerson([

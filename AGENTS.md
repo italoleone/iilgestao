@@ -4,4 +4,5 @@
 - Serialize agent actions with a compare-and-swap lease on the singleton settings timestamp; deterministic message IDs deduplicate retries without adding tables.
 - Pause automated AI processing through the existing agent mode on terminal gateway configuration/access failures, preserving the safe failure reason in the director's chat.
 - Keep assistant chat queries user-scoped, cursor-paginated and cached in React Query; filtered Realtime events, focus refresh and minute polling keep messages current without background loading indicators.
+- New delivery dates always go through two approval stages (project coordinator, then the configured planning approver), with stage tagged on message actions so stale buttons cannot decide twice.
 - Save agent settings with a timestamp compare-and-swap and never overwrite execution state; this keeps the director's form from invalidating an active lease.- Chat requests (@projeto + @pessoa) live in `supabase/functions/chat-pedido`, separate from the collection agent so they work in any agent mode and never take its lease; mention token helpers live in `supabase/functions/_shared/mentions.ts` and are re-exported to the frontend.

@@ -16,11 +16,11 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/fetchAll";
-import { canAccessAgents, callAssistant, dateBR, timestampBR, FOLLOWUP_LABELS, DECISION_LABELS, needsActivationConfirmation, validateAgentSettings, type AgentSettings, type Followup } from "@/lib/assistant";
+import { canAccessAgents, callAssistant, dateBR, timestampBR, FOLLOWUP_LABELS, DECISION_LABELS, followupStage, needsActivationConfirmation, validateAgentSettings, type AgentSettings, type Followup } from "@/lib/assistant";
 
-type FollowupRow = Followup & { projetista: { name: string } | null; coordenador: { name: string } | null; tarefa: { name: string } | null };
+type FollowupRow = Followup & { projetista: { name: string } | null; coordenador: { name: string } | null; tarefa: { name: string } | null; coord_aprovador: { name: string } | null; plan_aprovador: { name: string } | null };
 const DAYS = [{ n: 1, label: "Seg" }, { n: 2, label: "Ter" }, { n: 3, label: "Qua" }, { n: 4, label: "Qui" }, { n: 5, label: "Sex" }, { n: 6, label: "Sáb" }, { n: 0, label: "Dom" }];
-const MODE_DESCRIPTIONS: Record<string, string> = { teste: "Mensagens somente para o destinatário do teste. Nenhuma data de tarefa é alterada.", ativo: "Cobranças enviadas aos projetistas. Novas datas podem ser registradas conforme o limite configurado.", desligado: "Não envia cobranças nem processa respostas." };
+const MODE_DESCRIPTIONS: Record<string, string> = { teste: "Mensagens somente para o destinatário do teste. Nenhuma data de tarefa é alterada.", ativo: "Cobranças enviadas aos projetistas. Toda nova data precisa da aprovação do coordenador e do responsável pelo planejamento.", desligado: "Não envia cobranças nem processa respostas." };
 
 export default function Agentes() {
   const { profile } = useAuth();
@@ -41,7 +41,7 @@ export default function Agentes() {
   }, refetchOnWindowFocus: true });
   const people = useQuery({ queryKey: ["agent-active-people"], enabled: allowed, queryFn: () => fetchAllRows<{ id: string; name: string }>(() => supabase.from("profiles").select("id,name").eq("status", "active").order("name")) });
   const followups = useQuery({ queryKey: ["agent-followups", kind], enabled: allowed, queryFn: () => fetchAllRows<FollowupRow>(() => supabase.from("agent_followups")
-    .select("*,projetista:profiles!agent_followups_projetista_id_fkey(name),coordenador:profiles!agent_followups_coordenador_id_fkey(name),tarefa:tasks!agent_followups_task_id_fkey(name)")
+    .select("*,projetista:profiles!agent_followups_projetista_id_fkey(name),coordenador:profiles!agent_followups_coordenador_id_fkey(name),tarefa:tasks!agent_followups_task_id_fkey(name),coord_aprovador:profiles!agent_followups_coordinator_decided_by_fkey(name),plan_aprovador:profiles!agent_followups_planning_decided_by_fkey(name)")
     .eq("is_test", kind === "teste").order("asked_at", { ascending: false })), refetchInterval: 60000, refetchOnWindowFocus: true });
   useEffect(() => { if (settings.data && !dirty) setDraft(settings.data); }, [settings.data, dirty]);
   const change = (values: Partial<AgentSettings>) => { setDraft(s => s ? { ...s, ...values } : s); setDirty(true); };
@@ -57,7 +57,7 @@ export default function Agentes() {
       if (current.error) throw current.error;
       if (new Date(current.data.updated_at).getTime() > Date.now()) throw new Error("Aguarde a execução atual do assistente antes de salvar.");
       const { data, error } = await supabase.from("agent_settings").update({ mode: draft.mode, test_recipient_id: draft.test_recipient_id,
-        auto_limit_business_days: draft.auto_limit_business_days, run_weekdays: draft.run_weekdays, run_hour: draft.run_hour, max_reminders: draft.max_reminders,
+        planning_approver_id: draft.planning_approver_id, run_weekdays: draft.run_weekdays, run_hour: draft.run_hour, max_reminders: draft.max_reminders,
         updated_at: new Date().toISOString(),
       }).eq("id", 1).eq("updated_at", current.data.updated_at).select("id");
       if (error) throw error;
@@ -83,8 +83,8 @@ export default function Agentes() {
   const rows = followups.data ?? [];
   const shown = status === "todos" ? rows : rows.filter(f => f.status === status);
   const counters = [
-    { label: "Abertas", count: rows.filter(f => ["aguardando_resposta", "resposta_recebida", "aguardando_aprovacao"].includes(f.status)).length },
-    { label: "Aguardando aprovação", count: rows.filter(f => f.status === "aguardando_aprovacao").length },
+    { label: "Abertas", count: rows.filter(f => ["aguardando_resposta", "resposta_recebida", "aguardando_aprovacao", "aguardando_coordenador", "aguardando_planejamento"].includes(f.status)).length },
+    { label: "Aguardando aprovação", count: rows.filter(f => ["aguardando_aprovacao", "aguardando_coordenador", "aguardando_planejamento"].includes(f.status)).length },
     { label: "Resolvidas", count: rows.filter(f => f.status === "resolvido").length },
     { label: "Sem resposta", count: rows.filter(f => f.status === "sem_resposta").length },
   ];
@@ -102,7 +102,7 @@ export default function Agentes() {
           <div className="space-y-2"><Label htmlFor="agent-recipient">Destinatário do teste</Label><Select value={draft.test_recipient_id ?? "nenhum"} onValueChange={v => change({ test_recipient_id: v === "nenhum" ? null : v })}><SelectTrigger id="agent-recipient"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="nenhum">Selecionar usuário</SelectItem>{people.data?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>{people.error && <p className="text-xs text-destructive">Não foi possível carregar os usuários.</p>}</div>
         </div>
         <div className="grid gap-5 sm:grid-cols-3">
-          <div className="space-y-2"><Label htmlFor="agent-limit">Mudar data sozinho até N dias úteis</Label><Input id="agent-limit" type="number" min={0} step={1} value={Number.isNaN(draft.auto_limit_business_days) ? "" : draft.auto_limit_business_days} onChange={e => change({ auto_limit_business_days: e.target.valueAsNumber })} /></div>
+          <div className="space-y-2"><Label htmlFor="agent-planner">Responsável pelo planejamento (aprovação final)</Label><Select value={draft.planning_approver_id ?? "nenhum"} onValueChange={v => change({ planning_approver_id: v === "nenhum" ? null : v })}><SelectTrigger id="agent-planner"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="nenhum">Selecionar usuário</SelectItem>{people.data?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></div>
           <div className="space-y-2"><Label htmlFor="agent-hour">Hora (São Paulo)</Label><Input id="agent-hour" type="number" min={0} max={23} step={1} value={Number.isNaN(draft.run_hour) ? "" : draft.run_hour} onChange={e => change({ run_hour: e.target.valueAsNumber })} /></div>
           <div className="space-y-2"><Label htmlFor="agent-reminders">Número máximo de lembretes</Label><Input id="agent-reminders" type="number" min={0} step={1} value={Number.isNaN(draft.max_reminders) ? "" : draft.max_reminders} onChange={e => change({ max_reminders: e.target.valueAsNumber })} /></div>
         </div>
@@ -114,11 +114,11 @@ export default function Agentes() {
       <Select value={kind} onValueChange={setKind}><SelectTrigger className="w-32" aria-label="Tipo de cobrança"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="teste">Teste</SelectItem><SelectItem value="reais">Reais</SelectItem></SelectContent></Select>
       <Select value={status} onValueChange={setStatus}><SelectTrigger className="w-56" aria-label="Status da cobrança"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="todos">Todos os status</SelectItem>{Object.entries(FOLLOWUP_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}</SelectContent></Select>
     </div></div>
-    <div className="overflow-x-auto rounded-lg border bg-card"><Table><TableHeader><TableRow>{["Data", "Projetista", "Tarefa", "Coordenador", "Status", "Motivo", "Nova data", "Decisão", "Lembretes"].map(h => <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>)}</TableRow></TableHeader><TableBody>
+    <div className="overflow-x-auto rounded-lg border bg-card"><Table><TableHeader><TableRow>{["Data", "Projetista", "Tarefa", "Coordenador", "Etapa", "Motivo", "Nova data", "Aprovado por", "Lembretes"].map(h => <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>)}</TableRow></TableHeader><TableBody>
       {followups.error ? <TableRow><TableCell colSpan={9} className="text-destructive">Não foi possível carregar as cobranças.</TableCell></TableRow> : followups.isPending ? <TableRow><TableCell colSpan={9} className="text-muted-foreground">Carregando cobranças…</TableCell></TableRow> : !shown.length ? <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">Nenhuma cobrança encontrada.</TableCell></TableRow> : shown.map(f => <TableRow key={f.id}>
-        <TableCell className="whitespace-nowrap text-xs">{timestampBR(f.asked_at)}</TableCell><TableCell className="min-w-36">{f.projetista?.name ?? "—"}</TableCell><TableCell className="min-w-48 max-w-72"><Button asChild variant="link" className="h-auto max-w-full justify-start whitespace-normal px-0 text-left"><Link to={`/tarefas/${f.task_id}`}>{f.tarefa?.name ?? "Abrir tarefa"}<ExternalLink className="shrink-0" /></Link></Button></TableCell><TableCell className="min-w-36">{f.coordenador?.name ?? "—"}</TableCell><TableCell><Badge variant="secondary" className="whitespace-nowrap">{FOLLOWUP_LABELS[f.status] ?? f.status}</Badge></TableCell><TableCell className="min-w-48 max-w-80 break-words">{f.reason_summary ?? "—"}</TableCell><TableCell className="whitespace-nowrap">{dateBR(f.proposed_end_date)}</TableCell><TableCell className="min-w-36">{f.decision ? DECISION_LABELS[f.decision] ?? f.decision : "—"}</TableCell><TableCell className="text-center tabular-nums">{f.reminders}</TableCell>
+        <TableCell className="whitespace-nowrap text-xs">{timestampBR(f.asked_at)}</TableCell><TableCell className="min-w-36">{f.projetista?.name ?? "—"}</TableCell><TableCell className="min-w-48 max-w-72"><Button asChild variant="link" className="h-auto max-w-full justify-start whitespace-normal px-0 text-left"><Link to={`/tarefas/${f.task_id}`}>{f.tarefa?.name ?? "Abrir tarefa"}<ExternalLink className="shrink-0" /></Link></Button></TableCell><TableCell className="min-w-36">{f.coordenador?.name ?? "—"}</TableCell><TableCell><Badge variant="secondary" className="whitespace-nowrap">{followupStage(f)}</Badge></TableCell><TableCell className="min-w-48 max-w-80 break-words">{f.reason_summary ?? "—"}</TableCell><TableCell className="whitespace-nowrap">{dateBR(f.proposed_end_date)}</TableCell><TableCell className="min-w-44 text-xs">{[f.coordinator_decision && f.coordinator_decision !== "recusado" && f.coord_aprovador ? `Coordenador: ${f.coord_aprovador.name}` : null, f.planning_decision && f.planning_decision !== "recusado" && f.plan_aprovador ? `Planejamento: ${f.plan_aprovador.name}` : null].filter(Boolean).join(" · ") || "—"}{f.decision === "simulado" ? " (simulado)" : ""}</TableCell><TableCell className="text-center tabular-nums">{f.reminders}</TableCell>
       </TableRow>)}
     </TableBody></Table></div></section>
-    <AlertDialog open={confirm} onOpenChange={setConfirm}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Ativar Assistente Leone?</AlertDialogTitle><AlertDialogDescription>A partir de agora os projetistas vão receber as cobranças de verdade e as datas poderão ser alteradas. Confirmar?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => void save()}>Confirmar</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <AlertDialog open={confirm} onOpenChange={setConfirm}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Ativar Assistente Leone?</AlertDialogTitle><AlertDialogDescription>A partir de agora os projetistas vão receber as cobranças de verdade e as novas datas aprovadas pelo coordenador e pelo planejamento passarão a mudar as tarefas. Confirmar?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => void save()}>Confirmar</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
   </div></AppLayout>;
 }

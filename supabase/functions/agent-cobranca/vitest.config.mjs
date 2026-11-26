@@ -4,7 +4,7 @@ export default {
   resolve: { alias: { "@": fileURLToPath(new URL("../../../src", import.meta.url)) } },
   test: {
     environment: "node",
-    include: ["src/test/agent-cobranca.test.ts", "src/test/assistant-ui-rules.test.ts", "src/test/chat-pedido.test.ts"],
+    include: ["src/test/agent-cobranca.test.ts", "src/test/assistant-ui-rules.test.ts", "src/test/chat-pedido.test.ts", "src/test/agent-dupla-aprovacao.test.ts"],
     setupFiles: [],
   },
 };

@@ -29,6 +29,13 @@
       "when": 1795720771175,
       "tag": "0003_chat_kind_pedido",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795721300375,
+      "tag": "0004_dupla_aprovacao_cobranca",
+      "breakpoints": true
     }
   ]
 }

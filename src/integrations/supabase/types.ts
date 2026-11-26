@@ -58,8 +58,13 @@ export type Database = {
       }
       agent_followups: {
         Row: {
+          approval_last_reminder_at: string | null
+          approval_reminders: number
           asked_at: string
           coordenador_id: string | null
+          coordinator_decided_at: string | null
+          coordinator_decided_by: string | null
+          coordinator_decision: string | null
           created_at: string
           decided_at: string | null
           decided_by: string | null
@@ -68,6 +73,9 @@ export type Database = {
           is_test: boolean
           last_reminder_at: string | null
           old_end_date: string | null
+          planning_decided_at: string | null
+          planning_decided_by: string | null
+          planning_decision: string | null
           projetista_id: string
           proposed_end_date: string | null
           reason_category: string | null
@@ -80,8 +88,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          approval_last_reminder_at?: string | null
+          approval_reminders?: number
           asked_at?: string
           coordenador_id?: string | null
+          coordinator_decided_at?: string | null
+          coordinator_decided_by?: string | null
+          coordinator_decision?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -90,6 +103,9 @@ export type Database = {
           is_test?: boolean
           last_reminder_at?: string | null
           old_end_date?: string | null
+          planning_decided_at?: string | null
+          planning_decided_by?: string | null
+          planning_decision?: string | null
           projetista_id: string
           proposed_end_date?: string | null
           reason_category?: string | null
@@ -102,8 +118,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          approval_last_reminder_at?: string | null
+          approval_reminders?: number
           asked_at?: string
           coordenador_id?: string | null
+          coordinator_decided_at?: string | null
+          coordinator_decided_by?: string | null
+          coordinator_decision?: string | null
           created_at?: string
           decided_at?: string | null
           decided_by?: string | null
@@ -112,6 +133,9 @@ export type Database = {
           is_test?: boolean
           last_reminder_at?: string | null
           old_end_date?: string | null
+          planning_decided_at?: string | null
+          planning_decided_by?: string | null
+          planning_decision?: string | null
           projetista_id?: string
           proposed_end_date?: string | null
           reason_category?: string | null
@@ -132,8 +156,22 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "agent_followups_coordinator_decided_by_fkey"
+            columns: ["coordinator_decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "agent_followups_decided_by_fkey"
             columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_followups_planning_decided_by_fkey"
+            columns: ["planning_decided_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -176,6 +214,7 @@ export type Database = {
           last_run_date: string | null
           max_reminders: number
           mode: string
+          planning_approver_id: string | null
           run_hour: number
           run_weekdays: number[]
           test_recipient_id: string | null
@@ -187,6 +226,7 @@ export type Database = {
           last_run_date?: string | null
           max_reminders?: number
           mode?: string
+          planning_approver_id?: string | null
           run_hour?: number
           run_weekdays?: number[]
           test_recipient_id?: string | null
@@ -198,12 +238,20 @@ export type Database = {
           last_run_date?: string | null
           max_reminders?: number
           mode?: string
+          planning_approver_id?: string | null
           run_hour?: number
           run_weekdays?: number[]
           test_recipient_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "agent_settings_planning_approver_id_fkey"
+            columns: ["planning_approver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "agent_settings_test_recipient_id_fkey"
             columns: ["test_recipient_id"]

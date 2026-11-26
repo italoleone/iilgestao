@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 import { canAccessAgents, canSeeDelayReasons, needsActivationConfirmation, validateAgentSettings, messageActions, timestampBR, type AgentSettings } from "../lib/assistant";
 
-const settings: AgentSettings = { id: 1, mode: "teste", test_recipient_id: "destinatario", auto_limit_business_days: 3, run_weekdays: [1, 3, 5], run_hour: 9, max_reminders: 3, updated_at: "2026-11-26T18:00:00Z", last_run_date: null };
+const settings: AgentSettings = { id: 1, mode: "teste", test_recipient_id: "destinatario", auto_limit_business_days: 3, run_weekdays: [1, 3, 5], run_hour: 9, max_reminders: 3, updated_at: "2026-11-26T18:00:00Z", last_run_date: null, planning_approver_id: "rebeca" };
 describe("Assistente Leone — permissões e configuração", () => {
   it("apenas Diretor acessa Agentes", () => {
     expect(canAccessAgents("admin_geral")).toBe(true);
@@ -24,7 +24,10 @@ describe("Assistente Leone — permissões e configuração", () => {
     expect(needsActivationConfirmation("ativo", "ativo")).toBe(false);
     expect(needsActivationConfirmation("ativo", "teste")).toBe(false);
   });
-  it("modo teste exige destinatário e aceita o limite inicial de três dias", () => {
+  it("exige responsável pelo planejamento", () => {
+    expect(validateAgentSettings({ ...settings, planning_approver_id: null })).not.toBeNull();
+  });
+  it("modo teste exige destinatário", () => {
     expect(validateAgentSettings(settings)).toBeNull();
     expect(validateAgentSettings({ ...settings, test_recipient_id: null })).not.toBeNull();
     expect(validateAgentSettings({ ...settings, mode: "ativo", test_recipient_id: null })).toBeNull();
