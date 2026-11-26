@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { fetchClientOptions, resolveOrCreateClient, type ClientOption } from "@/lib/clients";
 import { supabase } from "@/integrations/supabase/client";
 import { STAGE_NAMES, DISCIPLINE_SHORT, type Discipline } from "@/types";
 import { parseBRL } from "@/lib/utils";
@@ -29,6 +30,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
   const [clientValue, setClientValue] = useState("");
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [clients, setClients] = useState<string[]>([]);
+  const [clientOptions, setClientOptions] = useState<ClientOption[]>([]);
   const [activeUsers, setActiveUsers] = useState<{ id: string; name: string }[]>([]);
   const [disciplines, setDisciplines] = useState<Record<Discipline, boolean>>({
     estrutural: false, hidraulica: false, eletrica: false,
@@ -45,8 +47,9 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
 
   useEffect(() => {
     if (open) {
-      supabase.from("clients").select("name").order("name").then(({ data }) => {
-        if (data) setClients(data.map((c) => c.name));
+      fetchClientOptions().then((data) => {
+        setClientOptions(data);
+        setClients(data.map((c) => c.name));
       });
       supabase.from("profiles").select("id, name").eq("status", "active").order("name").then(({ data }) => {
         if (data) setActiveUsers(data.map((u) => ({ id: u.id, name: u.name })));
@@ -90,8 +93,13 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
     setSaving(true);
 
     // Save new client if needed
-    if (isNewClient) {
-      await supabase.from("clients").insert({ name: clientValue });
+    let resolvedClient: ClientOption;
+    try {
+      resolvedClient = await resolveOrCreateClient(clientValue, clientOptions);
+    } catch (e: any) {
+      toast.error("Erro ao cadastrar cliente: " + (e?.message || ""));
+      setSaving(false);
+      return;
     }
 
     // stages are now created inline per discipline in projectRows
@@ -101,7 +109,8 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
       const coord = coordinators[disc];
       return {
         name: `${name}${suffix}`,
-        client: clientValue,
+        client: resolvedClient.name,
+        client_id: resolvedClient.id,
         discipline: disc,
         start_date: startDate,
         deadline,

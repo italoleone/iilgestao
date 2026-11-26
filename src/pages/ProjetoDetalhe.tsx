@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { fetchClientOptions, resolveOrCreateClient, type ClientOption } from "@/lib/clients";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveProfiles, getProfileById, useTasks } from "@/hooks/useSupabaseData";
 import { useAuth } from "@/contexts/AuthContext";
@@ -84,6 +85,7 @@ export default function ProjetoDetalhe() {
   const [editClientSearch, setEditClientSearch] = useState("");
   const [editClientPopoverOpen, setEditClientPopoverOpen] = useState(false);
   const [editClients, setEditClients] = useState<string[]>([]);
+  const [editClientOptions, setEditClientOptions] = useState<ClientOption[]>([]);
   const [editDiscipline, setEditDiscipline] = useState<Discipline>("estrutural");
   const [editResponsible, setEditResponsible] = useState("");
   const [editSaleValue, setEditSaleValue] = useState("");
@@ -150,8 +152,9 @@ export default function ProjetoDetalhe() {
     setEditDeadline(project.deadline);
     setEditStatus(project.status);
     // Fetch clients and active users
-    supabase.from("clients").select("name").order("name").then(({ data }) => {
-      if (data) setEditClients(data.map(c => c.name));
+    fetchClientOptions().then((data) => {
+      setEditClientOptions(data);
+      setEditClients(data.map(c => c.name));
     });
     supabase.from("profiles").select("id, name").eq("status", "active").order("name").then(({ data }) => {
       if (data) setEditActiveUsers(data.map(u => ({ id: u.id, name: u.name })));
@@ -171,9 +174,18 @@ export default function ProjetoDetalhe() {
       return;
     }
     setEditSaving(true);
+    let resolvedClient: ClientOption;
+    try {
+      resolvedClient = await resolveOrCreateClient(editClient, editClientOptions);
+    } catch (e: any) {
+      setEditSaving(false);
+      toast.error("Erro ao cadastrar cliente: " + (e?.message || ""));
+      return;
+    }
     const { error } = await supabase.from("projects").update({
       name: editName,
-      client: editClient,
+      client: resolvedClient.name,
+      client_id: resolvedClient.id,
       discipline: editDiscipline,
       responsible: editResponsible,
       start_date: editStartDate,

@@ -352,6 +352,7 @@ export function useApproveProposal() {
           .insert({
             name: composedName,
             client: proposal.client?.name || "",
+            client_id: proposal.client_id,
             discipline: disc,
             start_date: new Date().toISOString().split("T")[0],
             deadline: new Date(Date.now() + 90 * 86400000).toISOString().split("T")[0],
