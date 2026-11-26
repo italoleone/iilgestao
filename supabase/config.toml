@@ -1,1 +1,4 @@
 project_id = "mkcxztsooporzynbxlwn"
+
+[functions.agent-cobranca]
+verify_jwt = false
