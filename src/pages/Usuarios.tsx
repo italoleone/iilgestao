@@ -37,7 +37,7 @@ interface UserRow {
 }
 
 export default function Usuarios() {
-  const { canAccessFinanceiro } = useAuth();
+  const { canAccessFinanceiro, profile: authProfile } = useAuth();
   const [pendingUsers, setPendingUsers] = useState<UserRow[]>([]);
   const [activeUsers, setActiveUsers] = useState<UserRow[]>([]);
   const [inactiveUsers, setInactiveUsers] = useState<UserRow[]>([]);
@@ -93,8 +93,10 @@ export default function Usuarios() {
   };
 
   useEffect(() => {
+    if (!authProfile) return;
     fetchUsers();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authProfile?.id, canAccessFinanceiro]);
 
   const handleApprove = async () => {
     if (!approveDialog || !selectedRole) {

@@ -163,9 +163,10 @@ export default function Bonificacao() {
   const currentYear = new Date().getFullYear();
 
   useEffect(() => {
+    if (!authProfile) return;
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [authProfile?.id, authProfile?.role]);
 
   async function loadAll() {
     setLoading(true);
