@@ -525,6 +525,32 @@ export type Database = {
           },
         ]
       }
+      profile_costs: {
+        Row: {
+          cost_per_hour: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cost_per_hour?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cost_per_hour?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_costs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
