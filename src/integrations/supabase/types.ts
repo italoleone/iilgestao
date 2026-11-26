@@ -673,6 +673,7 @@ export type Database = {
       projects: {
         Row: {
           client: string
+          client_id: string | null
           created_at: string
           deadline: string
           discipline: string
@@ -688,6 +689,7 @@ export type Database = {
         }
         Insert: {
           client: string
+          client_id?: string | null
           created_at?: string
           deadline: string
           discipline: string
@@ -703,6 +705,7 @@ export type Database = {
         }
         Update: {
           client?: string
+          client_id?: string | null
           created_at?: string
           deadline?: string
           discipline?: string
@@ -716,7 +719,15 @@ export type Database = {
           status?: string
           team?: string[]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proposal_billing_schedule: {
         Row: {
