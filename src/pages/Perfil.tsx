@@ -24,21 +24,28 @@ export default function Perfil() {
     if (profile) {
       setName(profile.name);
       setDiscipline(profile.discipline || "");
-      setCostPerHour(String(profile.cost_per_hour || 0));
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (!profile || !canAccessFinanceiro) return;
+    supabase.from("profile_costs").select("cost_per_hour").eq("user_id", profile.id).maybeSingle()
+      .then(({ data }) => setCostPerHour(String(Number(data?.cost_per_hour) || 0)));
+  }, [profile, canAccessFinanceiro]);
 
   const handleSaveProfile = async () => {
     if (!profile) return;
     setSaving(true);
-    const updates: { name: string; discipline: string; cost_per_hour?: number } = { name, discipline };
-    if (canAccessFinanceiro) {
-      updates.cost_per_hour = Number(costPerHour) || 0;
-    }
-    const { error } = await supabase
+    const updates: { name: string; discipline: string } = { name, discipline };
+    let { error } = await supabase
       .from("profiles")
       .update(updates)
       .eq("id", profile.id);
+    if (!error && canAccessFinanceiro) {
+      ({ error } = await supabase
+        .from("profile_costs")
+        .upsert({ user_id: profile.id, cost_per_hour: Number(costPerHour) || 0, updated_at: new Date().toISOString() }, { onConflict: "user_id" }));
+    }
 
     if (error) {
       toast.error("Erro ao salvar perfil.");

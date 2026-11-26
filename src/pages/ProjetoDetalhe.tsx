@@ -98,6 +98,17 @@ export default function ProjetoDetalhe() {
   const [editEntryData, setEditEntryData] = useState<{ date: string; start_time: string; end_time: string }>({ date: "", start_time: "", end_time: "" });
   const [savingEntry, setSavingEntry] = useState(false);
 
+  // Valor-hora (somente Diretor/Gerente) — lido de profile_costs
+  const [costByUser, setCostByUser] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    if (!canSeeFinancial) { setCostByUser(new Map()); return; }
+    supabase.from("profile_costs").select("user_id, cost_per_hour").then(({ data }) => {
+      const m = new Map<string, number>();
+      (data || []).forEach((c: any) => m.set(c.user_id, Number(c.cost_per_hour) || 0));
+      setCostByUser(m);
+    });
+  }, [canSeeFinancial]);
+
   const canEdit = authProfile?.role === "admin_geral" || authProfile?.role === "admin" || authProfile?.role === "planejamento";
   const canEditTimeEntries = authProfile?.role === "admin_geral" || authProfile?.role === "admin" || authProfile?.role === "planejamento" || authProfile?.role === "coordenador";
 
@@ -169,10 +180,13 @@ export default function ProjetoDetalhe() {
       deadline: editDeadline,
       status: editStatus,
     }).eq("id", project.id);
-    // Update financial value in separate restricted table
-    const { error: finError } = await supabase.from("project_financials").update({
-      sale_value: parseBRL(editSaleValue),
-    }).eq("project_id", project.id);
+    // Update financial value in separate restricted table (somente Diretor/Gerente)
+    let finError: any = null;
+    if (canSeeFinancial) {
+      ({ error: finError } = await supabase.from("project_financials").update({
+        sale_value: parseBRL(editSaleValue),
+      }).eq("project_id", project.id));
+    }
     setEditSaving(false);
     if (error || finError) {
       toast.error("Erro ao atualizar projeto: " + (error?.message || finError?.message));
@@ -190,10 +204,9 @@ export default function ProjetoDetalhe() {
   }), [projectTasks]);
 
   const cost = useMemo(() => projectTimeEntries.reduce((sum, entry) => {
-    const userProfile = getProfileById(profiles, entry.user_id);
-    const costPerHour = userProfile?.cost_per_hour || 0;
+    const costPerHour = costByUser.get(entry.user_id) || 0;
     return sum + (entry.duration_minutes / 60) * costPerHour;
-  }, 0), [projectTimeEntries, profiles]);
+  }, 0), [projectTimeEntries, costByUser]);
 
   const taskNameMap = useMemo(() => {
     const m: Record<string, string> = {};
@@ -604,6 +617,7 @@ export default function ProjetoDetalhe() {
               </select>
             </div>
 
+            {canSeeFinancial && (
             <div className="space-y-2">
               <Label>Valor de Venda (R$) *</Label>
               <div className="relative">
@@ -611,6 +625,7 @@ export default function ProjetoDetalhe() {
                 <Input type="text" inputMode="decimal" value={editSaleValue} onChange={e => setEditSaleValue(e.target.value)} placeholder="Ex: 12.050,89" className="pl-10" />
               </div>
             </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">

@@ -54,7 +54,6 @@ interface DbProfile {
   name: string;
   email: string;
   discipline: string | null;
-  cost_per_hour: number | null;
   monthly_capacity_hours: number | null;
   avatar_url: string | null;
   status: string;

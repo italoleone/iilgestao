@@ -320,7 +320,11 @@ export function useProjetoCusto(projectId: string | null) {
       const tasks = await fetchAllRows<any>(() => supabase
         .from("tasks").select("id, name, stage_name, responsible").eq("project_id", projectId!)).catch(() => null);
       const { data: profiles } = await supabase
-        .from("profiles").select("id, name, cost_per_hour");
+        .from("profiles").select("id, name");
+      const { data: costsData } = await supabase
+        .from("profile_costs").select("user_id, cost_per_hour");
+      const costByUser = new Map<string, number>();
+      (costsData || []).forEach((c: any) => costByUser.set(c.user_id, Number(c.cost_per_hour) || 0));
 
       const projectReceivables = await fetchAllRows<any>(() => supabase
         .from("receivables")
@@ -330,7 +334,7 @@ export function useProjetoCusto(projectId: string | null) {
 
       const costMap = new Map<string, { name: string; cost: number }>();
       (profiles || []).forEach((p: any) =>
-        costMap.set(p.id, { name: p.name, cost: p.cost_per_hour || 0 })
+        costMap.set(p.id, { name: p.name, cost: costByUser.get(p.id) || 0 })
       );
       const taskMap = new Map<string, any>();
       (tasks || []).forEach((t: any) => taskMap.set(t.id, t));
@@ -427,8 +431,8 @@ export function useRentabilidadePorProjeto(filters?: RentabilidadeFilters) {
       // Fetch time entries
       const timeEntries = await fetchAllRows<any>(() => supabase.from("time_entries").select("*"));
 
-      // Fetch profiles for cost_per_hour
-      const { data: profiles, error: pre } = await supabase.from("profiles").select("id, cost_per_hour");
+      // Fetch hourly costs (restricted table, Diretor/Gerente only)
+      const { data: profiles, error: pre } = await supabase.from("profile_costs").select("user_id, cost_per_hour");
       if (pre) throw pre;
 
       // Fetch receivables with status "recebido" for tax cost
@@ -447,7 +451,7 @@ export function useRentabilidadePorProjeto(filters?: RentabilidadeFilters) {
       });
 
       const costMap = new Map<string, number>();
-      (profiles || []).forEach((p: any) => costMap.set(p.id, p.cost_per_hour || 0));
+      (profiles || []).forEach((p: any) => costMap.set(p.user_id, Number(p.cost_per_hour) || 0));
 
       // Filter time entries by period if needed
       let filteredEntries = timeEntries || [];

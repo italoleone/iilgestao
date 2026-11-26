@@ -64,7 +64,6 @@ interface Project {
 interface Profile {
   id: string;
   name: string;
-  cost_per_hour: number | null;
   status: string;
 }
 
@@ -174,7 +173,7 @@ export default function TarefaDetalhe() {
 
   useEffect(() => {
     fetchTask();
-    supabase.from("profiles").select("id, name, cost_per_hour, status")
+    supabase.from("profiles").select("id, name, status")
       .eq("status", "active").order("name")
       .then(({ data }) => { if (data) setProfiles(data as Profile[]); });
     supabase.from("projects").select("id, name, client, discipline, responsible")

@@ -8,7 +8,6 @@ import Projetos from "./pages/Projetos";
 import ProjetoDetalhe from "./pages/ProjetoDetalhe";
 import Tarefas from "./pages/Tarefas";
 import TarefaDetalhe from "./pages/TarefaDetalhe";
-import Financeiro from "./pages/Financeiro";
 import FinanceiroDashboard from "./pages/financeiro/FinanceiroDashboard";
 import FinanceiroReceber from "./pages/financeiro/FinanceiroReceber";
 import FinanceiroPagar from "./pages/financeiro/FinanceiroPagar";

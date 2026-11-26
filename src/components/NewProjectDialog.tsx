@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { STAGE_NAMES, DISCIPLINE_SHORT, type Discipline } from "@/types";
 import { parseBRL } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +23,7 @@ interface NewProjectDialogProps {
 }
 
 export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewProjectDialogProps) {
+  const { canAccessFinanceiro } = useAuth();
   const [name, setName] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [clientValue, setClientValue] = useState("");
@@ -79,7 +81,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
         toast.error(`Selecione o coordenador de ${DISCIPLINE_SHORT[d]}.`);
         return;
       }
-      if (!saleValues[d] || parseBRL(saleValues[d]) <= 0) {
+      if (canAccessFinanceiro && (!saleValues[d] || parseBRL(saleValues[d]) <= 0)) {
         toast.error(`Informe o valor de venda para ${DISCIPLINE_SHORT[d]}.`);
         return;
       }
@@ -134,7 +136,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
     }
 
     // Update auto-created project_financials rows with sale_value
-    if (insertedProjects && insertedProjects.length > 0) {
+    if (canAccessFinanceiro && insertedProjects && insertedProjects.length > 0) {
       await Promise.all(
         insertedProjects.map((p: any) =>
           supabase
@@ -232,6 +234,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
                           ))}
                         </select>
                       </div>
+                      {canAccessFinanceiro && (
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">Valor do Projeto (R$) *</Label>
                         <div className="relative">
@@ -239,6 +242,7 @@ export function NewProjectDialog({ open, onOpenChange, onProjectsCreated }: NewP
                           <Input type="text" inputMode="decimal" value={saleValues[d]} onChange={(e) => setSaleValues((prev) => ({ ...prev, [d]: e.target.value }))} placeholder="Ex: 12.050,89" className="pl-10" />
                         </div>
                       </div>
+                      )}
                     </div>
                   )}
                 </div>

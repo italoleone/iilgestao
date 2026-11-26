@@ -55,6 +55,11 @@ export default function Usuarios() {
     setLoading(true);
     const { data: profiles } = await supabase.from("profiles").select("*");
     const { data: roles } = await supabase.from("user_roles").select("*");
+    const costMap = new Map<string, number>();
+    if (canAccessFinanceiro) {
+      const { data: costs } = await supabase.from("profile_costs").select("user_id, cost_per_hour");
+      (costs || []).forEach((c: any) => costMap.set(c.user_id, Number(c.cost_per_hour) || 0));
+    }
 
     if (profiles) {
       const roleMap = new Map(roles?.map((r) => [r.user_id, r.role]) || []);
@@ -69,7 +74,7 @@ export default function Usuarios() {
           ...p,
           status: "active",
           role: roleMap.get(p.id) || undefined,
-          cost_per_hour: p.cost_per_hour,
+          cost_per_hour: costMap.get(p.id) ?? null,
         } as UserRow));
 
       const inactive = profiles
@@ -204,9 +209,8 @@ export default function Usuarios() {
     }
 
     const { error } = await supabase
-      .from("profiles")
-      .update({ cost_per_hour: value } as any)
-      .eq("id", userId);
+      .from("profile_costs")
+      .upsert({ user_id: userId, cost_per_hour: value, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
 
     if (error) {
       toast.error("Erro ao salvar valor hora: " + error.message);

@@ -9,7 +9,6 @@ export interface UserProfile {
   name: string;
   email: string;
   discipline: string | null;
-  cost_per_hour: number;
   monthly_capacity_hours: number;
   avatar_url: string | null;
   role: AppRole;
@@ -97,7 +96,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       name: profileData.name,
       email: profileData.email,
       discipline: profileData.discipline,
-      cost_per_hour: Number(profileData.cost_per_hour) || 0,
       monthly_capacity_hours: profileData.monthly_capacity_hours || 176,
       avatar_url: profileData.avatar_url,
       role: (roleData?.role as AppRole) || "projetista",

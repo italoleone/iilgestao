@@ -46,6 +46,7 @@ interface TaskRow {
   status: string;
   stage_name: string;
   isPending: boolean;
+  ref_date?: string;
 }
 
 interface CollaboratorResult {
@@ -84,6 +85,12 @@ const DISCIPLINE_LABELS: Record<string, string> = {
 
 const STATUS_FINAL = ["aguardando_validacao", "aprovada", "concluida", "enviado_cliente"];
 const STATUS_PENDING = ["nao_iniciada", "em_andamento", "pausada", "reprovada"];
+
+function fmtDateBR(d?: string | null): string {
+  if (!d) return "—";
+  const [y, m, day] = d.slice(0, 10).split("-");
+  return `${day}/${m}/${y}`;
+}
 
 function roundDec(n: number, dec = 2): number {
   return Math.round(n * 10 ** dec) / 10 ** dec;
@@ -151,6 +158,8 @@ export default function Bonificacao() {
   const [detailCollab, setDetailCollab] = useState<CollaboratorResult | null>(null);
 
   const canEdit = authProfile?.role === "admin_geral" || authProfile?.role === "admin";
+  // Valores em R$ (salário, bônus, critérios, % de bonificação): somente Diretor/Gerente
+  const showMoney = canEdit;
   const currentYear = new Date().getFullYear();
 
   useEffect(() => {
@@ -165,8 +174,10 @@ export default function Bonificacao() {
         supabase.from("bonus_config").select("*").eq("year", currentYear).maybeSingle(),
         supabase.from("profiles").select("id, name, discipline, status").eq("status", "active"),
         supabase.from("user_roles").select("user_id, role"),
-        supabase.from("bonus_salary").select("*").eq("year", currentYear),
-        fetchAllRows<any>(() => supabase.from("tasks").select("id, name, project_id, estimated_hours, hours_worked, status, stage_name, responsible").in("status", [...STATUS_FINAL, ...STATUS_PENDING])).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
+        showMoney
+          ? supabase.from("bonus_salary").select("*").eq("year", currentYear)
+          : Promise.resolve({ data: [] as any[], error: null }),
+        fetchAllRows<any>(() => supabase.from("tasks").select("id, name, project_id, estimated_hours, hours_worked, status, stage_name, responsible, start_date, end_date").in("status", [...STATUS_FINAL, ...STATUS_PENDING])).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
         fetchAllRows<any>(() => supabase.from("projects").select("id, name")).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
       ]);
 
@@ -205,6 +216,7 @@ export default function Bonificacao() {
         stage_name: t.stage_name,
         responsible: t.responsible || "",
         isPending: STATUS_PENDING.includes(t.status),
+        ref_date: (t.end_date || t.start_date || "") ? String(t.end_date || t.start_date).slice(0, 10) : "",
       }));
       setAllTasks(tasks);
     } catch {
@@ -221,7 +233,15 @@ export default function Bonificacao() {
     return profiles.map((p) => {
       const sal = salaries.find((s) => s.user_id === p.id);
       const salary = sal?.gross_salary || 0;
-      const myTasks = allTasks.filter((t) => t.responsible === p.id);
+      // Somente tarefas com data de referência (término, ou início se vazio) dentro do período configurado
+      const periodStart = (config.start_date || "").slice(0, 10);
+      const periodEnd = (config.end_date || "").slice(0, 10);
+      const myTasks = allTasks.filter((t) =>
+        t.responsible === p.id &&
+        !!t.ref_date &&
+        (!periodStart || t.ref_date >= periodStart) &&
+        (!periodEnd || t.ref_date <= periodEnd)
+      );
 
       const doneTasks = myTasks.filter((t) => STATUS_FINAL.includes(t.status));
       const pendingTasks = myTasks.filter((t) => t.isPending);
@@ -359,6 +379,11 @@ export default function Bonificacao() {
                 {config.working_days_after_discounts} dias úteis disponíveis no período
               </p>
             )}
+            {config && (
+              <p className="text-sm text-muted-foreground">
+                Período: {fmtDateBR(config.start_date)} a {fmtDateBR(config.end_date)}
+              </p>
+            )}
           </div>
           {canEdit && (
             <Button variant="outline" onClick={() => { setConfigDraft(config || { year: currentYear }); setConfigOpen(true); }}>
@@ -392,9 +417,11 @@ export default function Bonificacao() {
                       {r.profile.discipline ? ` · ${DISCIPLINE_LABELS[r.profile.discipline] || r.profile.discipline}` : ""}
                     </p>
                   </div>
+                  {showMoney && (
                   <Badge variant="outline" className={pctBadge(r.bonusPct)}>
                     {fmt(r.bonusPct)}%
                   </Badge>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -405,8 +432,12 @@ export default function Bonificacao() {
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
-                      className={`h-full transition-all ${r.bonusPct >= 100 ? "bg-emerald-500" : r.bonusPct >= 80 ? "bg-amber-500" : "bg-red-500"}`}
-                      style={{ width: `${Math.min(r.bonusPct * (100 / 120), 100)}%` }}
+                      className={`h-full transition-all ${showMoney
+                        ? (r.bonusPct >= 100 ? "bg-emerald-500" : r.bonusPct >= 80 ? "bg-amber-500" : "bg-red-500")
+                        : "bg-primary"}`}
+                      style={{ width: `${showMoney
+                        ? Math.min(r.bonusPct * (100 / 120), 100)
+                        : Math.min(config?.target_days ? (r.realDays / config.target_days) * 100 : 0, 100)}%` }}
                     />
                   </div>
                 </div>
@@ -422,12 +453,19 @@ export default function Bonificacao() {
                     <p className="text-xs text-muted-foreground">Atrasos</p>
                     <p className={`text-sm font-semibold ${r.lateTasks > 0 ? "text-red-600" : "text-emerald-600"}`}>{r.lateTasks}/{r.totalTasks}</p>
                   </div>
+                  {showMoney ? (
                   <div>
                     <p className="text-xs text-muted-foreground">Bônus</p>
                     <p className={`text-sm font-semibold ${pctColor(r.bonusPct)}`}>
                       {r.salary > 0 ? `R$ ${fmt(r.totalBonus)}` : "—"}
                     </p>
                   </div>
+                  ) : (
+                  <div>
+                    <p className="text-xs text-muted-foreground">Pontualidade</p>
+                    <p className="text-sm font-semibold">{fmt(r.onTimePct)}%</p>
+                  </div>
+                  )}
                 </div>
 
                 {r.salary === 0 && canEdit && (
@@ -463,9 +501,11 @@ export default function Bonificacao() {
                 <DialogHeader>
                   <DialogTitle className="flex items-center justify-between gap-4 pr-8">
                     <span>{detailCollab.profile.name}</span>
+                    {showMoney && (
                     <Badge variant="outline" className={pctBadge(detailCollab.bonusPct)}>
                       {fmt(detailCollab.bonusPct)}% de bonificação
                     </Badge>
+                    )}
                   </DialogTitle>
                 </DialogHeader>
 
@@ -486,6 +526,7 @@ export default function Bonificacao() {
                   {[
                     { label: "Dias concluídos", value: fmtDays(detailCollab.realDays) + "d" },
                     { label: "Dias pendentes", value: fmtDays(detailCollab.pendingDays) + "d" },
+                    ...(showMoney ? [] : [{ label: "Dias livres", value: fmtDays(detailCollab.availableDays) + "d" }]),
                     { label: "Tarefas no prazo", value: `${detailCollab.totalTasks - detailCollab.lateTasks}/${detailCollab.totalTasks}` },
                     { label: "Pontualidade", value: fmt(detailCollab.onTimePct) + "%" },
                   ].map((item) => (
@@ -496,6 +537,7 @@ export default function Bonificacao() {
                   ))}
                 </div>
 
+                {showMoney && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
                   <div className="border rounded-md p-4">
                     <p className="text-xs text-muted-foreground">Saldo de dias (60%)</p>
@@ -516,6 +558,7 @@ export default function Bonificacao() {
                     </p>
                   </div>
                 </div>
+                )}
 
                 <div className="mt-4">
                   <h3 className="text-sm font-semibold mb-2">Detalhamento por tarefa</h3>
@@ -602,7 +645,9 @@ export default function Bonificacao() {
             <div className="space-y-3">
               {([
                 { key: "year", label: "Ano", type: "number" },
+                { key: "working_days_total", label: "Dias úteis totais (working_days_total)", type: "number" },
                 { key: "working_days_after_discounts", label: "Dias úteis (após férias + recesso)", type: "number" },
+                { key: "target_days", label: "Meta mínima de dias (target_days)", type: "number" },
                 { key: "start_date", label: "Início da vigência", type: "date" },
                 { key: "end_date", label: "Fim da vigência", type: "date" },
               ] as const).map(({ key, label, type }) => (
