@@ -43,6 +43,13 @@
       "when": 1795778937212,
       "tag": "0005_conversa_pedidos_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795787889189,
+      "tag": "0006_project_receipts",
+      "breakpoints": true
     }
   ]
 }

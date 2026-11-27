@@ -22,6 +22,7 @@ import {
   ClipboardCheck,
   History,
   Bot,
+  DollarSign,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -89,6 +90,12 @@ const modules: NavModule[] = [
       { title: "Rentabilidade", url: "/financeiro/rentabilidade", icon: PieChart },
       { title: "Saldos de Projeto", url: "/financeiro/saldos", icon: Wallet },
     ],
+  },
+  {
+    title: "Recebimentos",
+    icon: DollarSign,
+    url: "/recebimentos",
+    visible: (role) => role === "admin_geral" || role === "admin",
   },
   {
     title: "Comercial",

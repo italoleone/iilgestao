@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { useTimeEntries } from "@/hooks/useSupabaseData";
 import { ProjectBillingScheduleCard } from "@/components/ProjectBillingScheduleCard";
 import { HistoryTimeline } from "@/components/HistoryTimeline";
+import { ProjectReceiptsCard } from "@/components/receipts/ProjectReceiptsCard";
 
 interface EditableEntry {
   id: string;
@@ -405,6 +406,10 @@ export default function ProjetoDetalhe() {
             userId={authProfile.id}
             canEdit={canEdit}
           />
+        )}
+
+        {canSeeFinancial && (
+          <ProjectReceiptsCard projectId={project.id} saleValue={project.saleValue} userId={authProfile?.id} />
         )}
 
         <Card className="shadow-sm animate-reveal-up delay-4" style={{ animationFillMode: "backwards" }}>

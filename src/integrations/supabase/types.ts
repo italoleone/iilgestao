@@ -1082,6 +1082,89 @@ export type Database = {
         }
         Relationships: []
       }
+      project_receipts: {
+        Row: {
+          contact: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          due_date: string | null
+          gross_amount: number
+          has_invoice: boolean
+          id: string
+          invoice_group: string | null
+          invoice_number: string | null
+          issue_date: string | null
+          needs_review: boolean
+          net_amount: number | null
+          paid_date: string | null
+          payment_method: string | null
+          project_id: string
+          review_note: string | null
+          source: string
+          source_ref: string | null
+          split_pct: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contact?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          due_date?: string | null
+          gross_amount: number
+          has_invoice?: boolean
+          id?: string
+          invoice_group?: string | null
+          invoice_number?: string | null
+          issue_date?: string | null
+          needs_review?: boolean
+          net_amount?: number | null
+          paid_date?: string | null
+          payment_method?: string | null
+          project_id: string
+          review_note?: string | null
+          source?: string
+          source_ref?: string | null
+          split_pct?: number | null
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          contact?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          due_date?: string | null
+          gross_amount?: number
+          has_invoice?: boolean
+          id?: string
+          invoice_group?: string | null
+          invoice_number?: string | null
+          issue_date?: string | null
+          needs_review?: boolean
+          net_amount?: number | null
+          paid_date?: string | null
+          payment_method?: string | null
+          project_id?: string
+          review_note?: string | null
+          source?: string
+          source_ref?: string | null
+          split_pct?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_receipts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           client: string
@@ -1634,7 +1717,20 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      project_receipt_totals: {
+        Row: {
+          em_aberto: number | null
+          previsto: number | null
+          project_id: string | null
+          recebido_bruto: number | null
+          recebido_liquido: number | null
+          saldo_a_receber: number | null
+          sale_value: number | null
+          sem_valor_venda: boolean | null
+          vencido: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       fn_agent_cobranca_tick: { Args: never; Returns: undefined }
