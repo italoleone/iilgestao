@@ -1,3 +1,4 @@
+import { APP_VERSION } from "@/version";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -273,6 +274,7 @@ export function AppSidebar() {
           >
             {profile?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
           </button>
+          <span className="text-[10px] text-muted-foreground">{APP_VERSION}</span>
           <button
             onClick={signOut}
             className="flex items-center justify-center w-9 h-9 rounded-lg text-sidebar-foreground/40 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
