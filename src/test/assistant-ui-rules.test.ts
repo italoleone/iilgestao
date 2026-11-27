@@ -42,6 +42,10 @@ describe("Assistente Leone — permissões e configuração", () => {
     expect(messageActions([{ id: "aprovar", label: "Aprovar" }, { id: "recusar", label: "Recusar" }, { id: "outro", label: "Inválido" }]).map(a => a.id)).toEqual(["aprovar", "recusar"]);
     expect(messageActions(null)).toEqual([]);
   });
+  it("pedido no chat não oferece mais 'Já estava feito', nem em mensagens antigas", () => {
+    const old = [{ id: "concluir_pedido", label: "Concluído" }, { id: "ja_feito", label: "Já estava feito" }, { id: "responder_pedido", label: "Responder" }];
+    expect(messageActions(old).map(a => a.label)).toEqual(["Concluído", "Responder"]);
+  });
   it("horário da conversa usa São Paulo na mudança de dia UTC", () => {
     expect(timestampBR("2026-11-27T01:15:00Z")).toBe("26/11 22:15");
   });

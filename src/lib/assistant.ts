@@ -26,11 +26,11 @@ export function timestampBR(value: string) {
   const get = (type: string) => parts.find(p => p.type === type)?.value ?? "";
   return `${get("day")}/${get("month")} ${get("hour")}:${get("minute")}`;
 }
-export type MessageActionId = "aprovar" | "recusar" | "concluir_pedido" | "ja_feito" | "responder_pedido";
+export type MessageActionId = "aprovar" | "recusar" | "concluir_pedido" | "responder_pedido";
 export function messageActions(actions: Json): { id: MessageActionId; label: string }[] {
   if (!Array.isArray(actions)) return [];
   return actions.flatMap(a => {
-    if (!a || typeof a !== "object" || Array.isArray(a) || (a.id !== "aprovar" && a.id !== "recusar" && a.id !== "concluir_pedido" && a.id !== "ja_feito" && a.id !== "responder_pedido") || typeof a.label !== "string") return [];
+    if (!a || typeof a !== "object" || Array.isArray(a) || (a.id !== "aprovar" && a.id !== "recusar" && a.id !== "concluir_pedido" && a.id !== "responder_pedido") || typeof a.label !== "string") return [];
     return [{ id: a.id, label: a.label }];
   });
 }

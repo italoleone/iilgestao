@@ -152,7 +152,7 @@ export function AssistantChat() {
     if (deciding) return;
     setDeciding(messageId); setError(null);
     try {
-      if (choice === "concluir_pedido" || choice === "ja_feito") await callChatPedido({ action: choice, message_id: messageId });
+      if (choice === "concluir_pedido") await callChatPedido({ action: choice, message_id: messageId });
       else await callChatAssistant({ action: "decide", message_id: messageId, choice });
     }
     catch (e) { setError(e instanceof Error ? e.message : "Não foi possível registrar a decisão."); }

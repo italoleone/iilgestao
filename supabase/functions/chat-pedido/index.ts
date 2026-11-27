@@ -81,7 +81,7 @@ Deno.serve(async req => {
     if (dErr) throw new Error(dErr.message);
     const { error: nErr } = await db.from("chat_messages").insert(demands.map((d: { id: string; assigned_to: string }) => ({
       user_id: d.assigned_to, sender: "agente", kind: "pedido", demand_id: d.id,
-      body: `📌 Pedido de ${authorName} sobre ${token}:\n${v.description}`, actions: [{ id: "concluir_pedido", label: "Concluído" }, { id: "ja_feito", label: "Já estava feito" }, { id: "responder_pedido", label: "Responder" }],
+      body: `📌 Pedido de ${authorName} sobre ${token}:\n${v.description}`, actions: [{ id: "concluir_pedido", label: "Concluído" }, { id: "responder_pedido", label: "Responder" }],
     })));
     if (nErr) throw new Error(nErr.message);
     const confirmations = demands.map((d: { id: string; assigned_to: string }) => ({
