@@ -1,4 +1,4 @@
-import { extractMentions, stripMentions } from "../_shared/mentions.ts";
+import { extractMentions, stripMentions, pedidoDescription } from "../_shared/mentions.ts";
 
 export const DAILY_LIMIT = 20;
 export function demandTypeFor(discipline: string | null) {
@@ -22,8 +22,13 @@ export function validatePedido(input: { text: string; authorId: string; project:
     if (!p || p.status !== "active") return { ok: false as const, error: "Uma das pessoas mencionadas não está ativa no sistema." };
     if ((input.todayCounts[id] ?? 0) >= DAILY_LIMIT) return { ok: false as const, error: `Uma das pessoas mencionadas já recebeu ${DAILY_LIMIT} pedidos hoje. Tente amanhã.` };
   }
-  const description = stripMentions(input.text);
-  if (description.length < 5) return { ok: false as const, error: "Escreva o pedido com pelo menos 5 caracteres além das menções." };
+  const description = pedidoDescription(input.text);
+  if (stripMentions(input.text).length < 5) return { ok: false as const, error: "Escreva o pedido com pelo menos 5 caracteres além das menções." };
   return { ok: true as const, projectId: projectIds[0], personIds, description };
 }
 export function mayConclude(userId: string, assignedTo: string | null) { return !!assignedTo && userId === assignedTo; }
+export function replyRecipient(userId: string, demand: { created_by: string; assigned_to: string | null }) {
+  if (userId === demand.assigned_to) return demand.created_by;
+  if (userId === demand.created_by) return demand.assigned_to;
+  return null;
+}

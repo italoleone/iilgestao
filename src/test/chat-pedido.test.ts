@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { encodeDraft, extractMentions, isPedido, mentionToken, mentionsToPlain, stripMentions } from "../../supabase/functions/_shared/mentions";
+import { encodeDraft, extractMentions, isPedido, mentionToken, mentionsToPlain, stripMentions, pedidoDescription } from "../../supabase/functions/_shared/mentions";
 import { demandTypeFor, mayConclude, validatePedido, DAILY_LIMIT } from "../../supabase/functions/chat-pedido/rules";
 
 const P = "11111111-1111-4111-8111-111111111111";
@@ -32,7 +32,7 @@ describe("menções", () => {
 describe("validação do pedido", () => {
   const base = { authorId: ME, project: { id: P }, people, todayCounts: {} };
   it("aceita pedido válido e devolve a descrição sem tokens", () => {
-    expect(validatePedido({ ...base, text: text("revisar a prancha 3") })).toEqual({ ok: true, projectId: P, personIds: [A], description: "revisar a prancha 3" });
+    expect(validatePedido({ ...base, text: text("revisar a prancha 3") })).toEqual({ ok: true, projectId: P, personIds: [A], description: "123 Edifício Sol Ana revisar a prancha 3" });
   });
   it("recusa texto com menos de 5 caracteres", () => { expect(validatePedido({ ...base, text: text("ok") }).ok).toBe(false); });
   it("recusa mencionar a si mesmo", () => { expect(validatePedido({ ...base, text: text("revisar tudo") + " " + mentionToken("u", ME, "Eu") }).ok).toBe(false); });
@@ -57,5 +57,17 @@ describe("conclusão", () => {
     expect(mayConclude(A, A)).toBe(true);
     expect(mayConclude(ME, A)).toBe(false);
     expect(mayConclude(A, null)).toBe(false);
+  });
+});
+
+describe("descrição do pedido com nomes", () => {
+  it("preserva o nome do projeto no meio da frase", () => {
+    expect(pedidoDescription(`${mentionToken("u", A, "Ana")} consegue verificar se o ${mentionToken("p", P, "1129 - MEREB")} foi finalizado?`)).toBe("consegue verificar se o 1129 - MEREB foi finalizado?");
+  });
+  it("remove destinatários apenas nas extremidades e mantém a pessoa no meio", () => {
+    expect(pedidoDescription(`${mentionToken("u", A, "Ana")} veja com ${mentionToken("u", B, "Bruno")} o ${mentionToken("p", P, "MEREB")} ${mentionToken("u", A, "Ana")}`)).toBe("veja com Bruno o MEREB");
+  });
+  it("preserva projetos e quebras de linha no final", () => {
+    expect(pedidoDescription(`${mentionToken("u", A, "Ana")} revisar\n${mentionToken("p", P, "MEREB")}`)).toBe("revisar\nMEREB");
   });
 });

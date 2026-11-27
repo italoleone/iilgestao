@@ -26,11 +26,11 @@ export function timestampBR(value: string) {
   const get = (type: string) => parts.find(p => p.type === type)?.value ?? "";
   return `${get("day")}/${get("month")} ${get("hour")}:${get("minute")}`;
 }
-export type MessageActionId = "aprovar" | "recusar" | "concluir_pedido";
+export type MessageActionId = "aprovar" | "recusar" | "concluir_pedido" | "ja_feito" | "responder_pedido";
 export function messageActions(actions: Json): { id: MessageActionId; label: string }[] {
   if (!Array.isArray(actions)) return [];
   return actions.flatMap(a => {
-    if (!a || typeof a !== "object" || Array.isArray(a) || (a.id !== "aprovar" && a.id !== "recusar" && a.id !== "concluir_pedido") || typeof a.label !== "string") return [];
+    if (!a || typeof a !== "object" || Array.isArray(a) || (a.id !== "aprovar" && a.id !== "recusar" && a.id !== "concluir_pedido" && a.id !== "ja_feito" && a.id !== "responder_pedido") || typeof a.label !== "string") return [];
     return [{ id: a.id, label: a.label }];
   });
 }
@@ -63,7 +63,7 @@ export async function callAssistant(body: { action: "reply" } | { action: "run";
   if (data?.error) throw new Error(data.error);
   return data;
 }
-export async function callChatPedido(body: { action: "pedido"; body: string } | { action: "concluir_pedido"; message_id: string }) {
+export async function callChatPedido(body: { action: "pedido"; body: string } | { action: "concluir_pedido" | "ja_feito"; message_id: string } | { action: "responder_pedido"; demand_id: string; texto: string }) {
   const { data, error } = await supabase.functions.invoke("chat-pedido", { body });
   if (error) {
     const response = "context" in error ? error.context : null;
@@ -71,5 +71,6 @@ export async function callChatPedido(body: { action: "pedido"; body: string } | 
     if (response instanceof Response) { const payload = await response.json().catch(() => null); message = payload?.error ?? message; }
     throw new Error(message);
   }
+  if (data?.error) throw new Error(data.error);
   return data as { success: boolean; error?: string };
 }

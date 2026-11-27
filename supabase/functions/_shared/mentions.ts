@@ -10,6 +10,16 @@ export function extractMentions(text: string): Mention[] {
 export function mentionsToPlain(text: string, prefix = true) { return text.replace(MENTION_RE, (_, _t, _id, name) => `${prefix ? "@" : ""}${name}`); }
 /** Text without any token, whitespace collapsed. */
 export function stripMentions(text: string) { return text.replace(MENTION_RE, " ").replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").trim(); }
+/** Keeps mentioned names; only people at the sentence boundaries are recipients. */
+export function pedidoDescription(text: string) {
+  const person = "@\\[u:[0-9a-fA-F-]{36}\\|[^\\]|]*\\]";
+  let out = text.trim();
+  const leading = new RegExp(`^${person}[\\s,;:]*`);
+  const trailing = new RegExp(`[\\s,;:]*${person}[.!?]?\\s*$`);
+  while (leading.test(out)) out = out.replace(leading, "");
+  while (trailing.test(out)) out = out.replace(trailing, "");
+  return mentionsToPlain(out, false).replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").trim();
+}
 export function splitMentions(text: string): (string | Mention)[] {
   const out: (string | Mention)[] = []; let last = 0;
   for (const m of text.matchAll(MENTION_RE)) {

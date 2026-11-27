@@ -632,6 +632,48 @@ export type Database = {
           },
         ]
       }
+      demand_comments: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          demand_id: string
+          id: string
+          kind: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          demand_id: string
+          id?: string
+          kind?: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          demand_id?: string
+          id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demand_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "demand_comments_demand_id_fkey"
+            columns: ["demand_id"]
+            isOneToOne: false
+            referencedRelation: "demands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demands: {
         Row: {
           assigned_to: string | null
@@ -1596,8 +1638,16 @@ export type Database = {
     }
     Functions: {
       fn_agent_cobranca_tick: { Args: never; Returns: undefined }
+      fn_finish_chat_pedido: {
+        Args: { _actor: string; _demand_id: string; _kind: string }
+        Returns: boolean
+      }
       fn_norm_nome: { Args: { t: string }; Returns: string }
       fn_resolve_profile: { Args: { nome: string }; Returns: string }
+      fn_respond_chat_pedido: {
+        Args: { _actor: string; _body: string; _demand_id: string }
+        Returns: string
+      }
       fn_start_timer: {
         Args: { _project_id: string; _task_id: string }
         Returns: undefined

@@ -27,6 +27,8 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchAllRows } from "@/lib/fetchAll";
 import { supabase } from "@/integrations/supabase/client";
+import { DemandConversation } from "@/components/DemandConversation";
+import { filterRequestScope, requestsForMe } from "@/lib/demandRequests";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, ClipboardCheck, Pencil, User, UserCheck, Hash, Trash2 } from "lucide-react";
 import {
@@ -75,6 +77,7 @@ interface Demand {
   coordenador_id: string | null;
   coordenador_profile?: { name: string } | null;
   source?: string;
+  source_message_id?: string | null;
 }
 
 function formatDate(iso: string) {
@@ -342,6 +345,8 @@ export default function Demandas() {
   const [userFilter, setUserFilter] = useState<string>("all");
   const [deleteTarget, setDeleteTarget] = useState<Demand | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+  const [scope, setScope] = useState<"all" | "assigned" | "created">("all");
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const canUseKanban = isCoordenador || isDiretorOrGerente || isPlanejamento;
 
   const canManageDemand = (d: Demand) =>
@@ -366,11 +371,12 @@ export default function Demandas() {
         .order("created_at", { ascending: false });
       return seesAll ? q : q.eq("created_by", profile.id);
     };
-    const [projectsRes, usersRes, demandsRes, rolesRes] = await Promise.all([
+    const [projectsRes, usersRes, demandsRes, rolesRes, commentsRes] = await Promise.all([
       fetchAllRows<any>(() => supabase.from("projects").select("id, name, status").order("name")).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
       supabase.from("profiles").select("id, name").order("name"),
       fetchAllRows<any>(demandsQuery).then((data) => ({ data, error: null as any }), (error) => ({ data: null as any, error })),
       supabase.from("profiles").select("id, name").eq("is_coordenador", true).order("name"),
+      fetchAllRows<{ id: string; demand_id: string }>(() => supabase.from("demand_comments").select("id,demand_id")).catch(() => null),
     ]);
     if (projectsRes.data) setProjects(projectsRes.data as ProjectOption[]);
     if (usersRes.data) {
@@ -379,6 +385,11 @@ export default function Demandas() {
     setCoordenadores((rolesRes.data ?? []) as UserOption[]);
 
     if (demandsRes.data) setDemands(demandsRes.data as unknown as Demand[]);
+    if (commentsRes) {
+      const counts: Record<string, number> = {};
+      for (const c of commentsRes) counts[c.demand_id] = (counts[c.demand_id] ?? 0) + 1;
+      setCommentCounts(counts);
+    }
     setLoading(false);
   };
 
@@ -408,7 +419,35 @@ export default function Demandas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id, seesAll, canUseKanban]);
 
+  useEffect(() => {
+    if (!profile?.id) return;
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { if (!disposed) void fetchAll(); }, 300);
+    };
+    const visible = () => { if (document.visibilityState === "visible") refresh(); };
+    const channel = supabase.channel(`demands-${profile.id}-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "demands" }, refresh)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "demands" }, refresh)
+      .subscribe(status => { if (status === "SUBSCRIBED") refresh(); });
+    const polling = setInterval(visible, 60000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      disposed = true; clearTimeout(timer); clearInterval(polling);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", visible);
+      void supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
+
   const projectName = (id: string) => projects.find((p) => p.id === id)?.name || "Projeto";
+  const personName = (id: string) => users.find(u => u.id === id)?.name || "Pessoa";
+  const myRequests = useMemo(() => requestsForMe(demands, profile?.id), [demands, profile?.id]);
+  const conversation = (demand: Demand) => <DemandConversation demand={demand} count={commentCounts[demand.id] ?? 0} projectName={projectName(demand.project_id)} personName={personName} onChanged={() => void fetchAll()} />;
 
   const sortDemands = (list: Demand[]) => {
     return [...list].sort((a, b) => {
@@ -424,8 +463,9 @@ export default function Demandas() {
     let base = filter === "all" ? demands : demands.filter((d) => d.demand_type === filter);
     if (projectFilter !== "all") base = base.filter((d) => d.project_id === projectFilter);
     if (userFilter !== "all") base = base.filter((d) => d.assigned_to === userFilter);
+    base = filterRequestScope(base, scope, profile?.id);
     return sortDemands(base);
-  }, [demands, filter, projectFilter, userFilter]);
+  }, [demands, filter, projectFilter, userFilter, scope, profile?.id]);
 
   const pendingCount = useMemo(() => demands.filter((d) => !d.is_done).length, [demands]);
 
@@ -453,6 +493,7 @@ export default function Demandas() {
         variant: "destructive",
       });
     }
+    if (!error) void fetchAll();
   };
 
   const handleUpdatePriority = async (id: string, priority: number | null) => {
@@ -568,12 +609,12 @@ export default function Demandas() {
     }
   };
 
-  const renderKanbanCard = (demand: Demand) => {
+  const renderKanbanCard = (demand: Demand, personal = false) => {
     const c = DEMAND_TYPE_COLORS[demand.demand_type];
     return (
       <div
         key={demand.id}
-        draggable={canManageDemand(demand)}
+        draggable={!personal && canManageDemand(demand)}
         onDragStart={(e) => { if (canManageDemand(demand)) e.dataTransfer.setData("demandId", demand.id); else e.preventDefault(); }}
         className={cn("rounded-lg border bg-card p-3 shadow-sm", canManageDemand(demand) && "cursor-grab active:cursor-grabbing")}
       >
@@ -602,6 +643,11 @@ export default function Demandas() {
           {demand.description}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">{projectName(demand.project_id)}</p>
+        <p className="mt-1 text-xs text-muted-foreground">Pedido por {personName(demand.created_by)}</p>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          {conversation(demand)}
+          {personal && <Button size="sm" variant="outline" onClick={() => void handleToggle(demand, true)}>Concluído</Button>}
+        </div>
       </div>
     );
   };
@@ -616,7 +662,7 @@ export default function Demandas() {
     <AppLayout>
       <div className={cn("mx-auto space-y-6", viewMode === "kanban" ? "max-w-full" : "max-w-3xl")}>
         <div
-          className="animate-reveal-up flex items-start justify-between gap-4"
+          className="animate-reveal-up flex flex-wrap items-start justify-between gap-4"
           style={{ animationFillMode: "backwards" }}
         >
           <div>
@@ -626,7 +672,7 @@ export default function Demandas() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {canUseKanban && (
               <Button
                 variant="outline"
@@ -641,6 +687,15 @@ export default function Demandas() {
             </Button>
           </div>
         </div>
+
+        {myRequests.length > 0 && <section aria-label="Pedidos para mim" className="space-y-3">
+          <h2 className="text-lg font-semibold">Pedidos para mim <span className="text-sm text-muted-foreground">({myRequests.length})</span></h2>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{myRequests.map(d => renderKanbanCard(d, true))}</div>
+        </section>}
+
+        {viewMode === "list" && <div className="flex flex-wrap gap-2" aria-label="Filtrar demandas">
+          {([{ id: "all", label: "Todas" }, { id: "assigned", label: "Para mim" }, { id: "created", label: "Criadas por mim" }] as const).map(s => <Button key={s.id} size="sm" variant={scope === s.id ? "default" : "outline"} aria-pressed={scope === s.id} onClick={() => setScope(s.id)}>{s.label}</Button>)}
+        </div>}
 
         <div className="flex flex-wrap gap-2">
           <button
@@ -780,7 +835,7 @@ export default function Demandas() {
                   className="shadow-sm animate-reveal-up"
                   style={{ animationDelay: `${(i + 1) * 40}ms`, animationFillMode: "backwards" }}
                 >
-                  <CardContent className="flex items-start gap-3 py-4">
+                  <CardContent className="relative flex items-start gap-3 py-4 pt-12 sm:pt-4">
                     <div className="pt-1">
                       <Checkbox
                         checked={demand.is_done}
@@ -811,13 +866,15 @@ export default function Demandas() {
                       <p className="mt-1 text-xs text-muted-foreground">
                         {projectName(demand.project_id)}
                       </p>
+                      <p className="mt-1 text-xs text-muted-foreground">Pedido por {personName(demand.created_by)}</p>
+                      {conversation(demand)}
                       <div className="mt-2 flex items-center justify-between min-h-[20px]">
                         <PriorityCell
                           demand={demand}
                           canEdit={!!canEdit}
                           onUpdate={handleUpdatePriority}
                         />
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
                           {assignedName ? (
                             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                               <User size={12} /> {assignedName}
@@ -831,7 +888,7 @@ export default function Demandas() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="absolute right-4 top-3 flex items-center gap-2 shrink-0 sm:static">
                       <span className="text-xs text-muted-foreground">
                         {formatDate(demand.created_at)}
                       </span>

@@ -1,4 +1,8 @@
 # Assistente Leone
+- [x] Corrigir visibilidade, filtros e atualização dos pedidos em Demandas.
+- [x] Preservar nomes nas descrições e corrigir os sete pedidos existentes.
+- [x] Adicionar conversa, respostas e conclusões com aviso único e permissões no servidor.
+- [x] Testar os fluxos em PostgreSQL isolado, publicar chat-pedido e conferir telas e bloqueio de não participante na conta do Diretor; envio real entre participantes não exercitado para não gerar mensagens em produção.
 - [x] Criar a função de cobrança e testar as regras, sem front-end ou migrações.
 - [x] Atualizar os tipos a partir do banco existente (as quatro tabelas já estão representadas).
 - [x] Confirmar o controle diário no banco e o modelo de IA solicitado.

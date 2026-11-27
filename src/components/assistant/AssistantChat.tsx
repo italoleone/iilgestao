@@ -10,7 +10,8 @@ import { Dialog, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAssistantChat } from "@/hooks/useAssistantChat";
 import { supabase } from "@/integrations/supabase/client";
-import { callAssistant, callChatPedido, messageActions, timestampBR, type MessageActionId } from "@/lib/assistant";
+import { callAssistant, callChatPedido, messageActions, timestampBR, type MessageActionId, type ChatMessage } from "@/lib/assistant";
+import { chatSendAction } from "@/lib/demandRequests";
 import { encodeDraft, isPedido, mentionsToPlain, splitMentions, type Mention } from "@/lib/mentions";
 import { MentionPicker, activeMentionQuery, filterMentionOptions, useMentionOptions } from "./MentionPicker";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,7 @@ export function AssistantChat() {
   const [error, setError] = useState<string | null>(null);
   const [retryReply, setRetryReply] = useState(false);
   const [picks, setPicks] = useState<Mention[]>([]);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; project: string } | null>(null);
   const [mention, setMention] = useState<{ start: number; query: string } | null>(null);
   const [highlighted, setHighlighted] = useState(0);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -74,7 +76,7 @@ export function AssistantChat() {
     const map = new Map((messages.data?.pages.flatMap(p => p.rows) ?? []).map(m => [m.id, m]));
     return [...map.values()].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
   }, [messages.data]);
-  useEffect(() => { setOpen(false); setDraft(""); setError(null); latestKnown.current = null; }, [profile?.id]);
+  useEffect(() => { setOpen(false); setDraft(""); setReplyingTo(null); setError(null); latestKnown.current = null; }, [profile?.id]);
   useEffect(() => {
     if (!open) return;
     nearBottom.current = true;
@@ -117,6 +119,15 @@ export function AssistantChat() {
     if (!profile || !body || body.length > 10000 || sending) return;
     setSending(true); setError(null); setMention(null);
     const encoded = encodeDraft(body, picks);
+    if (chatSendAction(encoded, replyingTo?.id ?? null) === "responder_pedido" && replyingTo) {
+      try {
+        await callChatPedido({ action: "responder_pedido", demand_id: replyingTo.id, texto: encoded });
+        setDraft(""); setPicks([]); setReplyingTo(null); nearBottom.current = true;
+        await queryClient.invalidateQueries({ queryKey: ["demand-conversation"] });
+      } catch (e) { setError(e instanceof Error ? e.message : "Não foi possível enviar a resposta."); }
+      finally { await Promise.all([messages.refetch(), unread.refetch()]); setSending(false); }
+      return;
+    }
     if (isPedido(encoded)) {
       try { await callChatPedido({ action: "pedido", body: encoded }); setDraft(""); setPicks([]); nearBottom.current = true; }
       catch (e) { setError(e instanceof Error ? e.message : "Não foi possível criar o pedido."); }
@@ -129,11 +140,19 @@ export function AssistantChat() {
     await messages.refetch();
     await processReply();
   };
-  const decide = async (messageId: string, choice: MessageActionId) => {
+  const decide = async (message: ChatMessage, choice: MessageActionId) => {
+    if (choice === "responder_pedido") {
+      if (!message.demand_id) return;
+      const project = splitMentions(message.body).find(p => typeof p !== "string" && p.type === "p");
+      setReplyingTo({ id: message.demand_id, project: typeof project === "object" ? project.name : "projeto" });
+      setError(null); setRetryReply(false); input.current?.focus();
+      return;
+    }
+    const messageId = message.id;
     if (deciding) return;
     setDeciding(messageId); setError(null);
     try {
-      if (choice === "concluir_pedido") await callChatPedido({ action: "concluir_pedido", message_id: messageId });
+      if (choice === "concluir_pedido" || choice === "ja_feito") await callChatPedido({ action: choice, message_id: messageId });
       else await callChatAssistant({ action: "decide", message_id: messageId, choice });
     }
     catch (e) { setError(e instanceof Error ? e.message : "Não foi possível registrar a decisão."); }
@@ -170,8 +189,8 @@ export function AssistantChat() {
                   <MessageBody body={m.body} onProject={openProject} />
                   {m.task_id && m.kind === "cobranca" && <Button asChild variant="link" size="sm" className="mt-1 h-auto px-0 text-xs"><Link to={`/tarefas/${m.task_id}`} onClick={() => setOpen(false)}>Abrir tarefa <ExternalLink className="h-3 w-3" /></Link></Button>}
                   {messageActions(m.actions).length > 0 && <div className="mt-3 flex flex-wrap gap-2">
-                    {messageActions(m.actions).map(a => <Button key={a.id} variant={a.id === "recusar" ? "outline" : "default"} size="sm" className="h-auto min-h-9 whitespace-normal text-xs" disabled={!!m.action_taken || !!deciding} onClick={() => void decide(m.id, a.id)}>{deciding === m.id && <Loader2 className="h-3 w-3 animate-spin" />}{a.label}</Button>)}
-                    {m.action_taken && <p className="w-full text-xs font-medium">{m.action_taken === "aprovar" ? "Aprovado" : m.action_taken === "concluir_pedido" ? "Concluído" : "Recusado"}</p>}
+                    {messageActions(m.actions).map(a => <Button key={a.id} variant={a.id === "recusar" || a.id === "responder_pedido" ? "outline" : "default"} size="sm" className="h-auto min-h-9 whitespace-normal text-xs" disabled={(a.id !== "responder_pedido" && !!m.action_taken) || !!deciding} onClick={() => void decide(m, a.id)}>{deciding === m.id && <Loader2 className="h-3 w-3 animate-spin" />}{a.label}</Button>)}
+                    {m.action_taken && <p className="w-full text-xs font-medium">{m.action_taken === "aprovar" ? "Aprovado" : m.action_taken === "concluir_pedido" ? "Concluído" : m.action_taken === "ja_feito" ? "Já estava feito" : "Recusado"}</p>}
                   </div>}
                   <time dateTime={m.created_at} className={cn("mt-1.5 block text-right text-[10px]", m.sender === "usuario" ? "text-primary-foreground/70" : "text-muted-foreground")}>{timestampBR(m.created_at)}</time>
                 </div>
@@ -181,6 +200,7 @@ export function AssistantChat() {
             <div ref={bottom} />
           </div>
           {error && <div className="shrink-0 border-t px-4 py-2 text-xs text-destructive" role="alert"><p className="break-words">{error}</p>{retryReply && <Button variant="link" size="sm" disabled={sending} className="px-0 text-xs" onClick={() => void processReply()}>Tentar tratar a resposta novamente</Button>}</div>}
+          {replyingTo && <div className="flex shrink-0 items-center justify-between gap-2 border-t bg-muted px-3 py-2"><p className="min-w-0 break-words text-xs">Respondendo ao pedido sobre @{replyingTo.project}</p><Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Cancelar resposta" onClick={() => setReplyingTo(null)}><X className="h-4 w-4" /></Button></div>}
           <form className="relative flex shrink-0 items-end gap-2 border-t bg-card p-3" onSubmit={e => { e.preventDefault(); void send(); }}>
             {mention && <MentionPicker options={options} highlighted={highlighted} onHover={setHighlighted} onPick={pick} />}
             <Textarea ref={input} aria-label="Mensagem para o Assistente Leone" placeholder="Mensagem… (use @ para citar projeto ou pessoa)" maxLength={10000} value={draft}
